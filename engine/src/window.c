@@ -586,7 +586,7 @@ static void window_find_physical_device_queue_families(void) {
 static void window_check_physical_device_extensions(void) {
   int32_t available_device_extension_count = 0;
 
-  VkExtensionProperties available_extension_properties[MAX_EXTENSION_PROPERTIES_COUNT] = {0};
+  static VkExtensionProperties available_extension_properties[MAX_EXTENSION_PROPERTIES_COUNT] = {0};
 
   VK_CHECK(vkEnumerateDeviceExtensionProperties(g_window.physical_device, 0, &available_device_extension_count, 0));
   VK_CHECK(vkEnumerateDeviceExtensionProperties(g_window.physical_device, 0, &available_device_extension_count, available_extension_properties));
@@ -640,7 +640,7 @@ static void window_check_surface_capabilities(void) {
   int32_t surface_format_index = 0;
   int32_t surface_format_count = 0;
 
-  VkSurfaceFormatKHR surface_formats[MAX_SURFACE_FORMAT_COUNT] = {0};
+  static VkSurfaceFormatKHR surface_formats[MAX_SURFACE_FORMAT_COUNT] = {0};
 
   VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(g_window.physical_device, g_window.surface, &surface_format_count, 0));
   VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(g_window.physical_device, g_window.surface, &surface_format_count, surface_formats));
@@ -648,7 +648,7 @@ static void window_check_surface_capabilities(void) {
   int32_t present_mode_index = 0;
   int32_t present_mode_count = 0;
 
-  VkPresentModeKHR present_modes[MAX_PRESENT_MODE_COUNT] = {0};
+  static VkPresentModeKHR present_modes[MAX_PRESENT_MODE_COUNT] = {0};
 
   VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(g_window.physical_device, g_window.surface, &present_mode_count, 0));
   VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(g_window.physical_device, g_window.surface, &present_mode_count, present_modes));
