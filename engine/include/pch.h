@@ -16,7 +16,10 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
-#include <engine/macros.h>
-#include <engine/window.h>
+#include <macros.h>
+#include <renderpass.h>
+#include <swapchain.h>
+#include <vkutils.h>
+#include <window.h>
 
 #endif // PCH_H

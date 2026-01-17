@@ -160,9 +160,6 @@ typedef struct window_t {
   VkSurfaceKHR surface;
   VkSurfaceCapabilitiesKHR surface_capabilities;
   VkSurfaceTransformFlagBitsKHR surface_transform;
-  VkSurfaceFormatKHR prefered_surface_color_format;
-  VkFormat prefered_surface_depth_format;
-  VkPresentModeKHR prefered_present_mode;
   VkPhysicalDeviceProperties physical_device_properties;
   VkPhysicalDeviceFeatures physical_device_features;
   VkPhysicalDeviceMemoryProperties physical_device_memory_properties;

@@ -1,11 +1,9 @@
-#include <engine/pch.h>
+#include <pch.h>
 
 #define MAX_DELTA_TIME 0.1
 #define MAX_PHYSICAL_DEVICES 0x10
 #define MAX_QUEUE_FAMILY_PROPERTIES_COUNT 0xFF
 #define MAX_EXTENSION_PROPERTIES_COUNT 0x400
-#define MAX_SURFACE_FORMAT_COUNT 0xFF
-#define MAX_PRESENT_MODE_COUNT 0xFF
 
 static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
@@ -23,7 +21,6 @@ static void window_find_physical_device(void);
 static void window_find_physical_device_queue_families(void);
 
 static void window_check_physical_device_extensions(void);
-static void window_check_surface_capabilities(void);
 
 static void window_update_surface_capabilities(void);
 
@@ -57,13 +54,11 @@ static char const *s_window_device_extensions[] = {
 };
 
 void window_create(int32_t width, int32_t height, char const *title) {
-  g_window = (window_t){
-    .window_title = title,
-    .window_width = width,
-    .window_height = height,
-    .primary_queue_index = -1,
-    .present_queue_index = -1,
-  };
+  g_window.window_title = title,
+  g_window.window_width = width,
+  g_window.window_height = height,
+  g_window.primary_queue_index = -1,
+  g_window.present_queue_index = -1,
 
   window_create_native();
   window_create_instance();
@@ -77,9 +72,11 @@ void window_create(int32_t width, int32_t height, char const *title) {
   window_create_device();
   window_create_command_pool();
 
-  window_check_surface_capabilities();
-
   window_update_surface_capabilities();
+
+  renderpass_create_main();
+
+  swapchain_create(2); // TODO
 }
 void window_run(void) {
   QueryPerformanceFrequency(&g_window.time_freq);
@@ -115,6 +112,20 @@ void window_run(void) {
       }
 
       mouse_key_index++;
+    }
+
+    if (g_swapchain.is_dirty) {
+
+      g_swapchain.is_dirty = 0;
+
+      VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
+      VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
+
+      swapchain_destroy();
+
+      window_update_surface_capabilities();
+
+      swapchain_create(2); // TODO
     }
 
     while (PeekMessageA(&g_window.window_message, 0, 0, 0, PM_REMOVE)) {
@@ -164,6 +175,13 @@ void window_run(void) {
   }
 }
 void window_destroy(void) {
+  VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
+  VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
+
+  swapchain_destroy();
+
+  renderpass_destroy_main();
+
   window_destroy_command_pool();
   window_destroy_device();
   window_destroy_surface();
@@ -412,12 +430,12 @@ static void window_create_instance(void) {
   VkInstanceCreateInfo instance_create_info = {
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pApplicationInfo = &application_info,
-    .enabledExtensionCount = ARRAY_COUNT(s_window_layer_extensions),
     .ppEnabledExtensionNames = s_window_layer_extensions,
+    .enabledExtensionCount = ARRAY_COUNT(s_window_layer_extensions),
 #ifdef BUILD_DEBUG
     .pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_utils_messenger_create_info,
-    .enabledLayerCount = ARRAY_COUNT(s_window_validation_layers),
     .ppEnabledLayerNames = s_window_validation_layers,
+    .enabledLayerCount = ARRAY_COUNT(s_window_validation_layers),
 #endif // BUILD_DEBUG
   };
 
@@ -475,15 +493,15 @@ static void window_create_device(void) {
 
   VkDeviceCreateInfo device_create_info = {
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-    .queueCreateInfoCount = ARRAY_COUNT(device_queue_create_infos),
     .pQueueCreateInfos = device_queue_create_infos,
+    .queueCreateInfoCount = ARRAY_COUNT(device_queue_create_infos),
     .pEnabledFeatures = 0,
-    .enabledExtensionCount = ARRAY_COUNT(s_window_device_extensions),
     .ppEnabledExtensionNames = s_window_device_extensions,
+    .enabledExtensionCount = ARRAY_COUNT(s_window_device_extensions),
     .pNext = &physical_device_features_2,
 #ifdef BUILD_DEBUG
-    .enabledLayerCount = ARRAY_COUNT(s_window_validation_layers),
     .ppEnabledLayerNames = s_window_validation_layers,
+    .enabledLayerCount = ARRAY_COUNT(s_window_validation_layers),
 #endif // BUILD_DEBUG
   };
 
@@ -633,60 +651,6 @@ static void window_check_physical_device_extensions(void) {
   }
 
 #ifdef BUILD_DEBUG
-  printf("\n");
-#endif // BUILD_DEBUG
-}
-static void window_check_surface_capabilities(void) {
-  int32_t surface_format_index = 0;
-  int32_t surface_format_count = 0;
-
-  static VkSurfaceFormatKHR surface_formats[MAX_SURFACE_FORMAT_COUNT] = {0};
-
-  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(g_window.physical_device, g_window.surface, &surface_format_count, 0));
-  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(g_window.physical_device, g_window.surface, &surface_format_count, surface_formats));
-
-  int32_t present_mode_index = 0;
-  int32_t present_mode_count = 0;
-
-  static VkPresentModeKHR present_modes[MAX_PRESENT_MODE_COUNT] = {0};
-
-  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(g_window.physical_device, g_window.surface, &present_mode_count, 0));
-  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(g_window.physical_device, g_window.surface, &present_mode_count, present_modes));
-
-  while (surface_format_index < surface_format_count) {
-
-    VkSurfaceFormatKHR surface_format = surface_formats[surface_format_index];
-
-    if ((surface_format.format == VK_FORMAT_B8G8R8A8_UNORM) && (surface_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)) {
-
-      g_window.prefered_surface_color_format = surface_format;
-
-      break;
-    }
-
-    surface_format_index++;
-  }
-
-  g_window.prefered_surface_depth_format = VK_FORMAT_D32_SFLOAT; // TODO: check for supported depth format..
-
-  while (present_mode_index < present_mode_count) {
-
-    VkPresentModeKHR present_mode = present_modes[present_mode_index];
-
-    if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-
-      g_window.prefered_present_mode = present_mode;
-
-      break;
-    }
-
-    present_mode_index++;
-  }
-
-#ifdef BUILD_DEBUG
-  printf("Prefered Surface Color Format %d\n", g_window.prefered_surface_color_format.format);
-  printf("Prefered Surface Depth Format %d\n", g_window.prefered_surface_depth_format);
-  printf("Prefered Present Mode %d\n", g_window.prefered_present_mode);
   printf("\n");
 #endif // BUILD_DEBUG
 }
