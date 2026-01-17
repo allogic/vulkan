@@ -1,5 +1,4 @@
 #include <engine/pch.h>
-#include <engine/window.h>
 
 #define MAX_DELTA_TIME 0.1
 
