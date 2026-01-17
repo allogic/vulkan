@@ -145,8 +145,32 @@ typedef struct window_t {
   int32_t mouse_wheel_delta;
   int32_t frame_index;
   int32_t fps_counter;
+  int32_t primary_queue_index;
+  int32_t present_queue_index;
+  int32_t min_image_count;
+  int32_t max_image_count;
   key_state_t keyboard_key_states[KEYBOARD_KEY_COUNT];
   key_state_t mouse_key_states[MOUSE_KEY_COUNT];
+  VkInstance instance;
+#ifdef BUILD_DEBUG
+  PFN_vkCreateDebugUtilsMessengerEXT create_debug_utils_messenger_proc;
+  PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger_proc;
+  VkDebugUtilsMessengerEXT debug_utils_messenger;
+#endif // BUILD_DEBUG
+  VkSurfaceKHR surface;
+  VkSurfaceCapabilitiesKHR surface_capabilities;
+  VkSurfaceTransformFlagBitsKHR surface_transform;
+  VkSurfaceFormatKHR prefered_surface_color_format;
+  VkFormat prefered_surface_depth_format;
+  VkPresentModeKHR prefered_present_mode;
+  VkPhysicalDeviceProperties physical_device_properties;
+  VkPhysicalDeviceFeatures physical_device_features;
+  VkPhysicalDeviceMemoryProperties physical_device_memory_properties;
+  VkPhysicalDevice physical_device;
+  VkDevice device;
+  VkQueue primary_queue;
+  VkQueue present_queue;
+  VkCommandPool command_pool;
 } window_t;
 
 #ifdef __cplusplus
