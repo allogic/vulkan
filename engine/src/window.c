@@ -2,7 +2,7 @@
 
 #define MAX_DELTA_TIME 0.1
 
-static LRESULT window_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
+static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
 static void window_create_native(void);
 
@@ -107,7 +107,7 @@ void window_destroy(void) {
   window_destroy_native();
 }
 
-static LRESULT window_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param) {
+static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param) {
   window_t *window = (window_t *)GetWindowLongPtr(window_handle, GWLP_USERDATA);
 
   switch (window_message) {
@@ -285,7 +285,7 @@ static void window_create_native(void) {
   WNDCLASSEX window_class_ex = {
     .cbSize = sizeof(WNDCLASSEX),
     .style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-    .lpfnWndProc = window_message_proc,
+    .lpfnWndProc = window_native_message_proc,
     .cbClsExtra = 0,
     .cbWndExtra = 0,
     .hInstance = g_window.module_handle,
