@@ -17,6 +17,24 @@
 #include <vulkan/vulkan.h>
 
 #include <macros.h>
+#include <fwd.h>
+
+#include <mutils.h>
+#include <vector2.h>
+#include <vector3.h>
+#include <vector4.h>
+#include <ivector2.h>
+#include <ivector3.h>
+#include <ivector4.h>
+#include <quaternion.h>
+#include <matrix4.h>
+
+#include <camera.h>
+#include <transform.h>
+
+#include <fsutils.h>
+#include <heap.h>
+#include <renderer.h>
 #include <renderpass.h>
 #include <swapchain.h>
 #include <vkutils.h>

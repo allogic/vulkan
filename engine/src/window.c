@@ -77,10 +77,16 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2); // TODO
+  renderer_create(2);  // TODO
 }
 void window_run(void) {
   QueryPerformanceFrequency(&g_window.time_freq);
   QueryPerformanceCounter(&g_window.time_prev);
+
+  transform_t transform = transform_create(0);
+  camera_t camera = camera_create();
+
+  transform_set_position_xyz(&transform, 0.0F, 0.0F, -10.0F);
 
   while (g_window.is_window_running) {
 
@@ -121,11 +127,25 @@ void window_run(void) {
       VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
       VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
+      renderer_destroy();
       swapchain_destroy();
 
       window_update_surface_capabilities();
 
       swapchain_create(2); // TODO
+      renderer_create(2);  // TODO
+    }
+
+    if (g_renderer.is_dirty) {
+
+      g_renderer.is_dirty = 0;
+
+      VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
+      VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
+
+      renderer_destroy();
+
+      renderer_create(2); // TODO
     }
 
     while (PeekMessageA(&g_window.window_message, 0, 0, 0, PM_REMOVE)) {
@@ -133,6 +153,26 @@ void window_run(void) {
       TranslateMessage(&g_window.window_message);
       DispatchMessageA(&g_window.window_message);
     }
+
+    vector3_t right_position = {0.0F, 0.0F, 0.0F};
+    vector3_t right_direction = {1.0F, 0.0F, 0.0F};
+    vector4_t right_color = {1.0F, 0.0F, 0.0F, 1.0F};
+
+    renderer_draw_debug_line(right_position, right_direction, right_color);
+
+    vector3_t up_position = {0.0F, 0.0F, 0.0F};
+    vector3_t up_direction = {0.0F, 1.0F, 0.0F};
+    vector4_t up_color = {0.0F, 1.0F, 0.0F, 1.0F};
+
+    renderer_draw_debug_line(up_position, up_direction, up_color);
+
+    vector3_t front_position = {0.0F, 0.0F, 0.0F};
+    vector3_t front_direction = {0.0F, 0.0F, 1.0F};
+    vector4_t front_color = {0.0F, 0.0F, 1.0F, 1.0F};
+
+    renderer_draw_debug_line(front_position, front_direction, front_color);
+
+    renderer_draw(&transform, &camera);
 
     QueryPerformanceCounter(&g_window.time_curr);
 
@@ -159,7 +199,7 @@ void window_run(void) {
 
       static char title_buffer[0x400] = {0};
 
-      snprintf(title_buffer, sizeof(title_buffer), "%s %s.%s.%s (%s) - FPS: %d",
+      snprintf(title_buffer, sizeof(title_buffer), "%s %s.%s.%s (%s) - %d FPS",
                g_window.window_title,
                VERSION_MAJOR,
                VERSION_MINOR,
@@ -178,6 +218,7 @@ void window_destroy(void) {
   VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
   VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
+  renderer_destroy();
   swapchain_destroy();
 
   renderpass_destroy_main();

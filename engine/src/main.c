@@ -6,5 +6,7 @@ int32_t main(int32_t argc, char **argv) {
   window_run();
   window_destroy();
 
+  HEAP_RESET();
+
   return 0;
 }
