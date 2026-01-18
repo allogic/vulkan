@@ -34,6 +34,7 @@
 
 #include <fsutils.h>
 #include <heap.h>
+#include <vdb.h>
 #include <renderer.h>
 #include <renderpass.h>
 #include <swapchain.h>
