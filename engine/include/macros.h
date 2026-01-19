@@ -10,6 +10,9 @@
 #define MAX(A, B) (((A) > (B)) ? (A) : (B))
 #define CLAMP(A, LO, HI) ((A) < (LO) ? (LO) : ((A) > (HI) ? (HI) : (A)))
 
+#define ALIGN_DOWN_BY(VALUE, ALIGNMENT) (((uint64_t)(VALUE)) & ~(((uint64_t)(ALIGNMENT)) - 1ULL))
+#define ALIGN_UP_BY(VALUE, ALIGNMENT) ((((uint64_t)(VALUE)) + (((uint64_t)(ALIGNMENT)) - 1ULL)) & ~(((uint64_t)(ALIGNMENT)) - 1ULL))
+
 #ifdef BUILD_DEBUG
 #  define VK_CHECK(EXPRESSION)                              \
     {                                                       \

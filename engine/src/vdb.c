@@ -2,8 +2,6 @@
 
 static void vdb_expand(vdb_t *vdb);
 static float vdb_load_factor(vdb_t *vdb);
-// static vdb_record_t *vdb_find_prev_record(vdb_t *vdb, int32_t start_index);
-// static vdb_record_t *vdb_find_next_record(vdb_t *vdb, int32_t start_index);
 
 static int32_t vdb_position_hash(ivector3_t position, int32_t modulus);
 
@@ -204,8 +202,11 @@ void vdb_brick_destroy(vdb_brick_t *brick) {
 }
 
 static void vdb_expand(vdb_t *vdb) {
-  int32_t next_table_size = vdb->table_size * VDB_EXPANSION_FACTOR;
-  int32_t next_table_count = vdb->table_count * VDB_EXPANSION_FACTOR;
+  // int32_t next_table_size = (int32_t)ceilf((float)vdb->table_size * VDB_EXPANSION_FACTOR);
+  int32_t next_table_count = (int32_t)ceilf((float)vdb->table_count * VDB_EXPANSION_FACTOR);
+  int32_t next_table_size = next_table_count * sizeof(vdb_record_t *);
+
+  // next_table_size = ALIGN_UP_BY(next_table_size, 8 * sizeof(vdb_record_t *));
 
   vdb_record_t **table = (vdb_record_t **)HEAP_ALLOC(next_table_size, 1, 0);
 
@@ -222,6 +223,7 @@ static void vdb_expand(vdb_t *vdb) {
 
       record->next = table[position_hash];
       table[position_hash] = record;
+
       record = record->next;
     }
 
@@ -237,10 +239,6 @@ static void vdb_expand(vdb_t *vdb) {
 static float vdb_load_factor(vdb_t *vdb) {
   return (((float)vdb->record_count + 1.0F) / (float)vdb->table_count) * 100.0F;
 }
-// static vdb_record_t *vdb_find_prev_record(vdb_t *vdb, int32_t start_index) {
-// }
-// static vdb_record_t *vdb_find_next_record(vdb_t *vdb, int32_t start_index) {
-// }
 
 static int32_t vdb_position_hash(ivector3_t position, int32_t modulus) {
   return (((1 << 20) - 1) & ((int32_t)(position.x) * 73856093 ^

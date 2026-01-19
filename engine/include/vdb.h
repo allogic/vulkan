@@ -18,15 +18,10 @@ typedef struct vdb_record_t {
   vdb_brick_t brick;
 } vdb_record_t;
 
-typedef struct vdb_bucket_t {
-  struct vdb_bucket_t *prev;
-  struct vdb_bucket_t *next;
-} vdb_bucket_t;
-
 typedef struct vdb_t {
-  struct vdb_bucket_t **bucket;
-  int32_t bucket_size;
-  int32_t bucket_count;
+  struct vdb_record_t **table;
+  int32_t table_size;
+  int32_t table_count;
   int32_t record_count;
 } vdb_t;
 
