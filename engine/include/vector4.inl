@@ -127,6 +127,16 @@ __forceinline vector4_t vector4_norm(vector4_t a) {
     return vector4_zero();
   }
 }
+__forceinline vector4_t vector4_inv(vector4_t a) {
+  vector4_t v = {
+    1.0F / a.x,
+    1.0F / a.y,
+    1.0F / a.z,
+    1.0F / a.w,
+  };
+
+  return v;
+}
 __forceinline float vector4_dot(vector4_t a, vector4_t b) {
   return (a.x * b.x) + (a.y * b.y) + (a.z * b.z) + (a.w * b.w);
 }

@@ -135,6 +135,14 @@ __forceinline vector2_t vector2_norm(vector2_t a) {
     return vector2_zero();
   }
 }
+__forceinline vector2_t vector2_inv(vector2_t a) {
+  vector2_t v = {
+    1.0F / a.x,
+    1.0F / a.y,
+  };
+
+  return v;
+}
 __forceinline float vector2_dot(vector2_t a, vector2_t b) {
   return (a.x * b.x) + (a.y * b.y);
 }

@@ -1,8 +1,5 @@
 #include <pch.h>
 
-#define MAX_RENDERER_DEBUG_LINE_VERTEX_COUNT 0xFFFF
-#define MAX_RENDERER_DEBUG_LINE_INDEX_COUNT 0xFFFF
-
 static void renderer_create_command_buffer(void);
 static void renderer_create_sync_objects(void);
 static void renderer_create_descriptor_pools(void);
@@ -44,7 +41,7 @@ renderer_t g_renderer = {0};
 static VkDescriptorPoolSize const s_debug_line_descriptor_pool_sizes[] = {
   {
     .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    .descriptorCount = 3,
+    .descriptorCount = 6,
   },
 };
 
@@ -761,7 +758,7 @@ static void renderer_create_debug_line_vertex_buffer(void) {
 
   while (frame_index < frame_count) {
 
-    uint64_t buffer_size = sizeof(debug_line_vertex_t) * MAX_RENDERER_DEBUG_LINE_VERTEX_COUNT;
+    uint64_t buffer_size = sizeof(debug_line_vertex_t) * RENDERER_DEBUG_LINE_VERTEX_COUNT;
 
     VkBufferCreateInfo buffer_create_info = {
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -797,7 +794,7 @@ static void renderer_create_debug_line_index_buffer(void) {
 
   while (frame_index < frame_count) {
 
-    uint64_t buffer_size = sizeof(debug_line_index_t) * MAX_RENDERER_DEBUG_LINE_INDEX_COUNT;
+    uint64_t buffer_size = sizeof(debug_line_index_t) * RENDERER_DEBUG_LINE_INDEX_COUNT;
 
     VkBufferCreateInfo buffer_create_info = {
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -912,7 +909,7 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   float window_height = (float)g_window.window_height;
 
   vector3_t eye = transform->world_position;
-  vector3_t center = vector3_add(transform->world_position, transform_local_front(transform));
+  vector3_t center = vector3_zero();
   vector3_t up = vector3_down();
 
   float fov = deg_to_rad(camera->fov);

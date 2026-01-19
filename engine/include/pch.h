@@ -18,6 +18,7 @@
 
 #include <macros.h>
 #include <fwd.h>
+#include <cfg.h>
 
 #include <mutils.h>
 #include <vector2.h>

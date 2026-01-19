@@ -169,6 +169,15 @@ __forceinline vector3_t vector3_norm(vector3_t a) {
     return vector3_zero();
   }
 }
+__forceinline vector3_t vector3_inv(vector3_t a) {
+  vector3_t v = {
+    1.0F / a.x,
+    1.0F / a.y,
+    1.0F / a.z,
+  };
+
+  return v;
+}
 __forceinline vector3_t vector3_cross(vector3_t a, vector3_t b) {
   vector3_t v = {
     (a.y * b.z) - (a.z * b.y),

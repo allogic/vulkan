@@ -1,10 +1,5 @@
 #include <pch.h>
 
-#define MAX_DELTA_TIME 0.1
-#define MAX_PHYSICAL_DEVICES 0x10
-#define MAX_QUEUE_FAMILY_PROPERTIES_COUNT 0xFF
-#define MAX_EXTENSION_PROPERTIES_COUNT 0x400
-
 static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
 #ifdef BUILD_DEBUG
@@ -172,6 +167,14 @@ void window_run(void) {
 
     renderer_draw_debug_line(front_position, front_direction, front_color);
 
+    vector3_t player_position = {
+      sinf((float)g_window.time) * 10.0F,
+      5.0F,
+      cosf((float)g_window.time) * 10.0F,
+    };
+
+    transform_set_position(&transform, player_position);
+
     renderer_draw(&transform, &camera);
 
     QueryPerformanceCounter(&g_window.time_curr);
@@ -182,8 +185,8 @@ void window_run(void) {
 
     double delta_time = (time_curr - time_prev) / time_freq;
 
-    if (delta_time > MAX_DELTA_TIME) {
-      delta_time = MAX_DELTA_TIME;
+    if (delta_time > WINDOW_MAX_DELTA_TIME) {
+      delta_time = WINDOW_MAX_DELTA_TIME;
     }
 
     g_window.delta_time = delta_time;
@@ -565,7 +568,7 @@ static void window_find_physical_device(void) {
   int32_t physical_device_index = 0;
   int32_t physical_device_count = 0;
 
-  static VkPhysicalDevice physical_devices[MAX_PHYSICAL_DEVICES] = {0};
+  static VkPhysicalDevice physical_devices[WINDOW_MAX_PHYSICAL_DEVICES] = {0};
 
   VK_CHECK(vkEnumeratePhysicalDevices(g_window.instance, &physical_device_count, 0));
   VK_CHECK(vkEnumeratePhysicalDevices(g_window.instance, &physical_device_count, physical_devices));
@@ -602,7 +605,7 @@ static void window_find_physical_device_queue_families(void) {
   int32_t queue_family_property_index = 0;
   int32_t queue_family_property_count = 0;
 
-  static VkQueueFamilyProperties queue_family_properties[MAX_QUEUE_FAMILY_PROPERTIES_COUNT] = {0};
+  static VkQueueFamilyProperties queue_family_properties[WINDOW_MAX_QUEUE_FAMILY_PROPERTIES_COUNT] = {0};
 
   vkGetPhysicalDeviceQueueFamilyProperties(g_window.physical_device, &queue_family_property_count, 0);
   vkGetPhysicalDeviceQueueFamilyProperties(g_window.physical_device, &queue_family_property_count, queue_family_properties);
@@ -645,7 +648,7 @@ static void window_find_physical_device_queue_families(void) {
 static void window_check_physical_device_extensions(void) {
   int32_t available_device_extension_count = 0;
 
-  static VkExtensionProperties available_extension_properties[MAX_EXTENSION_PROPERTIES_COUNT] = {0};
+  static VkExtensionProperties available_extension_properties[WINDOW_MAX_EXTENSION_PROPERTIES_COUNT] = {0};
 
   VK_CHECK(vkEnumerateDeviceExtensionProperties(g_window.physical_device, 0, &available_device_extension_count, 0));
   VK_CHECK(vkEnumerateDeviceExtensionProperties(g_window.physical_device, 0, &available_device_extension_count, available_extension_properties));
