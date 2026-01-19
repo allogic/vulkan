@@ -80,6 +80,18 @@ void window_run(void) {
 
   transform_t transform = transform_create(0);
   camera_t camera = camera_create();
+  vdb_t vdb = vdb_create();
+
+  for (int32_t x = 0; x < 16; x++) {
+    for (int32_t y = 0; y < 16; y++) {
+      for (int32_t z = 0; z < 16; z++) {
+
+        vdb_insert(&vdb, (ivector3_t){x, y, z});
+      }
+    }
+  }
+
+  vdb_print(&vdb);
 
   transform_set_position_xyz(&transform, 0.0F, 0.0F, -10.0F);
 
@@ -149,23 +161,20 @@ void window_run(void) {
       DispatchMessageA(&g_window.window_message);
     }
 
-    vector3_t right_position = {0.0F, 0.0F, 0.0F};
-    vector3_t right_direction = {1.0F, 0.0F, 0.0F};
-    vector4_t right_color = {1.0F, 0.0F, 0.0F, 1.0F};
+    renderer_draw_debug_line(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){1.0F, 0.0F, 0.0F},
+      (vector4_t){1.0F, 0.0F, 0.0F, 1.0F});
 
-    renderer_draw_debug_line(right_position, right_direction, right_color);
+    renderer_draw_debug_line(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){0.0F, 1.0F, 0.0F},
+      (vector4_t){0.0F, 1.0F, 0.0F, 1.0F});
 
-    vector3_t up_position = {0.0F, 0.0F, 0.0F};
-    vector3_t up_direction = {0.0F, 1.0F, 0.0F};
-    vector4_t up_color = {0.0F, 1.0F, 0.0F, 1.0F};
-
-    renderer_draw_debug_line(up_position, up_direction, up_color);
-
-    vector3_t front_position = {0.0F, 0.0F, 0.0F};
-    vector3_t front_direction = {0.0F, 0.0F, 1.0F};
-    vector4_t front_color = {0.0F, 0.0F, 1.0F, 1.0F};
-
-    renderer_draw_debug_line(front_position, front_direction, front_color);
+    renderer_draw_debug_line(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){0.0F, 0.0F, 1.0F},
+      (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
 
     vector3_t player_position = {
       sinf((float)g_window.time) * 10.0F,
