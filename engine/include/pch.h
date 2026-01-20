@@ -34,6 +34,7 @@
 #include <camera.h>
 #include <transform.h>
 
+#include <aabb.h>
 #include <fsutils.h>
 #include <heap.h>
 #include <vdb.h>

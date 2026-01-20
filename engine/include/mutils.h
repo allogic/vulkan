@@ -12,6 +12,8 @@
 #define EPSILON_4 ((float)1E-4)
 #define EPSILON_5 ((float)1E-5)
 #define EPSILON_6 ((float)1E-6)
+#define EPSILON_7 ((float)1E-7)
+#define EPSILON_8 ((float)1E-8)
 
 #include <fwd.h>
 

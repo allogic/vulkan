@@ -273,20 +273,24 @@ void renderer_draw_debug_line(vector3_t from, vector3_t to, vector4_t color) {
     uint32_t vertex_offset = g_renderer.debug_line_vertex_offset[g_renderer.frame_index];
     uint32_t index_offset = g_renderer.debug_line_index_offset[g_renderer.frame_index];
 
-    debug_line_vertex_t *vertices = g_renderer.debug_line_vertex[g_renderer.frame_index];
-    debug_line_index_t *indices = g_renderer.debug_line_index[g_renderer.frame_index];
+    if ((vertex_offset + 2) < RENDERER_DEBUG_LINE_VERTEX_COUNT &&
+        (index_offset + 2) < RENDERER_DEBUG_LINE_INDEX_COUNT) {
 
-    vertices[vertex_offset + 0].position = from;
-    vertices[vertex_offset + 1].position = to;
+      debug_line_vertex_t *vertices = g_renderer.debug_line_vertex[g_renderer.frame_index];
+      debug_line_index_t *indices = g_renderer.debug_line_index[g_renderer.frame_index];
 
-    vertices[vertex_offset + 0].color = color;
-    vertices[vertex_offset + 1].color = color;
+      vertices[vertex_offset + 0].position = from;
+      vertices[vertex_offset + 1].position = to;
 
-    indices[index_offset + 0] = (debug_line_index_t)(vertex_offset + 0);
-    indices[index_offset + 1] = (debug_line_index_t)(vertex_offset + 1);
+      vertices[vertex_offset + 0].color = color;
+      vertices[vertex_offset + 1].color = color;
 
-    g_renderer.debug_line_vertex_offset[g_renderer.frame_index] += 2;
-    g_renderer.debug_line_index_offset[g_renderer.frame_index] += 2;
+      indices[index_offset + 0] = (debug_line_index_t)(vertex_offset + 0);
+      indices[index_offset + 1] = (debug_line_index_t)(vertex_offset + 1);
+
+      g_renderer.debug_line_vertex_offset[g_renderer.frame_index] += 2;
+      g_renderer.debug_line_index_offset[g_renderer.frame_index] += 2;
+    }
   }
 }
 void renderer_draw_debug_box(vector3_t position, vector3_t size, vector4_t color) {
@@ -295,54 +299,58 @@ void renderer_draw_debug_box(vector3_t position, vector3_t size, vector4_t color
     uint32_t vertex_offset = g_renderer.debug_line_vertex_offset[g_renderer.frame_index];
     uint32_t index_offset = g_renderer.debug_line_index_offset[g_renderer.frame_index];
 
-    debug_line_vertex_t *vertices = g_renderer.debug_line_vertex[g_renderer.frame_index];
-    debug_line_index_t *indices = g_renderer.debug_line_index[g_renderer.frame_index];
+    if ((vertex_offset + 8) < RENDERER_DEBUG_LINE_VERTEX_COUNT &&
+        (index_offset + 24) < RENDERER_DEBUG_LINE_INDEX_COUNT) {
 
-    vertices[vertex_offset + 0].position = (vector3_t){position.x, position.y, position.z};
-    vertices[vertex_offset + 1].position = (vector3_t){position.x, position.y + size.y, position.z};
-    vertices[vertex_offset + 2].position = (vector3_t){position.x + size.x, position.y, position.z};
-    vertices[vertex_offset + 3].position = (vector3_t){position.x + size.x, position.y + size.y, position.z};
-    vertices[vertex_offset + 4].position = (vector3_t){position.x, position.y, position.z + size.z};
-    vertices[vertex_offset + 5].position = (vector3_t){position.x, position.y + size.y, position.z + size.z};
-    vertices[vertex_offset + 6].position = (vector3_t){position.x + size.x, position.y, position.z + size.z};
-    vertices[vertex_offset + 7].position = (vector3_t){position.x + size.x, position.y + size.y, position.z + size.z};
+      debug_line_vertex_t *vertices = g_renderer.debug_line_vertex[g_renderer.frame_index];
+      debug_line_index_t *indices = g_renderer.debug_line_index[g_renderer.frame_index];
 
-    vertices[vertex_offset + 0].color = color;
-    vertices[vertex_offset + 1].color = color;
-    vertices[vertex_offset + 2].color = color;
-    vertices[vertex_offset + 3].color = color;
-    vertices[vertex_offset + 4].color = color;
-    vertices[vertex_offset + 5].color = color;
-    vertices[vertex_offset + 6].color = color;
-    vertices[vertex_offset + 7].color = color;
+      vertices[vertex_offset + 0].position = (vector3_t){position.x, position.y, position.z};
+      vertices[vertex_offset + 1].position = (vector3_t){position.x, position.y + size.y, position.z};
+      vertices[vertex_offset + 2].position = (vector3_t){position.x + size.x, position.y, position.z};
+      vertices[vertex_offset + 3].position = (vector3_t){position.x + size.x, position.y + size.y, position.z};
+      vertices[vertex_offset + 4].position = (vector3_t){position.x, position.y, position.z + size.z};
+      vertices[vertex_offset + 5].position = (vector3_t){position.x, position.y + size.y, position.z + size.z};
+      vertices[vertex_offset + 6].position = (vector3_t){position.x + size.x, position.y, position.z + size.z};
+      vertices[vertex_offset + 7].position = (vector3_t){position.x + size.x, position.y + size.y, position.z + size.z};
 
-    indices[index_offset + 0] = (debug_line_index_t)(vertex_offset + 0);
-    indices[index_offset + 1] = (debug_line_index_t)(vertex_offset + 1);
-    indices[index_offset + 2] = (debug_line_index_t)(vertex_offset + 1);
-    indices[index_offset + 3] = (debug_line_index_t)(vertex_offset + 3);
-    indices[index_offset + 4] = (debug_line_index_t)(vertex_offset + 3);
-    indices[index_offset + 5] = (debug_line_index_t)(vertex_offset + 2);
-    indices[index_offset + 6] = (debug_line_index_t)(vertex_offset + 2);
-    indices[index_offset + 7] = (debug_line_index_t)(vertex_offset + 0);
-    indices[index_offset + 8] = (debug_line_index_t)(vertex_offset + 4);
-    indices[index_offset + 9] = (debug_line_index_t)(vertex_offset + 5);
-    indices[index_offset + 10] = (debug_line_index_t)(vertex_offset + 5);
-    indices[index_offset + 11] = (debug_line_index_t)(vertex_offset + 7);
-    indices[index_offset + 12] = (debug_line_index_t)(vertex_offset + 7);
-    indices[index_offset + 13] = (debug_line_index_t)(vertex_offset + 6);
-    indices[index_offset + 14] = (debug_line_index_t)(vertex_offset + 6);
-    indices[index_offset + 15] = (debug_line_index_t)(vertex_offset + 4);
-    indices[index_offset + 16] = (debug_line_index_t)(vertex_offset + 0);
-    indices[index_offset + 17] = (debug_line_index_t)(vertex_offset + 4);
-    indices[index_offset + 18] = (debug_line_index_t)(vertex_offset + 1);
-    indices[index_offset + 19] = (debug_line_index_t)(vertex_offset + 5);
-    indices[index_offset + 20] = (debug_line_index_t)(vertex_offset + 2);
-    indices[index_offset + 21] = (debug_line_index_t)(vertex_offset + 6);
-    indices[index_offset + 22] = (debug_line_index_t)(vertex_offset + 3);
-    indices[index_offset + 23] = (debug_line_index_t)(vertex_offset + 7);
+      vertices[vertex_offset + 0].color = color;
+      vertices[vertex_offset + 1].color = color;
+      vertices[vertex_offset + 2].color = color;
+      vertices[vertex_offset + 3].color = color;
+      vertices[vertex_offset + 4].color = color;
+      vertices[vertex_offset + 5].color = color;
+      vertices[vertex_offset + 6].color = color;
+      vertices[vertex_offset + 7].color = color;
 
-    g_renderer.debug_line_vertex_offset[g_renderer.frame_index] += 8;
-    g_renderer.debug_line_index_offset[g_renderer.frame_index] += 24;
+      indices[index_offset + 0] = (debug_line_index_t)(vertex_offset + 0);
+      indices[index_offset + 1] = (debug_line_index_t)(vertex_offset + 1);
+      indices[index_offset + 2] = (debug_line_index_t)(vertex_offset + 1);
+      indices[index_offset + 3] = (debug_line_index_t)(vertex_offset + 3);
+      indices[index_offset + 4] = (debug_line_index_t)(vertex_offset + 3);
+      indices[index_offset + 5] = (debug_line_index_t)(vertex_offset + 2);
+      indices[index_offset + 6] = (debug_line_index_t)(vertex_offset + 2);
+      indices[index_offset + 7] = (debug_line_index_t)(vertex_offset + 0);
+      indices[index_offset + 8] = (debug_line_index_t)(vertex_offset + 4);
+      indices[index_offset + 9] = (debug_line_index_t)(vertex_offset + 5);
+      indices[index_offset + 10] = (debug_line_index_t)(vertex_offset + 5);
+      indices[index_offset + 11] = (debug_line_index_t)(vertex_offset + 7);
+      indices[index_offset + 12] = (debug_line_index_t)(vertex_offset + 7);
+      indices[index_offset + 13] = (debug_line_index_t)(vertex_offset + 6);
+      indices[index_offset + 14] = (debug_line_index_t)(vertex_offset + 6);
+      indices[index_offset + 15] = (debug_line_index_t)(vertex_offset + 4);
+      indices[index_offset + 16] = (debug_line_index_t)(vertex_offset + 0);
+      indices[index_offset + 17] = (debug_line_index_t)(vertex_offset + 4);
+      indices[index_offset + 18] = (debug_line_index_t)(vertex_offset + 1);
+      indices[index_offset + 19] = (debug_line_index_t)(vertex_offset + 5);
+      indices[index_offset + 20] = (debug_line_index_t)(vertex_offset + 2);
+      indices[index_offset + 21] = (debug_line_index_t)(vertex_offset + 6);
+      indices[index_offset + 22] = (debug_line_index_t)(vertex_offset + 3);
+      indices[index_offset + 23] = (debug_line_index_t)(vertex_offset + 7);
+
+      g_renderer.debug_line_vertex_offset[g_renderer.frame_index] += 8;
+      g_renderer.debug_line_index_offset[g_renderer.frame_index] += 24;
+    }
   }
 }
 

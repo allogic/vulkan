@@ -3,12 +3,13 @@
 
 typedef struct vdb_hit_t {
   int8_t hit;
-  int8_t lod;
   ivector3_t position;
 } vdb_hit_t;
 
 typedef struct vdb_brick_t {
   float *colors;
+  ivector3_t box_min;
+  ivector3_t box_max;
   uint64_t mask_lod3[VDB_BRICK_WORDS_LOD3];
   uint64_t mask_lod2[VDB_BRICK_WORDS_LOD2];
   uint64_t mask_lod1[VDB_BRICK_WORDS_LOD1];
@@ -39,8 +40,8 @@ void vdb_draw(vdb_t *vdb, vector3_t ray_origin, vector3_t ray_direction);
 void vdb_destroy(vdb_t *vdb);
 
 vdb_brick_t vdb_brick_create(void);
-vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t ray_direction, float max_distance);
-void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position);
+vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t ray_direction, float max_distance);
+void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position, float alpha);
 void vdb_brick_destroy(vdb_brick_t *brick);
 
 __forceinline int32_t vdb_brick_cell_count(int8_t lod);

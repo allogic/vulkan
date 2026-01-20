@@ -94,19 +94,19 @@ void vdb_draw(vdb_t *vdb, vector3_t ray_origin, vector3_t ray_direction) {
 
       vdb_brick_t *brick = &record->brick;
 
-      vdb_brick_draw(brick, 0, record->position);
-      vdb_brick_draw(brick, 1, record->position);
-      vdb_brick_draw(brick, 2, record->position);
-      vdb_brick_draw(brick, 3, record->position);
+      vdb_brick_draw(brick, 0, record->position, 0.1F);
+      // vdb_brick_draw(brick, 1, record->position, 0.1F);
+      // vdb_brick_draw(brick, 2, record->position, 0.15F);
+      // vdb_brick_draw(brick, 3, record->position, 0.2F);
 
-      vdb_brick_raymarch(brick, ray_origin, ray_direction, 1000.0F);
+      vdb_brick_hdda_raymarch(brick, ray_origin, ray_direction, 1000.0F);
 
       // TODO: remove this
       for (float i = 0.0F; i < 48.0F; i += 0.2F) {
         vector3_t ray_orig = {i - 8.0F, i / 2.0F, -10.0F};
         vector3_t ray_dir = {0.5F, 0.0F, 0.8F};
 
-        vdb_brick_raymarch(brick, ray_orig, ray_dir, 1000.0F);
+        // vdb_brick_hdda_raymarch(brick, ray_orig, ray_dir, 1000.0F);
       }
 
       record = record->next;
@@ -147,6 +147,8 @@ vdb_brick_t vdb_brick_create(void) {
 
   vdb_brick_t brick = {0};
   brick.colors = colors;
+  brick.box_min = (ivector3_t){0, 0, 0};
+  brick.box_max = (ivector3_t){32, 32, 32};
 
   {
     int8_t lod = 0;
@@ -221,9 +223,10 @@ vdb_brick_t vdb_brick_create(void) {
       for (int32_t y = 0; y < cell_count; y++) {
         for (int32_t z = 0; z < cell_count; z++) {
 
-          float d = ((float)y + 0.5F) / cell_count;
+          // float d = ((float)y + 0.5F) / cell_count;
+          float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, lod);
 
-          if (d < 0.5F) {
+          if (d < 0.0F) {
             vdb_brick_set(&brick, lod, x, y, z);
           }
         }
@@ -233,51 +236,83 @@ vdb_brick_t vdb_brick_create(void) {
 
   return brick;
 }
-vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t ray_direction, float max_distance) {
+vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t ray_direction, float max_distance) {
   vdb_hit_t hit = {0};
 
-  int32_t lod = VDB_BRICK_MAX_LOD_LEVEL;
+  float t_enter = 0.0F;
+  float t_exit = 0.0F;
 
-  int32_t cell_count = vdb_brick_cell_count(lod);
-  float cell_size = (float)vdb_brick_cell_size(lod);
+  if (ray_aabb_intersect(
+        ray_origin,
+        ray_direction,
+        (vector3_t){(float)brick->box_min.x, (float)brick->box_min.y, (float)brick->box_min.z},
+        (vector3_t){(float)brick->box_max.x, (float)brick->box_max.y, (float)brick->box_max.z},
+        &t_enter,
+        &t_exit) == 0) {
 
-  int32_t vx = (int32_t)floorf(ray_origin.x / cell_size);
-  int32_t vy = (int32_t)floorf(ray_origin.y / cell_size);
-  int32_t vz = (int32_t)floorf(ray_origin.z / cell_size);
+    return hit;
+  }
 
-  int32_t step_x = signum(ray_direction.x);
-  int32_t step_y = signum(ray_direction.y);
-  int32_t step_z = signum(ray_direction.z);
+  float t0 = fmaxf(t_enter, 0.0f);
 
-  float next_boundary_x = (step_x > 0 ? (vx + 1) * cell_size : vx * cell_size);
-  float next_boundary_y = (step_y > 0 ? (vy + 1) * cell_size : vy * cell_size);
-  float next_boundary_z = (step_z > 0 ? (vz + 1) * cell_size : vz * cell_size);
+  t0 += EPSILON_4;
 
-  float t_max_x = (ray_direction.x != 0.0F)
-                    ? (next_boundary_x - ray_origin.x) / ray_direction.x
-                    : FLT_MAX;
-
-  float t_max_y = (ray_direction.y != 0.0F)
-                    ? (next_boundary_y - ray_origin.y) / ray_direction.y
-                    : FLT_MAX;
-
-  float t_max_z = (ray_direction.z != 0.0F)
-                    ? (next_boundary_z - ray_origin.z) / ray_direction.z
-                    : FLT_MAX;
-
-  float t_delta_x = (ray_direction.x != 0.0F)
-                      ? cell_size / fabsf(ray_direction.x)
-                      : FLT_MAX;
-
-  float t_delta_y = (ray_direction.y != 0.0F)
-                      ? cell_size / fabsf(ray_direction.y)
-                      : FLT_MAX;
-
-  float t_delta_z = (ray_direction.z != 0.0F)
-                      ? cell_size / fabsf(ray_direction.z)
-                      : FLT_MAX;
+  if (t0 > max_distance)
+    return hit;
 
   vector3_t prev_position = ray_origin;
+
+  ray_origin.x += ray_direction.x * t0;
+  ray_origin.y += ray_direction.y * t0;
+  ray_origin.z += ray_direction.z * t0;
+
+  max_distance -= t0;
+
+  renderer_draw_debug_line(
+    prev_position,
+    ray_origin,
+    (vector4_t){brick->colors[0], brick->colors[3], brick->colors[6], 1.0F});
+
+  // Start at the coarsest LOD
+  int8_t lod = VDB_BRICK_MAX_LOD_LEVEL;
+
+  // We'll maintain a stack of LOD states for when we descend
+  typedef struct {
+    int8_t lod;
+    int32_t vx, vy, vz;
+    float cell_size;
+    int stepX, stepY, stepZ;
+    float tMaxX, tMaxY, tMaxZ;
+    float tDeltaX, tDeltaY, tDeltaZ;
+  } dda_state_t;
+
+#define MAX_LOD_STACK 4
+  dda_state_t stack[MAX_LOD_STACK];
+  int stack_top = 0;
+
+  // Initialize DDA at current LOD
+  float cell_size = (float)vdb_brick_cell_size(lod);
+  int cell_count = vdb_brick_cell_count(lod);
+
+  int vx = (int)floorf(ray_origin.x / cell_size);
+  int vy = (int)floorf(ray_origin.y / cell_size);
+  int vz = (int)floorf(ray_origin.z / cell_size);
+
+  int stepX = signum(ray_direction.x);
+  int stepY = signum(ray_direction.y);
+  int stepZ = signum(ray_direction.z);
+
+  float nextX = (stepX > 0 ? (vx + 1) * cell_size : vx * cell_size);
+  float nextY = (stepY > 0 ? (vy + 1) * cell_size : vy * cell_size);
+  float nextZ = (stepZ > 0 ? (vz + 1) * cell_size : vz * cell_size);
+
+  float tMaxX = (ray_direction.x != 0.0f) ? (nextX - ray_origin.x) / ray_direction.x : FLT_MAX;
+  float tMaxY = (ray_direction.y != 0.0f) ? (nextY - ray_origin.y) / ray_direction.y : FLT_MAX;
+  float tMaxZ = (ray_direction.z != 0.0f) ? (nextZ - ray_origin.z) / ray_direction.z : FLT_MAX;
+
+  float tDeltaX = (ray_direction.x != 0.0f) ? cell_size / fabsf(ray_direction.x) : FLT_MAX;
+  float tDeltaY = (ray_direction.y != 0.0f) ? cell_size / fabsf(ray_direction.y) : FLT_MAX;
+  float tDeltaZ = (ray_direction.z != 0.0f) ? cell_size / fabsf(ray_direction.z) : FLT_MAX;
 
   int32_t it = 0;
 
@@ -285,83 +320,134 @@ vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t
 
   while (t <= max_distance) {
 
-    // if (vx < 0 || vy < 0 || vz < 0 || vx >= cell_count || vy >= cell_count || vz >= cell_count) {
-    //   break;
-    // }
+    // Bounds check
+    if (vx < 0 || vy < 0 || vz < 0 || vx >= cell_count || vy >= cell_count || vz >= cell_count) {
 
-    if (vdb_brick_get(brick, lod, vx, vy, vz)) {
+      // Pop previous LOD state if any
+      if (stack_top == 0)
+        break;
 
-      if (lod > 0) {
+      stack_top--;
+      dda_state_t s = stack[stack_top];
 
-        float old_cell_size = (float)vdb_brick_cell_size(lod);
+      lod = s.lod;
+      vx = s.vx;
+      vy = s.vy;
+      vz = s.vz;
+      cell_size = s.cell_size;
+      stepX = s.stepX;
+      stepY = s.stepY;
+      stepZ = s.stepZ;
+      tMaxX = s.tMaxX;
+      tMaxY = s.tMaxY;
+      tMaxZ = s.tMaxZ;
+      tDeltaX = s.tDeltaX;
+      tDeltaY = s.tDeltaY;
+      tDeltaZ = s.tDeltaZ;
+      cell_count = vdb_brick_cell_count(lod);
+
+      it = 0;
+
+      continue;
+    }
+
+    // Sample voxel
+    int8_t v = vdb_brick_get(brick, lod, vx, vy, vz);
+
+    if (v != 0 && lod > 0) {
+      // Descend to finer LOD within current voxel bounds
+
+      if (stack_top >= MAX_LOD_STACK) {
+
+        // Safety fallback
+        lod = 0;
+
+      } else {
+
+        // Push current state
+        stack[stack_top++] = (dda_state_t){
+          lod, vx, vy, vz, cell_size,
+          stepX, stepY, stepZ,
+          tMaxX, tMaxY, tMaxZ,
+          tDeltaX, tDeltaY, tDeltaZ};
+
+        // Go to next finer LOD
         lod--;
         float new_cell_size = (float)vdb_brick_cell_size(lod);
+        cell_size = new_cell_size;
+        cell_count = vdb_brick_cell_count(lod);
 
-        // Convert current voxel position to finer LOD
-        vx = (int)floorf(vx * old_cell_size / new_cell_size);
-        vy = (int)floorf(vy * old_cell_size / new_cell_size);
-        vz = (int)floorf(vz * old_cell_size / new_cell_size);
+        // Map coarse voxel to fine voxel grid
+        // vx = vx * 2; // assume 2x finer per LOD step
+        // vy = vy * 2;
+        // vz = vz * 2;
 
-        // Also scale tMax and tDelta along each axis
-        t_max_x = (vx * new_cell_size - ray_origin.x) / ray_direction.x;
-        t_max_y = (vy * new_cell_size - ray_origin.y) / ray_direction.y;
-        t_max_z = (vz * new_cell_size - ray_origin.z) / ray_direction.z;
+        vector3_t pos = vector3_add(ray_origin, vector3_muls(ray_direction, t));
 
-        t_delta_x = new_cell_size / fabsf(ray_direction.x);
-        t_delta_y = new_cell_size / fabsf(ray_direction.y);
-        t_delta_z = new_cell_size / fabsf(ray_direction.z);
+        vx = (int)floorf(pos.x / cell_size);
+        vy = (int)floorf(pos.y / cell_size);
+        vz = (int)floorf(pos.z / cell_size);
 
-        // OLD IMPLEMENTATION
+        stepX = signum(ray_direction.x);
+        stepY = signum(ray_direction.y);
+        stepZ = signum(ray_direction.z);
 
-        // lod--;
+        nextX = (stepX > 0 ? (vx + 1) * cell_size : vx * cell_size);
+        nextY = (stepY > 0 ? (vy + 1) * cell_size : vy * cell_size);
+        nextZ = (stepZ > 0 ? (vz + 1) * cell_size : vz * cell_size);
 
-        // cell_size = (float)vdb_brick_cell_size(lod);
-        // cell_count = vdb_brick_cell_count(lod);
+        tMaxX = (ray_direction.x != 0.0f) ? (nextX - ray_origin.x) / ray_direction.x : FLT_MAX;
+        tMaxY = (ray_direction.y != 0.0f) ? (nextY - ray_origin.y) / ray_direction.y : FLT_MAX;
+        tMaxZ = (ray_direction.z != 0.0f) ? (nextZ - ray_origin.z) / ray_direction.z : FLT_MAX;
 
-        // vx = (int32_t)floorf(ray_origin.x / cell_size);
-        // vy = (int32_t)floorf(ray_origin.y / cell_size);
-        // vz = (int32_t)floorf(ray_origin.z / cell_size);
+        tDeltaX = (ray_direction.x != 0.0f) ? cell_size / fabsf(ray_direction.x) : FLT_MAX;
+        tDeltaY = (ray_direction.y != 0.0f) ? cell_size / fabsf(ray_direction.y) : FLT_MAX;
+        tDeltaZ = (ray_direction.z != 0.0f) ? cell_size / fabsf(ray_direction.z) : FLT_MAX;
 
         continue;
       }
+    }
+
+    // Hit at finest LOD
+    if (v != 0 && lod == 0) {
 
       hit.hit = 1;
-      hit.lod = lod;
       hit.position = (ivector3_t){vx, vy, vz};
+
+      renderer_draw_debug_box(
+        (vector3_t){(float)vx, (float)vy, (float)vz},
+        (vector3_t){1.0F, 1.0F, 1.0F},
+        (vector4_t){1.0F, 1.0F, 0.0F, 1.0F});
 
       return hit;
     }
 
-    if (t_max_x < t_max_y) {
+    float t_step = 0.0F;
 
-      if (t_max_x < t_max_z) {
-
-        vx += step_x;
-        t = t_max_x;
-        t_max_x += t_delta_x;
-
+    // Step to next voxel boundary (classic 3D DDA)
+    if (tMaxX < tMaxY) {
+      if (tMaxX < tMaxZ) {
+        vx += stepX;
+        t_step = tMaxX;
+        tMaxX += tDeltaX;
       } else {
-
-        vz += step_z;
-        t = t_max_z;
-        t_max_z += t_delta_z;
+        vz += stepZ;
+        t_step = tMaxZ;
+        tMaxZ += tDeltaZ;
       }
-
     } else {
-
-      if (t_max_y < t_max_z) {
-
-        vy += step_y;
-        t = t_max_y;
-        t_max_y += t_delta_y;
-
+      if (tMaxY < tMaxZ) {
+        vy += stepY;
+        t_step = tMaxY;
+        tMaxY += tDeltaY;
       } else {
-
-        vz += step_z;
-        t = t_max_z;
-        t_max_z += t_delta_z;
+        vz += stepZ;
+        t_step = tMaxZ;
+        tMaxZ += tDeltaZ;
       }
     }
+
+    t = t_step;
 
     vector3_t position = vector3_add(ray_origin, vector3_muls(ray_direction, t));
 
@@ -377,7 +463,7 @@ vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t
 
   return hit;
 }
-void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position) {
+void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position, float alpha) {
   int32_t cell_count = vdb_brick_cell_count(lod);
   int32_t cell_size = vdb_brick_cell_size(lod);
 
@@ -392,7 +478,7 @@ void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position) {
           renderer_draw_debug_box(
             (vector3_t){(float)cell_position.x, (float)cell_position.y, (float)cell_position.z},
             (vector3_t){(float)cell_size, (float)cell_size, (float)cell_size},
-            (vector4_t){brick->colors[lod + 1], brick->colors[lod + 2 * 3], brick->colors[lod + 3 * 6], 0.2F});
+            (vector4_t){brick->colors[lod + 1], brick->colors[lod + 2 * 3], brick->colors[lod + 3 * 6], alpha});
         }
       }
     }
