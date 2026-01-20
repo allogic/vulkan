@@ -178,7 +178,7 @@ void window_run(void) {
 
     player_update(&player);
 
-    if (window_is_keyboard_key_pressed(KEYBOARD_KEY_SPACE)) {
+    if (window_is_keyboard_key_held(KEYBOARD_KEY_SPACE)) {
       ray_origin = player.transform.world_position;
       ray_direction = transform_local_front(&player.transform);
     }
