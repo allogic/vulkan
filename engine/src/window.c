@@ -78,22 +78,20 @@ void window_run(void) {
   QueryPerformanceFrequency(&g_window.time_freq);
   QueryPerformanceCounter(&g_window.time_prev);
 
-  transform_t transform = transform_create(0);
-  camera_t camera = camera_create();
+  player_t player = player_create();
   vdb_t vdb = vdb_create();
 
-  for (int32_t x = 0; x < 16; x++) {
-    for (int32_t y = 0; y < 16; y++) {
-      for (int32_t z = 0; z < 16; z++) {
+  vector3_t ray_origin = vector3_zero();
+  vector3_t ray_direction = vector3_front();
+
+  for (int32_t x = 0; x < 1; x++) {
+    for (int32_t y = 0; y < 1; y++) {
+      for (int32_t z = 0; z < 1; z++) {
 
         vdb_insert(&vdb, (ivector3_t){x, y, z});
       }
     }
   }
-
-  vdb_print(&vdb);
-
-  transform_set_position_xyz(&transform, 0.0F, 0.0F, -10.0F);
 
   while (g_window.is_window_running) {
 
@@ -176,15 +174,16 @@ void window_run(void) {
       (vector3_t){0.0F, 0.0F, 1.0F},
       (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
 
-    vector3_t player_position = {
-      sinf((float)g_window.time) * 10.0F,
-      5.0F,
-      cosf((float)g_window.time) * 10.0F,
-    };
+    vdb_draw(&vdb, ray_origin, ray_direction);
 
-    transform_set_position(&transform, player_position);
+    player_update(&player);
 
-    renderer_draw(&transform, &camera);
+    if (window_is_keyboard_key_pressed(KEYBOARD_KEY_SPACE)) {
+      ray_origin = player.transform.world_position;
+      ray_direction = transform_local_front(&player.transform);
+    }
+
+    renderer_draw(&player.transform, &player.camera);
 
     QueryPerformanceCounter(&g_window.time_curr);
 
@@ -192,11 +191,9 @@ void window_run(void) {
     double time_prev = (double)g_window.time_prev.QuadPart;
     double time_curr = (double)g_window.time_curr.QuadPart;
 
-    double delta_time = (time_curr - time_prev) / time_freq;
+    float delta_time = (float)((time_curr - time_prev) / time_freq);
 
-    if (delta_time > WINDOW_MAX_DELTA_TIME) {
-      delta_time = WINDOW_MAX_DELTA_TIME;
-    }
+    delta_time = clamp(delta_time, 0.0F, WINDOW_MAX_DELTA_TIME);
 
     g_window.delta_time = delta_time;
     g_window.time_prev = g_window.time_curr;
@@ -207,7 +204,7 @@ void window_run(void) {
     g_window.fps_counter++;
     g_window.frame_index++;
 
-    if (g_window.elapsed_time_since_fps_count_update > 1.0) {
+    if (g_window.elapsed_time_since_fps_count_update > 1.0F) {
 
       static char title_buffer[0x400] = {0};
 
@@ -221,10 +218,12 @@ void window_run(void) {
 
       SetWindowTextA(g_window.window_handle, title_buffer);
 
-      g_window.elapsed_time_since_fps_count_update = 0.0;
+      g_window.elapsed_time_since_fps_count_update = 0.0F;
       g_window.fps_counter = 0;
     }
   }
+
+  vdb_destroy(&vdb);
 }
 void window_destroy(void) {
   VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
@@ -240,6 +239,26 @@ void window_destroy(void) {
   window_destroy_surface();
   window_destroy_instance();
   window_destroy_native();
+}
+
+uint8_t window_is_keyboard_key_pressed(keyboard_key_t key) {
+  return g_window.keyboard_key_states[key] == KEY_STATE_PRESSED;
+}
+uint8_t window_is_keyboard_key_held(keyboard_key_t key) {
+  return (g_window.keyboard_key_states[key] == KEY_STATE_DOWN) || (g_window.keyboard_key_states[key] == KEY_STATE_PRESSED);
+}
+uint8_t window_is_keyboard_key_released(keyboard_key_t key) {
+  return g_window.keyboard_key_states[key] == KEY_STATE_RELEASED;
+}
+
+uint8_t window_is_mouse_key_pressed(mouse_key_t key) {
+  return g_window.mouse_key_states[key] == KEY_STATE_PRESSED;
+}
+uint8_t window_is_mouse_key_held(mouse_key_t key) {
+  return (g_window.mouse_key_states[key] == KEY_STATE_DOWN) || (g_window.mouse_key_states[key] == KEY_STATE_PRESSED);
+}
+uint8_t window_is_mouse_key_released(mouse_key_t key) {
+  return g_window.mouse_key_states[key] == KEY_STATE_RELEASED;
 }
 
 static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param) {

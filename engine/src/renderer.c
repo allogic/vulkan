@@ -94,7 +94,7 @@ static VkVertexInputAttributeDescription const s_debug_line_vertex_input_attribu
 
 void renderer_create(int32_t frames_in_flight) {
   g_renderer.is_debug_enabled = 1;
-  g_renderer.frames_in_flight = CLAMP(frames_in_flight, 1, g_swapchain.image_count);
+  g_renderer.frames_in_flight = clampi(frames_in_flight, 1, g_swapchain.image_count);
 
   renderer_create_command_buffer();
   renderer_create_sync_objects();
@@ -577,7 +577,7 @@ static void renderer_create_debug_line_pipeline(char const *vertex_shader_file_p
 
   VkPipelineColorBlendAttachmentState color_blend_attachment = {
     .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-    .blendEnable = 0,
+    .blendEnable = 1,
     .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
     .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
     .colorBlendOp = VK_BLEND_OP_ADD,
@@ -909,7 +909,7 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   float window_height = (float)g_window.window_height;
 
   vector3_t eye = transform->world_position;
-  vector3_t center = vector3_zero();
+  vector3_t center = vector3_add(transform->world_position, transform_local_front(transform));
   vector3_t up = vector3_down();
 
   float fov = deg_to_rad(camera->fov);
@@ -922,8 +922,8 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   matrix4_t view_projection = matrix4_mul(view, projection);
   matrix4_t view_projection_inv = matrix4_inverse(view_projection);
 
-  g_renderer.time_info[g_renderer.frame_index]->time = (float)g_window.time;
-  g_renderer.time_info[g_renderer.frame_index]->delta_time = (float)g_window.delta_time;
+  g_renderer.time_info[g_renderer.frame_index]->time = g_window.time;
+  g_renderer.time_info[g_renderer.frame_index]->delta_time = g_window.delta_time;
 
   g_renderer.screen_info[g_renderer.frame_index]->resolution = vector2_xy(window_width, window_height);
 

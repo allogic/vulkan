@@ -11,7 +11,7 @@ static void swapchain_destroy_depth_images(void);
 static void swapchain_destroy_frame_buffer(void);
 
 void swapchain_create(int32_t image_count) {
-  g_swapchain.image_count = CLAMP(image_count, g_window.min_image_count, g_window.max_image_count);
+  g_swapchain.image_count = clampi(image_count, g_window.min_image_count, g_window.max_image_count);
 
   int32_t queue_families[2] = {
     g_window.primary_queue_index,

@@ -134,9 +134,9 @@ typedef struct window_t {
   LARGE_INTEGER time_freq;
   LARGE_INTEGER time_prev;
   LARGE_INTEGER time_curr;
-  double time;
-  double delta_time;
-  double elapsed_time_since_fps_count_update;
+  float time;
+  float delta_time;
+  float elapsed_time_since_fps_count_update;
   int8_t is_window_running;
   int32_t window_width;
   int32_t window_height;
@@ -179,6 +179,14 @@ extern window_t g_window;
 void window_create(int32_t width, int32_t height, char const *title);
 void window_run(void);
 void window_destroy(void);
+
+uint8_t window_is_keyboard_key_pressed(keyboard_key_t key);
+uint8_t window_is_keyboard_key_held(keyboard_key_t key);
+uint8_t window_is_keyboard_key_released(keyboard_key_t key);
+
+uint8_t window_is_mouse_key_pressed(mouse_key_t key);
+uint8_t window_is_mouse_key_held(mouse_key_t key);
+uint8_t window_is_mouse_key_released(mouse_key_t key);
 
 #ifdef __cplusplus
 }

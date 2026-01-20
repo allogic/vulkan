@@ -23,6 +23,7 @@ __forceinline float deg_to_rad(float a);
 __forceinline float rad_to_deg(float a);
 
 __forceinline float clamp(float a, float min, float max);
+__forceinline int32_t clampi(int32_t a, int32_t min, int32_t max);
 
 #ifdef __cplusplus
 }

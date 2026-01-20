@@ -1,7 +1,9 @@
 #include <pch.h>
 
-static void vdb_expand(vdb_t *vdb);
+static void vdb_grow(vdb_t *vdb);
 static float vdb_load_factor(vdb_t *vdb);
+
+static float vdb_dummy_surface_density(ivector3_t position, int8_t lod);
 
 static int32_t vdb_position_hash(ivector3_t position, int32_t modulus);
 
@@ -17,7 +19,7 @@ void vdb_insert(vdb_t *vdb, ivector3_t position) {
   float load_factor = vdb_load_factor(vdb);
 
   if (load_factor > VDB_LOAD_FACTOR) {
-    vdb_expand(vdb);
+    vdb_grow(vdb);
   }
 
   int8_t position_exists = 0;
@@ -80,7 +82,7 @@ void vdb_remove(vdb_t *vdb, ivector3_t position) {
     curr_record = curr_record->next;
   }
 }
-void vdb_print(vdb_t *vdb) {
+void vdb_draw(vdb_t *vdb, vector3_t ray_origin, vector3_t ray_direction) {
   int32_t table_index = 0;
   int32_t table_count = vdb->table_count;
 
@@ -88,69 +90,176 @@ void vdb_print(vdb_t *vdb) {
 
     vdb_record_t *record = vdb->table[table_index];
 
-    if (record) {
+    while (record) {
 
-      printf("Bucket (%d) %p\n", table_index, record);
+      vdb_brick_t *brick = &record->brick;
+
+      vdb_brick_draw(brick, 0, record->position);
+      vdb_brick_draw(brick, 1, record->position);
+      vdb_brick_draw(brick, 2, record->position);
+      vdb_brick_draw(brick, 3, record->position);
+
+      vdb_brick_raymarch(brick, ray_origin, ray_direction, 1000.0F);
 
       record = record->next;
-
-      while (record) {
-
-        printf("\t%p\n", record);
-
-        record = record->next;
-      }
-
-    } else {
-
-      printf("Bucket (%d) Empty\n", table_index);
     }
 
     table_index++;
   }
 }
 void vdb_destroy(vdb_t *vdb) {
+  int32_t table_index = 0;
+  int32_t table_count = vdb->table_count;
+
+  while (table_index < table_count) {
+
+    vdb_record_t *record = vdb->table[table_index];
+
+    while (record) {
+
+      vdb_record_t *next = record->next;
+
+      HEAP_FREE(record);
+
+      record = next;
+    }
+
+    table_index++;
+  }
+
   HEAP_FREE(vdb->table);
 }
 
 vdb_brick_t vdb_brick_create(void) {
-  return (vdb_brick_t){
-    .grid_size = 0x20,
-  };
+  float *colors = (float *)HEAP_ALLOC(sizeof(float) * 10000, 1, 0);
+
+  for (int i = 0; i < 1000; i++) {
+    colors[i] = (float)rand() / (float)RAND_MAX;
+  }
+
+  vdb_brick_t brick = {0};
+  brick.colors = colors;
+
+  {
+    int8_t lod = 0;
+
+    int32_t cell_count = vdb_brick_cell_count(lod);
+    int32_t cell_size = vdb_brick_cell_size(lod);
+
+    for (int32_t x = 0; x < cell_count; x++) {
+      for (int32_t y = 0; y < cell_count; y++) {
+        for (int32_t z = 0; z < cell_count; z++) {
+
+          // float d = ((float)y + 0.5F) / cell_count;
+          float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, lod);
+
+          if (d < 0.0F) {
+            vdb_brick_set(&brick, lod, x, y, z);
+          }
+        }
+      }
+    }
+  }
+
+  {
+    int8_t lod = 1;
+
+    int32_t cell_count = vdb_brick_cell_count(lod);
+    int32_t cell_size = vdb_brick_cell_size(lod);
+
+    for (int32_t x = 0; x < cell_count; x++) {
+      for (int32_t y = 0; y < cell_count; y++) {
+        for (int32_t z = 0; z < cell_count; z++) {
+
+          // float d = ((float)y + 0.5F) / cell_count;
+          float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, lod);
+
+          if (d < 0.0F) {
+            vdb_brick_set(&brick, lod, x, y, z);
+          }
+        }
+      }
+    }
+  }
+
+  {
+    int8_t lod = 2;
+
+    int32_t cell_count = vdb_brick_cell_count(lod);
+    int32_t cell_size = vdb_brick_cell_size(lod);
+
+    for (int32_t x = 0; x < cell_count; x++) {
+      for (int32_t y = 0; y < cell_count; y++) {
+        for (int32_t z = 0; z < cell_count; z++) {
+
+          // float d = ((float)y + 0.5F) / cell_count;
+          float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, lod);
+
+          if (d < 0.0F) {
+            vdb_brick_set(&brick, lod, x, y, z);
+          }
+        }
+      }
+    }
+  }
+
+  {
+    int8_t lod = 3;
+
+    int32_t cell_count = vdb_brick_cell_count(lod);
+    int32_t cell_size = vdb_brick_cell_size(lod);
+
+    for (int32_t x = 0; x < cell_count; x++) {
+      for (int32_t y = 0; y < cell_count; y++) {
+        for (int32_t z = 0; z < cell_count; z++) {
+
+          float d = ((float)y + 0.5F) / cell_count;
+
+          if (d < 0.5F) {
+            vdb_brick_set(&brick, lod, x, y, z);
+          }
+        }
+      }
+    }
+  }
+
+  return brick;
 }
 vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t ray_direction, float max_distance) {
   vdb_hit_t hit = {0};
 
   vector3_t inv_direction = vector3_inv(ray_direction);
+  vector3_t prev_ray_origin = ray_origin;
 
-  int8_t lod = VDB_MAX_BRICK_LOD - 1;
+  int8_t lod = VDB_BRICK_MAX_LOD_LEVEL;
+  int32_t iter = 0;
 
   float t = 0.0F;
 
   while (t < max_distance) {
 
-    float cell_size = (float)(1 << lod);
+    int32_t cell_count = vdb_brick_cell_count(lod);
+    int32_t cell_size = vdb_brick_cell_size(lod);
 
     int32_t vx = (int32_t)floorf(ray_origin.x / cell_size);
     int32_t vy = (int32_t)floorf(ray_origin.y / cell_size);
     int32_t vz = (int32_t)floorf(ray_origin.z / cell_size);
 
-    if (vx < 0 || vy < 0 || vz < 0 ||
-        vx >= brick->grid_size ||
-        vy >= brick->grid_size ||
-        vz >= brick->grid_size) {
+    if (vx < 0 || vy < 0 || vz < 0 || vx >= cell_count || vy >= cell_count || vz >= cell_count) {
 
-      break;
+      // break;
     }
 
-    int32_t v = vdb_brick_get(brick, vx, vy, vz);
+    iter++;
+
+    int8_t v = vdb_brick_get(brick, lod, vx, vy, vz);
 
     if (v == 0) {
 
       vector3_t next_boundary = {
-        (vx + (ray_direction.x > 0.0F)) * cell_size,
-        (vy + (ray_direction.y > 0.0F)) * cell_size,
-        (vz + (ray_direction.z > 0.0F)) * cell_size,
+        ((float)vx + (ray_direction.x > 0.0F)) * cell_size,
+        ((float)vy + (ray_direction.y > 0.0F)) * cell_size,
+        ((float)vz + (ray_direction.z > 0.0F)) * cell_size,
       };
 
       float tx = (next_boundary.x - ray_origin.x) * inv_direction.x;
@@ -164,6 +273,13 @@ vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t
       ray_origin.x += ray_direction.x * (step_t + EPSILON_4);
       ray_origin.y += ray_direction.y * (step_t + EPSILON_4);
       ray_origin.z += ray_direction.z * (step_t + EPSILON_4);
+
+      renderer_draw_debug_line(
+        prev_ray_origin,
+        ray_origin,
+        (vector4_t){brick->colors[iter], brick->colors[iter + 3], brick->colors[iter + 6], 1.0F});
+
+      prev_ray_origin = ray_origin;
 
       continue;
     }
@@ -184,29 +300,36 @@ vdb_hit_t vdb_brick_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t
 
   return hit;
 }
-void vdb_brick_debug(vdb_brick_t *brick, ivector3_t position) {
-  for (int32_t x = 0; x < brick->grid_size; x++) {
-    for (int32_t y = 0; y < brick->grid_size; y++) {
-      for (int32_t z = 0; z < brick->grid_size; z++) {
+void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position) {
+  int32_t cell_count = vdb_brick_cell_count(lod);
+  int32_t cell_size = vdb_brick_cell_size(lod);
 
-        renderer_draw_debug_box(
-          (vector3_t){(float)(position.x + x), (float)(position.y + y), (float)(position.z + z)},
-          (vector3_t){1.0F, 1.0F, 1.0F},
-          (vector4_t){1.0F, 1.0F, 0.0F, 1.0F});
+  for (int32_t x = 0; x < cell_count; x++) {
+    for (int32_t y = 0; y < cell_count; y++) {
+      for (int32_t z = 0; z < cell_count; z++) {
+
+        int8_t v = vdb_brick_get(brick, lod, x, y, z);
+
+        if (v) {
+
+          ivector3_t cell_position = ivector3_add(ivector3_muls((ivector3_t){x, y, z}, cell_size), brick_position);
+
+          renderer_draw_debug_box(
+            (vector3_t){(float)cell_position.x, (float)cell_position.y, (float)cell_position.z},
+            (vector3_t){(float)cell_size, (float)cell_size, (float)cell_size},
+            (vector4_t){brick->colors[lod + 1], brick->colors[lod + 2 * 3], brick->colors[lod + 3 * 6], 0.2F});
+        }
       }
     }
   }
 }
 void vdb_brick_destroy(vdb_brick_t *brick) {
-  // TODO
+  HEAP_FREE(brick->colors);
 }
 
-static void vdb_expand(vdb_t *vdb) {
-  // int32_t next_table_size = (int32_t)ceilf((float)vdb->table_size * VDB_EXPANSION_FACTOR);
-  int32_t next_table_count = (int32_t)ceilf((float)vdb->table_count * VDB_EXPANSION_FACTOR);
+static void vdb_grow(vdb_t *vdb) {
+  int32_t next_table_count = (int32_t)ceilf((float)vdb->table_count * VDB_GROWTH_FACTOR);
   int32_t next_table_size = next_table_count * sizeof(vdb_record_t *);
-
-  // next_table_size = ALIGN_UP_BY(next_table_size, 8 * sizeof(vdb_record_t *));
 
   vdb_record_t **table = (vdb_record_t **)HEAP_ALLOC(next_table_size, 1, 0);
 
@@ -219,12 +342,14 @@ static void vdb_expand(vdb_t *vdb) {
 
     while (record) {
 
+      vdb_record_t *next = record->next;
+
       int32_t position_hash = vdb_position_hash(record->position, next_table_count);
 
       record->next = table[position_hash];
       table[position_hash] = record;
 
-      record = record->next;
+      record = next;
     }
 
     table_index++;
@@ -238,6 +363,23 @@ static void vdb_expand(vdb_t *vdb) {
 }
 static float vdb_load_factor(vdb_t *vdb) {
   return (((float)vdb->record_count + 1.0F) / (float)vdb->table_count) * 100.0F;
+}
+
+static float vdb_dummy_surface_density(ivector3_t position, int8_t lod) {
+  int32_t cell_count = vdb_brick_cell_count(lod);
+  int32_t cell_size = vdb_brick_cell_size(lod);
+
+  float fx = ((float)position.x + 0.5F) / cell_count * 2.0F - 1.0F;
+  float fy = ((float)position.y + 0.5F) / cell_count * 2.0F - 1.0F;
+  float fz = ((float)position.z + 0.5F) / cell_count * 2.0F - 1.0F;
+
+  float nx = 0.7071F;
+  float ny = 0.4082F;
+  float nz = 0.5773F;
+
+  float density = fx * nx + fy * ny + fz * nz;
+
+  return density;
 }
 
 static int32_t vdb_position_hash(ivector3_t position, int32_t modulus) {
