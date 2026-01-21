@@ -3,8 +3,6 @@
 static void vdb_grow(vdb_t *vdb);
 static float vdb_load_factor(vdb_t *vdb);
 
-static float vdb_dummy_surface_density(ivector3_t position, int32_t cell_count);
-
 static int32_t vdb_position_hash(ivector3_t position, int32_t modulus);
 
 vdb_t vdb_create(void) {
@@ -82,43 +80,6 @@ void vdb_remove(vdb_t *vdb, ivector3_t position) {
     curr_record = curr_record->next;
   }
 }
-void vdb_draw(vdb_t *vdb, vector3_t ray_origin, vector3_t ray_direction) {
-  int32_t table_index = 0;
-  int32_t table_count = vdb->table_count;
-
-  while (table_index < table_count) {
-
-    vdb_record_t *record = vdb->table[table_index];
-
-    while (record) {
-
-      vdb_brick_t *brick = &record->brick;
-
-      vdb_brick_draw(brick, 0, record->position, 0.2F);
-      // vdb_brick_draw(brick, 1, record->position, 0.2F);
-      // vdb_brick_draw(brick, 2, record->position, 0.2F);
-      // vdb_brick_draw(brick, 3, record->position, 0.2F);
-      // vdb_brick_draw(brick, 4, record->position, 0.2F);
-      // vdb_brick_draw(brick, 5, record->position, 0.2F);
-      // vdb_brick_draw(brick, 6, record->position, 0.2F);
-
-      vdb_brick_hdda_raymarch(brick, ray_origin, ray_direction, 1000.0F);
-
-      // TODO: remove this
-      for (float i = 0.0F; i < 48.0F; i += 0.2F) {
-
-        vector3_t ray_orig = {i - 8.0F, i / 2.0F, -10.0F};
-        vector3_t ray_dir = {0.5F, 0.0F, 0.8F};
-
-        // vdb_brick_hdda_raymarch(brick, ray_orig, ray_dir, 1000.0F);
-      }
-
-      record = record->next;
-    }
-
-    table_index++;
-  }
-}
 void vdb_destroy(vdb_t *vdb) {
   int32_t table_index = 0;
   int32_t table_count = vdb->table_count;
@@ -143,12 +104,6 @@ void vdb_destroy(vdb_t *vdb) {
 }
 
 vdb_brick_t vdb_brick_create(void) {
-  float *colors = (float *)HEAP_ALLOC(sizeof(float) * 10000, 1, 0);
-
-  for (int i = 0; i < 1000; i++) {
-    colors[i] = (float)rand() / (float)RAND_MAX;
-  }
-
   int32_t lod6_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD6 * VDB_BRICK_CELL_COUNT_LOD6 * VDB_BRICK_CELL_COUNT_LOD6) / 0x40);
   int32_t lod5_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD5 * VDB_BRICK_CELL_COUNT_LOD5 * VDB_BRICK_CELL_COUNT_LOD5) / 0x40);
   int32_t lod4_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD4 * VDB_BRICK_CELL_COUNT_LOD4 * VDB_BRICK_CELL_COUNT_LOD4) / 0x40);
@@ -157,41 +112,17 @@ vdb_brick_t vdb_brick_create(void) {
   int32_t lod1_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD1 * VDB_BRICK_CELL_COUNT_LOD1 * VDB_BRICK_CELL_COUNT_LOD1) / 0x40);
   int32_t lod0_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD0 * VDB_BRICK_CELL_COUNT_LOD0 * VDB_BRICK_CELL_COUNT_LOD0) / 0x40);
 
-  vdb_brick_t brick = {0};
-  brick.colors = colors;
-  brick.box_min = (ivector3_t){0, 0, 0};
-  brick.box_max = (ivector3_t){64, 64, 64};
-  brick.mask_lod6 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod6_words, 1, 0);
-  brick.mask_lod5 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod5_words, 1, 0);
-  brick.mask_lod4 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod4_words, 1, 0);
-  brick.mask_lod3 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod3_words, 1, 0);
-  brick.mask_lod2 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod2_words, 1, 0);
-  brick.mask_lod1 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod1_words, 1, 0);
-  brick.mask_lod0 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod0_words, 1, 0);
-
-  int32_t cell_count = vdb_brick_cell_count(0);
-  int32_t cell_size = vdb_brick_cell_size(0);
-
-  for (int32_t x = 0; x < cell_count; x++) {
-    for (int32_t y = 0; y < cell_count; y++) {
-      for (int32_t z = 0; z < cell_count; z++) {
-
-        // float d = ((float)y + 0.5F) / cell_count;
-        float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, 64);
-
-        if (d < 0.0F) {
-          vdb_brick_set(&brick, 0, x, y, z);
-        }
-      }
-    }
-  }
-
-  vdb_brick_build_lod(&brick, 1);
-  vdb_brick_build_lod(&brick, 2);
-  vdb_brick_build_lod(&brick, 3);
-  vdb_brick_build_lod(&brick, 4);
-  vdb_brick_build_lod(&brick, 5);
-  vdb_brick_build_lod(&brick, 6);
+  vdb_brick_t brick = {
+    .box_min = (ivector3_t){0, 0, 0},
+    .box_max = (ivector3_t){VDB_BRICK_SIZE, VDB_BRICK_SIZE, VDB_BRICK_SIZE},
+    .mask_lod6 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod6_words, 1, 0),
+    .mask_lod5 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod5_words, 1, 0),
+    .mask_lod4 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod4_words, 1, 0),
+    .mask_lod3 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod3_words, 1, 0),
+    .mask_lod2 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod2_words, 1, 0),
+    .mask_lod1 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod1_words, 1, 0),
+    .mask_lod0 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod0_words, 1, 0),
+  };
 
   return brick;
 }
@@ -333,13 +264,6 @@ vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vect
       hit.hit = 1;
       hit.position = (ivector3_t){vx, vy, vz};
 
-      vector3_t min = {(float)vx, (float)vy, (float)vz};
-      vector3_t max = {1.0F, 1.0F, 1.0F};
-
-      renderer_draw_debug_box(
-        min, max,
-        (vector4_t){0.0F, 1.0F, 0.0F, 1.0F});
-
       return hit;
     }
 
@@ -368,29 +292,14 @@ vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vect
 
   return hit;
 }
-void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position, float alpha) {
-  int32_t cell_count = vdb_brick_cell_count(lod);
-  int32_t cell_size = vdb_brick_cell_size(lod);
-
-  for (int32_t x = 0; x < cell_count; x++) {
-    for (int32_t y = 0; y < cell_count; y++) {
-      for (int32_t z = 0; z < cell_count; z++) {
-
-        if (vdb_brick_get(brick, lod, x, y, z)) {
-
-          ivector3_t cell_position = ivector3_add(ivector3_muls((ivector3_t){x, y, z}, cell_size), brick_position);
-
-          renderer_draw_debug_box(
-            (vector3_t){(float)cell_position.x, (float)cell_position.y, (float)cell_position.z},
-            (vector3_t){(float)cell_size, (float)cell_size, (float)cell_size},
-            (vector4_t){brick->colors[lod + 1], brick->colors[lod + 2 * 3], brick->colors[lod + 3 * 6], alpha});
-        }
-      }
-    }
-  }
-}
 void vdb_brick_destroy(vdb_brick_t *brick) {
-  HEAP_FREE(brick->colors);
+  HEAP_FREE(brick->mask_lod6);
+  HEAP_FREE(brick->mask_lod5);
+  HEAP_FREE(brick->mask_lod4);
+  HEAP_FREE(brick->mask_lod3);
+  HEAP_FREE(brick->mask_lod2);
+  HEAP_FREE(brick->mask_lod1);
+  HEAP_FREE(brick->mask_lod0);
 }
 
 static void vdb_grow(vdb_t *vdb) {
@@ -429,20 +338,6 @@ static void vdb_grow(vdb_t *vdb) {
 }
 static float vdb_load_factor(vdb_t *vdb) {
   return (((float)vdb->record_count + 1.0F) / (float)vdb->table_count) * 100.0F;
-}
-
-static float vdb_dummy_surface_density(ivector3_t position, int32_t cell_count) {
-  float fx = ((float)position.x + 0.5F) / cell_count * 2.0F - 1.0F;
-  float fy = ((float)position.y + 0.5F) / cell_count * 2.0F - 1.0F;
-  float fz = ((float)position.z + 0.5F) / cell_count * 2.0F - 1.0F;
-
-  float nx = 0.7071F;
-  float ny = 0.4082F;
-  float nz = 0.5773F;
-
-  float density = fx * nx + fy * ny + fz * nz;
-
-  return density;
 }
 
 static int32_t vdb_position_hash(ivector3_t position, int32_t modulus) {

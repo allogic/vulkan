@@ -174,8 +174,6 @@ void window_run(void) {
       (vector3_t){0.0F, 0.0F, 1.0F},
       (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
 
-    vdb_draw(&vdb, ray_origin, ray_direction);
-
     player_update(&player);
 
     if (window_is_keyboard_key_held(KEYBOARD_KEY_SPACE)) {
