@@ -40,6 +40,7 @@ void vdb_draw(vdb_t *vdb, vector3_t ray_origin, vector3_t ray_direction);
 void vdb_destroy(vdb_t *vdb);
 
 vdb_brick_t vdb_brick_create(void);
+void vdb_brick_build_lod(vdb_brick_t *brick, int8_t lod);
 vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vector3_t ray_direction, float max_distance);
 void vdb_brick_draw(vdb_brick_t *brick, int8_t lod, ivector3_t brick_position, float alpha);
 void vdb_brick_destroy(vdb_brick_t *brick);
