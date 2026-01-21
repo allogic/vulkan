@@ -10,10 +10,13 @@ typedef struct vdb_brick_t {
   float *colors;
   ivector3_t box_min;
   ivector3_t box_max;
-  uint64_t mask_lod3[VDB_BRICK_WORDS_LOD3];
-  uint64_t mask_lod2[VDB_BRICK_WORDS_LOD2];
-  uint64_t mask_lod1[VDB_BRICK_WORDS_LOD1];
-  uint64_t mask_lod0[VDB_BRICK_WORDS_LOD0];
+  uint64_t *mask_lod6;
+  uint64_t *mask_lod5;
+  uint64_t *mask_lod4;
+  uint64_t *mask_lod3;
+  uint64_t *mask_lod2;
+  uint64_t *mask_lod1;
+  uint64_t *mask_lod0;
 } vdb_brick_t;
 
 typedef struct vdb_record_t {

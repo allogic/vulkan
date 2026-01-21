@@ -94,10 +94,13 @@ void vdb_draw(vdb_t *vdb, vector3_t ray_origin, vector3_t ray_direction) {
 
       vdb_brick_t *brick = &record->brick;
 
-      vdb_brick_draw(brick, 0, record->position, 0.1F);
-      // vdb_brick_draw(brick, 1, record->position, 0.1F);
-      // vdb_brick_draw(brick, 2, record->position, 0.15F);
-      vdb_brick_draw(brick, 3, record->position, 0.2F);
+      vdb_brick_draw(brick, 0, record->position, 0.2F);
+      // vdb_brick_draw(brick, 1, record->position, 0.2F);
+      // vdb_brick_draw(brick, 2, record->position, 0.2F);
+      // vdb_brick_draw(brick, 3, record->position, 0.2F);
+      // vdb_brick_draw(brick, 4, record->position, 0.2F);
+      // vdb_brick_draw(brick, 5, record->position, 0.2F);
+      // vdb_brick_draw(brick, 6, record->position, 0.2F);
 
       vdb_brick_hdda_raymarch(brick, ray_origin, ray_direction, 1000.0F);
 
@@ -146,10 +149,25 @@ vdb_brick_t vdb_brick_create(void) {
     colors[i] = (float)rand() / (float)RAND_MAX;
   }
 
+  int32_t lod6_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD6 * VDB_BRICK_CELL_COUNT_LOD6 * VDB_BRICK_CELL_COUNT_LOD6) / 0x40);
+  int32_t lod5_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD5 * VDB_BRICK_CELL_COUNT_LOD5 * VDB_BRICK_CELL_COUNT_LOD5) / 0x40);
+  int32_t lod4_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD4 * VDB_BRICK_CELL_COUNT_LOD4 * VDB_BRICK_CELL_COUNT_LOD4) / 0x40);
+  int32_t lod3_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD3 * VDB_BRICK_CELL_COUNT_LOD3 * VDB_BRICK_CELL_COUNT_LOD3) / 0x40);
+  int32_t lod2_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD2 * VDB_BRICK_CELL_COUNT_LOD2 * VDB_BRICK_CELL_COUNT_LOD2) / 0x40);
+  int32_t lod1_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD1 * VDB_BRICK_CELL_COUNT_LOD1 * VDB_BRICK_CELL_COUNT_LOD1) / 0x40);
+  int32_t lod0_words = (int32_t)ceilf((VDB_BRICK_CELL_COUNT_LOD0 * VDB_BRICK_CELL_COUNT_LOD0 * VDB_BRICK_CELL_COUNT_LOD0) / 0x40);
+
   vdb_brick_t brick = {0};
   brick.colors = colors;
   brick.box_min = (ivector3_t){0, 0, 0};
-  brick.box_max = (ivector3_t){32, 32, 32};
+  brick.box_max = (ivector3_t){64, 64, 64};
+  brick.mask_lod6 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod6_words, 1, 0);
+  brick.mask_lod5 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod5_words, 1, 0);
+  brick.mask_lod4 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod4_words, 1, 0);
+  brick.mask_lod3 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod3_words, 1, 0);
+  brick.mask_lod2 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod2_words, 1, 0);
+  brick.mask_lod1 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod1_words, 1, 0);
+  brick.mask_lod0 = (uint64_t *)HEAP_ALLOC(sizeof(uint64_t) * lod0_words, 1, 0);
 
   int32_t cell_count = vdb_brick_cell_count(0);
   int32_t cell_size = vdb_brick_cell_size(0);
@@ -159,7 +177,7 @@ vdb_brick_t vdb_brick_create(void) {
       for (int32_t z = 0; z < cell_count; z++) {
 
         // float d = ((float)y + 0.5F) / cell_count;
-        float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, 32);
+        float d = vdb_dummy_surface_density((ivector3_t){x, y, z}, 64);
 
         if (d < 0.0F) {
           vdb_brick_set(&brick, 0, x, y, z);
@@ -171,6 +189,9 @@ vdb_brick_t vdb_brick_create(void) {
   vdb_brick_build_lod(&brick, 1);
   vdb_brick_build_lod(&brick, 2);
   vdb_brick_build_lod(&brick, 3);
+  vdb_brick_build_lod(&brick, 4);
+  vdb_brick_build_lod(&brick, 5);
+  vdb_brick_build_lod(&brick, 6);
 
   return brick;
 }
@@ -239,9 +260,9 @@ vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vect
 
   ray_origin = vector3_add(ray_origin, vector3_muls(ray_direction, t0));
 
-  int32_t vx = (int32_t)((ray_origin.x - (ray_direction.x < 0.0F ? EPSILON_6 : 0.0F)) / cell_size);
-  int32_t vy = (int32_t)((ray_origin.y - (ray_direction.y < 0.0F ? EPSILON_6 : 0.0F)) / cell_size);
-  int32_t vz = (int32_t)((ray_origin.z - (ray_direction.z < 0.0F ? EPSILON_6 : 0.0F)) / cell_size);
+  int32_t vx = (int32_t)((ray_origin.x - (ray_direction.x < 0.0F ? EPSILON_4 : 0.0F)) / cell_size);
+  int32_t vy = (int32_t)((ray_origin.y - (ray_direction.y < 0.0F ? EPSILON_4 : 0.0F)) / cell_size);
+  int32_t vz = (int32_t)((ray_origin.z - (ray_direction.z < 0.0F ? EPSILON_4 : 0.0F)) / cell_size);
 
   int32_t step_x = signum(ray_direction.x);
   int32_t step_y = signum(ray_direction.y);
@@ -278,9 +299,9 @@ vdb_hit_t vdb_brick_hdda_raymarch(vdb_brick_t *brick, vector3_t ray_origin, vect
       cell_size = (float)vdb_brick_cell_size(lod);
       cell_count = vdb_brick_cell_count(lod);
 
-      vx = (int32_t)((ray_origin.x - (ray_direction.x < 0.0F ? EPSILON_6 : 0.0F)) / cell_size);
-      vy = (int32_t)((ray_origin.y - (ray_direction.y < 0.0F ? EPSILON_6 : 0.0F)) / cell_size);
-      vz = (int32_t)((ray_origin.z - (ray_direction.z < 0.0F ? EPSILON_6 : 0.0F)) / cell_size);
+      vx = (int32_t)((ray_origin.x - (ray_direction.x < 0.0F ? EPSILON_4 : 0.0F)) / cell_size);
+      vy = (int32_t)((ray_origin.y - (ray_direction.y < 0.0F ? EPSILON_4 : 0.0F)) / cell_size);
+      vz = (int32_t)((ray_origin.z - (ray_direction.z < 0.0F ? EPSILON_4 : 0.0F)) / cell_size);
 
       step_x = signum(ray_direction.x);
       step_y = signum(ray_direction.y);
