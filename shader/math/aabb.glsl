@@ -7,7 +7,7 @@ bool ray_aabb_intersect(vec3 ray_origin, vec3 ray_direction, vec3 box_min, vec3 
   float t_min = -FLT_MAX;
   float t_max = FLT_MAX;
 
-  if (abs(ray_direction.x) < EPSILON_8) {
+  if (abs(ray_direction.x) < EPSILON_4) {
 
     if (ray_origin.x < box_min.x || ray_origin.x > box_max.x) {
       return false;
@@ -38,7 +38,7 @@ bool ray_aabb_intersect(vec3 ray_origin, vec3 ray_direction, vec3 box_min, vec3 
     }
   }
 
-  if (abs(ray_direction.y) < EPSILON_8) {
+  if (abs(ray_direction.y) < EPSILON_4) {
 
     if (ray_origin.y < box_min.y || ray_origin.y > box_max.y) {
       return false;
@@ -69,7 +69,7 @@ bool ray_aabb_intersect(vec3 ray_origin, vec3 ray_direction, vec3 box_min, vec3 
     }
   }
 
-  if (abs(ray_direction.z) < EPSILON_8) {
+  if (abs(ray_direction.z) < EPSILON_4) {
 
     if (ray_origin.z < box_min.z || ray_origin.z > box_max.z) {
       return false;

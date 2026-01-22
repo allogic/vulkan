@@ -126,11 +126,11 @@ void vdb_destroy(vdb_t *vdb) {
 vdb_brick_t vdb_brick_create(void) {
   uint64_t mask_buffer_size_lod6 = 1;
   uint64_t mask_buffer_size_lod5 = 1;
-  uint64_t mask_buffer_size_lod4 = 1;
-  uint64_t mask_buffer_size_lod3 = 8;
-  uint64_t mask_buffer_size_lod2 = 64;
-  uint64_t mask_buffer_size_lod1 = 512;
-  uint64_t mask_buffer_size_lod0 = 4096;
+  uint64_t mask_buffer_size_lod4 = 2;
+  uint64_t mask_buffer_size_lod3 = 16;
+  uint64_t mask_buffer_size_lod2 = 128;
+  uint64_t mask_buffer_size_lod1 = 1024;
+  uint64_t mask_buffer_size_lod0 = 8192;
 
   uint64_t mask_buffer_size =
     mask_buffer_size_lod6 +
@@ -142,7 +142,7 @@ vdb_brick_t vdb_brick_create(void) {
     mask_buffer_size_lod0;
 
   return (vdb_brick_t){
-    .mask_buffer = buffer_create_storage(0, sizeof(uint64_t) * mask_buffer_size),
+    .mask_buffer = buffer_create_storage(0, sizeof(uint32_t) * mask_buffer_size),
   };
 }
 void vdb_brick_destroy(vdb_brick_t *brick) {

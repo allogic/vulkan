@@ -2,7 +2,6 @@
 
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_nonuniform_qualifier : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 #include "../math/aabb.glsl"
 
@@ -22,18 +21,22 @@ layout (binding = 1) uniform screen_info_t {
 } screen_info;
 
 layout (binding = 2) buffer vdb_brick_t {
-	uint64_t mask_buffer[];
+	uint mask_buffer[];
 } vdb_brick;
 
 #include "vdb.glsl"
 
 void main() {
-	vec2 ndc = (2.0 * gl_FragCoord.xy / screen_info.resolution) - vec2(1.0);
+	vec2 frag_uv = (gl_FragCoord.xy + 0.5) / screen_info.resolution;
+	vec2 ndc = frag_uv * 2.0 - 1.0;
 
+	vec4 position = camera_info.view_projection_inv * vec4(ndc, 1.0, 1.0);
+
+	vec3 world_position = position.xyz / position.w;
 	vec3 ray_origin = camera_info.position;
-	vec3 ray_direction = normalize(vec3(camera_info.view_projection_inv * vec4(ndc, 1.0, 1.0)));
-	vec3 box_min = vec3(0.0, 0.0, 0.0);
-	vec3 box_max = vec3(VDB_BRICK_SIZE, VDB_BRICK_SIZE, VDB_BRICK_SIZE);
+	vec3 ray_direction = normalize(world_position - ray_origin);
+	vec3 box_min = vec3(0.0);
+	vec3 box_max = vec3(VDB_BRICK_BASE_RES);
 
 	float t_enter = 0.0;
 	float t_exit = 0.0;

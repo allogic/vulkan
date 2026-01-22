@@ -218,13 +218,44 @@ void renderer_draw(transform_t *transform, camera_t *camera) {
   VK_CHECK(vkBeginCommandBuffer(g_renderer.command_buffer[g_renderer.frame_index], &command_buffer_begin_info));
 
   renderer_record_compute_commands();
+
+  for (int32_t x = 0; x < 1; x++) {
+    for (int32_t y = 0; y < 1; y++) {
+      for (int32_t z = 0; z < 1; z++) {
+
+        vdb_brick_t *brick = vdb_brick(&g_renderer.vdb[g_renderer.frame_index], (ivector3_t){x, y, z});
+
+        VkBufferMemoryBarrier buffer_memory_barrier = {
+          .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+          .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+          .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .buffer = brick->mask_buffer.handle,
+          .offset = 0,
+          .size = VK_WHOLE_SIZE,
+        };
+
+        vkCmdPipelineBarrier(
+          g_renderer.command_buffer[g_renderer.frame_index],
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+          0,
+          0,
+          NULL,
+          1,
+          &buffer_memory_barrier,
+          0,
+          NULL);
+      }
+    }
+  }
+
   renderer_record_graphics_commands();
 
   VK_CHECK(vkEndCommandBuffer(g_renderer.command_buffer[g_renderer.frame_index]));
 
-  // TODO: re-validate VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
   VkPipelineStageFlags graphics_wait_stages[] = {
-    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
   };
 
