@@ -3,11 +3,11 @@
 
 #include "../math/constants.glsl"
 
-#define VDB_BRICK_MAX_LOD_LEVEL (0x6)
-#define VDB_BRICK_BASE_RES (0x40)
+#define VDB_MAX_LOD_LEVEL (0x6)
+#define VDB_BASE_RES (0x40)
 #define VDB_BITS_PER_WORD (0x20)
 
-const int vdb_brick_word_offset[7] = int[7](
+const int vdb_word_offset[7] = int[7](
   0,
   8192,
   8192 + 1024,
@@ -22,135 +22,60 @@ struct vdb_hit_t {
   ivec3 position;
 };
 
-int vdb_brick_voxels_per_axis(int lod) {
-  return VDB_BRICK_BASE_RES >> lod;
+int vdb_voxels_per_axis(int lod) {
+  return VDB_BASE_RES >> lod;
 }
-int vdb_brick_total_voxel_count(int lod) {
-  int n = vdb_brick_voxels_per_axis(lod);
+int vdb_total_voxel_count(int lod) {
+  int n = vdb_voxels_per_axis(lod);
 
   return n * n * n;
 }
-int vdb_brick_word_count(int lod) {
-  int n = vdb_brick_total_voxel_count(lod);
+int vdb_word_count(int lod) {
+  int n = vdb_total_voxel_count(lod);
 
   return (n + (VDB_BITS_PER_WORD - 1)) >> 5;
 }
-int vdb_brick_voxel_index(int lod, int x, int y, int z) {
-  int n = vdb_brick_voxels_per_axis(lod);
+int vdb_voxel_index(int lod, int x, int y, int z) {
+  int n = vdb_voxels_per_axis(lod);
 
   return x + y * n + z * n * n;
 }
-int vdb_brick_voxel_size(int lod) {
+int vdb_voxel_size(int lod) {
   return 1 << lod;
 }
 
-uint vdb_brick_word_index(int voxel_index) {
+uint vdb_word_index(int voxel_index) {
   return voxel_index >> 5;
 }
-uint vdb_brick_bit_mask(int voxel_index) {
+uint vdb_bit_mask(int voxel_index) {
   return 1u << (voxel_index & 31);
 }
 
-bool vdb_brick_voxel_is_solid(int lod, int x, int y, int z) {
-  int i = vdb_brick_voxel_index(lod, x, y, z);
+bool vdb_voxel_is_solid(int lod, int x, int y, int z) {
+  int i = vdb_voxel_index(lod, x, y, z);
 
-  uint word = vdb_brick_word_offset[lod] + vdb_brick_word_index(i);
-  uint bit = vdb_brick_bit_mask(i);
+  uint word = vdb_word_offset[lod] + vdb_word_index(i);
+  uint bit = vdb_bit_mask(i);
 
   return (vdb_brick.mask_buffer[word] & bit) != 0u;
 }
 
-void vdb_brick_set(int lod, int x, int y, int z) {
-  int i = vdb_brick_voxel_index(lod, x, y, z);
+void vdb_voxel_set(int lod, int x, int y, int z) {
+  int i = vdb_voxel_index(lod, x, y, z);
 
-  uint word = vdb_brick_word_offset[lod] + vdb_brick_word_index(i);
-  uint bit = vdb_brick_bit_mask(i);
+  uint word = vdb_word_offset[lod] + vdb_word_index(i);
+  uint bit = vdb_bit_mask(i);
 
   atomicOr(vdb_brick.mask_buffer[word], bit);
 }
-void vdb_brick_clr(int lod, int x, int y, int z) {
-  int i = vdb_brick_voxel_index(lod, x, y, z);
+void vdb_voxel_clr(int lod, int x, int y, int z) {
+  int i = vdb_voxel_index(lod, x, y, z);
 
-  uint word = vdb_brick_word_offset[lod] + vdb_brick_word_index(i);
-  uint bit = ~vdb_brick_bit_mask(i);
+  uint word = vdb_word_offset[lod] + vdb_word_index(i);
+  uint bit = ~vdb_bit_mask(i);
 
   atomicAnd(vdb_brick.mask_buffer[word], bit);
 }
-
-/*
-int vdb_brick_voxel_count(int lod) {
-  switch (lod) {
-    case 0: return VDB_BRICK_VOXEL_COUNT_LOD0;
-    case 1: return VDB_BRICK_VOXEL_COUNT_LOD1;
-    case 2: return VDB_BRICK_VOXEL_COUNT_LOD2;
-    case 3: return VDB_BRICK_VOXEL_COUNT_LOD3;
-    case 4: return VDB_BRICK_VOXEL_COUNT_LOD4;
-    case 5: return VDB_BRICK_VOXEL_COUNT_LOD5;
-    case 6: return VDB_BRICK_VOXEL_COUNT_LOD6;
-  }
-
-  return -1;
-}
-int vdb_brick_voxel_size(int lod) {
-  return 1 << lod;
-}
-int vdb_brick_voxel_index(int lod, int x, int y, int z) {
-  switch (lod) {
-    case 0: return x + (y << 6) + (z << 12);
-    case 1: return x + (y << 5) + (z << 10);
-    case 2: return x + (y << 4) + (z << 8);
-    case 3: return x + (y << 3) + (z << 6);
-    case 4: return x + (y << 2) + (z << 4);
-    case 5: return x + (y << 1) + (z << 2);
-    case 6: return 0;
-  }
-
-  return -1;
-}
-
-bool vdb_brick_voxel_is_solid(int lod, int x, int y, int z) {
-  int i = vdb_brick_voxel_index(lod, x, y, z);
-
-  switch (lod) {
-    case 0: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod0 + (i >> 5)] >> (i & 31)) & 1);
-    case 1: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod1 + (i >> 5)] >> (i & 31)) & 1);
-    case 2: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod2 + (i >> 5)] >> (i & 31)) & 1);
-    case 3: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod3 + (i >> 5)] >> (i & 31)) & 1);
-    case 4: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod4 + (i >> 5)] >> (i & 31)) & 1);
-    case 5: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod5           ] >>  i      ) & 1);
-    case 6: return bool((vdb_brick.mask_buffer[vdb_brick_mask_offset_lod6           ]            ) & 1);
-  }
-
-  return false;
-}
-
-void vdb_brick_set(int lod, int x, int y, int z) {
-  int i = vdb_brick_voxel_index(lod, x, y, z);
-
-  switch (lod) {
-    case 0: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod0 + (i >> 5)], (1u << (i & 31))); break;
-    case 1: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod1 + (i >> 5)], (1u << (i & 31))); break;
-    case 2: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod2 + (i >> 5)], (1u << (i & 31))); break;
-    case 3: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod3 + (i >> 5)], (1u << (i & 31))); break;
-    case 4: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod4 + (i >> 5)], (1u << (i & 31))); break;
-    case 5: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod5           ], (1u << (i & 31))); break;
-    case 6: atomicOr(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod6           ],  1u             ); break;
-  }
-}
-void vdb_brick_clr(int lod, int x, int y, int z) {
-  int i = vdb_brick_voxel_index(lod, x, y, z);
-
-  switch (lod) {
-    case 0: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod0 + (i >> 5)], ~(1u << (i & 31))); break;
-    case 1: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod1 + (i >> 5)], ~(1u << (i & 31))); break;
-    case 2: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod2 + (i >> 5)], ~(1u << (i & 31))); break;
-    case 3: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod3 + (i >> 5)], ~(1u << (i & 31))); break;
-    case 4: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod4 + (i >> 5)], ~(1u << (i & 31))); break;
-    case 5: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod5           ], ~(1u << (i & 31))); break;
-    case 6: atomicAnd(vdb_brick.mask_buffer[vdb_brick_mask_offset_lod6           ], ~(1u            )); break;
-  }
-}
-*/
 
 vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, float max_distance) {
   vdb_hit_t hit;
@@ -159,10 +84,10 @@ vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, float max_dista
   hit.position = ivec3(0);
 
   // TODO
-  int lod = 0; // VDB_BRICK_MAX_LOD_LEVEL;
+  int lod = 0; // VDB_MAX_LOD_LEVEL;
 
-  float voxel_size = float(vdb_brick_voxel_size(lod));
-  int voxel_count = vdb_brick_total_voxel_count(lod);
+  float voxel_size = float(vdb_voxel_size(lod));
+  int voxel_count = vdb_total_voxel_count(lod);
 
   int vx = int((ray_origin.x - (ray_direction.x < 0.0 ? EPSILON_4 : 0.0)) / voxel_size);
   int vy = int((ray_origin.y - (ray_direction.y < 0.0 ? EPSILON_4 : 0.0)) / voxel_size);
@@ -196,14 +121,14 @@ vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, float max_dista
       break;
     }
 
-    bool v = vdb_brick_voxel_is_solid(lod, vx, vy, vz);
+    bool v = vdb_voxel_is_solid(lod, vx, vy, vz);
 
     if (v && lod > 0) {
 
       lod--;
 
-      voxel_size = float(vdb_brick_voxel_size(lod));
-      voxel_count = vdb_brick_total_voxel_count(lod);
+      voxel_size = float(vdb_voxel_size(lod));
+      voxel_count = vdb_total_voxel_count(lod);
 
       vx = int(((ray_origin.x - (ray_direction.x < 0.0 ? EPSILON_4 : 0.0)) / voxel_size));
       vy = int(((ray_origin.y - (ray_direction.y < 0.0 ? EPSILON_4 : 0.0)) / voxel_size));

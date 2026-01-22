@@ -1362,7 +1362,7 @@ static void renderer_record_compute_commands(void) {
             .lod = 0,
           };
 
-          int32_t group_count = RENDERER_MAKE_GROUP_COUNT(VDB_BRICK_SIZE, 8);
+          int32_t group_count = RENDERER_MAKE_GROUP_COUNT(VDB_BASE_RES, 8);
 
           vkCmdPushConstants(g_renderer.command_buffer[g_renderer.frame_index], g_renderer.vdb_terrain_gen_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_terrain_gen_info_t), &vdb_terrain_gen_info);
           vkCmdDispatch(g_renderer.command_buffer[g_renderer.frame_index], group_count, group_count, group_count);

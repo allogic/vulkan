@@ -32,11 +32,11 @@ void main() {
 	ivec3 world_position = vdb_terrain_gen_info.position;
 	ivec3 local_position = ivec3(gl_GlobalInvocationID.xyz);
 
-	float density = vdb_dummy_surface_density(world_position + local_position, VDB_BRICK_BASE_RES);
+	float density = vdb_dummy_surface_density(world_position + local_position, VDB_BASE_RES);
 
 	if (density < 0.0) {
-		vdb_brick_set(0, local_position.x, local_position.y, local_position.z);
+		vdb_voxel_set(0, local_position.x, local_position.y, local_position.z);
 	} else {
-		vdb_brick_clr(0, local_position.x, local_position.y, local_position.z);
+		vdb_voxel_clr(0, local_position.x, local_position.y, local_position.z);
 	}
 }

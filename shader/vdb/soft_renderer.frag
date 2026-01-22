@@ -36,7 +36,7 @@ void main() {
 	vec3 ray_origin = camera_info.position;
 	vec3 ray_direction = normalize(world_position - ray_origin);
 	vec3 box_min = vec3(0.0);
-	vec3 box_max = vec3(VDB_BRICK_BASE_RES);
+	vec3 box_max = vec3(VDB_BASE_RES);
 
 	float t_enter = 0.0;
 	float t_exit = 0.0;
