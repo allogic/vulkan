@@ -1,11 +1,6 @@
 #ifndef VDB_H
 #define VDB_H
 
-typedef struct vdb_hit_t {
-  int8_t hit;
-  ivector3_t position;
-} vdb_hit_t;
-
 typedef struct vdb_brick_t {
   buffer_t mask_buffer;
 } vdb_brick_t;
