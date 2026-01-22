@@ -79,19 +79,6 @@ void window_run(void) {
   QueryPerformanceCounter(&g_window.time_prev);
 
   player_t player = player_create();
-  vdb_t vdb = vdb_create();
-
-  vector3_t ray_origin = vector3_zero();
-  vector3_t ray_direction = vector3_front();
-
-  for (int32_t x = 0; x < 1; x++) {
-    for (int32_t y = 0; y < 1; y++) {
-      for (int32_t z = 0; z < 1; z++) {
-
-        vdb_insert(&vdb, (ivector3_t){x, y, z});
-      }
-    }
-  }
 
   while (g_window.is_window_running) {
 
@@ -176,11 +163,6 @@ void window_run(void) {
 
     player_update(&player);
 
-    if (window_is_keyboard_key_held(KEYBOARD_KEY_SPACE)) {
-      ray_origin = player.transform.world_position;
-      ray_direction = transform_local_front(&player.transform);
-    }
-
     renderer_draw(&player.transform, &player.camera);
 
     QueryPerformanceCounter(&g_window.time_curr);
@@ -220,8 +202,6 @@ void window_run(void) {
       g_window.fps_counter = 0;
     }
   }
-
-  vdb_destroy(&vdb);
 }
 void window_destroy(void) {
   VK_CHECK(vkQueueWaitIdle(g_window.primary_queue));
@@ -613,6 +593,7 @@ static void window_find_physical_device(void) {
           g_window.physical_device_features.samplerAnisotropy) {
 
         g_window.physical_device = physical_device;
+        g_window.max_sampler_anisotropy = g_window.physical_device_properties.limits.maxSamplerAnisotropy;
 
         break;
       }

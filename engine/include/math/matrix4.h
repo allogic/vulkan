@@ -26,6 +26,6 @@ __forceinline void matrix4_print(matrix4_t a);
 }
 #endif // __cplusplus
 
-#include <matrix4.inl>
+#include <math/matrix4.inl>
 
 #endif // MATRIX4_H

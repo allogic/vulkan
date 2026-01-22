@@ -34,6 +34,6 @@ __forceinline void ivector3_print(ivector3_t a);
 }
 #endif // __cplusplus
 
-#include <ivector3.inl>
+#include <math/ivector3.inl>
 
 #endif // IVECTOR3_H

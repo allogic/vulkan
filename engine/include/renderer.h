@@ -10,19 +10,28 @@ typedef struct screen_info_t {
 } screen_info_t;
 typedef struct camera_info_t {
   vector3_t position;
-  int32_t reserved;
+  float max_ray_distance;
   matrix4_t view;
   matrix4_t projection;
   matrix4_t view_projection;
   matrix4_t view_projection_inv;
 } camera_info_t;
 
+typedef struct full_screen_vertex_t {
+  vector3_t position;
+} full_screen_vertex_t;
 typedef struct debug_line_vertex_t {
   vector3_t position;
   vector4_t color;
 } debug_line_vertex_t;
 
+typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
+
+typedef struct vdb_terrain_gen_info_t {
+  ivector3_t position;
+  int32_t lod;
+} vdb_terrain_gen_info_t;
 
 typedef struct renderer_t {
   int8_t is_dirty;
@@ -36,26 +45,29 @@ typedef struct renderer_t {
   VkSemaphore render_finished_semaphore[RENDERER_MAX_IMAGE_COUNT];
   VkSemaphore image_available_semaphore[RENDERER_MAX_FRAMES_IN_FLIGHT];
   VkFence frame_fence[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  VkDescriptorPool vdb_terrain_gen_descriptor_pool;
+  VkDescriptorPool vdb_soft_renderer_descriptor_pool;
   VkDescriptorPool debug_line_descriptor_pool;
+  VkDescriptorSetLayout vdb_terrain_gen_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_soft_renderer_descriptor_set_layout;
   VkDescriptorSetLayout debug_line_descriptor_set_layout;
+  VkDescriptorSet *vdb_terrain_gen_descriptor_set;
+  VkDescriptorSet *vdb_soft_renderer_descriptor_set;
   VkDescriptorSet *debug_line_descriptor_set;
+  VkPipelineLayout vdb_terrain_gen_pipeline_layout;
+  VkPipelineLayout vdb_soft_renderer_pipeline_layout;
   VkPipelineLayout debug_line_pipeline_layout;
+  VkPipeline vdb_terrain_gen_pipeline;
+  VkPipeline vdb_soft_renderer_pipeline;
   VkPipeline debug_line_pipeline;
-  VkBuffer time_info_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkBuffer screen_info_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkBuffer camera_info_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkBuffer debug_line_vertex_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkBuffer debug_line_index_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkDeviceMemory time_info_buffer_device_memory[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkDeviceMemory screen_info_buffer_device_memory[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkDeviceMemory camera_info_buffer_device_memory[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkDeviceMemory debug_line_vertex_buffer_device_memory[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  VkDeviceMemory debug_line_index_buffer_device_memory[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  debug_line_vertex_t *debug_line_vertex[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  debug_line_index_t *debug_line_index[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  time_info_t *time_info[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  screen_info_t *screen_info[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  camera_info_t *camera_info[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t time_info_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t screen_info_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t camera_info_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t debug_line_vertex_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t debug_line_index_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t full_screen_vertex_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  buffer_t full_screen_index_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  vdb_t vdb[RENDERER_MAX_FRAMES_IN_FLIGHT];
 } renderer_t;
 
 #ifdef __cplusplus

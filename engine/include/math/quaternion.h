@@ -36,6 +36,6 @@ __forceinline void quaternion_print(quaternion_t a);
 }
 #endif // __cplusplus
 
-#include <quaternion.inl>
+#include <math/quaternion.inl>
 
 #endif // QUATERNION_H

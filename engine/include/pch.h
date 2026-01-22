@@ -21,22 +21,24 @@
 #include <fwd.h>
 #include <cfg.h>
 
-#include <mutils.h>
-#include <vector2.h>
-#include <vector3.h>
-#include <vector4.h>
-#include <ivector2.h>
-#include <ivector3.h>
-#include <ivector4.h>
-#include <quaternion.h>
-#include <matrix4.h>
+#include <math/math.h>
+#include <math/vector2.h>
+#include <math/vector3.h>
+#include <math/vector4.h>
+#include <math/ivector2.h>
+#include <math/ivector3.h>
+#include <math/ivector4.h>
+#include <math/quaternion.h>
+#include <math/matrix4.h>
 
 #include <camera.h>
 #include <transform.h>
 
 #include <aabb.h>
+#include <buffer.h>
 #include <fsutils.h>
 #include <heap.h>
+#include <image.h>
 #include <vdb.h>
 #include <player.h>
 #include <renderer.h>

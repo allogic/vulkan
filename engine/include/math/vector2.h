@@ -34,6 +34,6 @@ __forceinline void vector2_print(vector2_t a);
 }
 #endif // __cplusplus
 
-#include <vector2.inl>
+#include <math/vector2.inl>
 
 #endif // VECTOR2_H

@@ -30,6 +30,6 @@ __forceinline void vector4_print(vector4_t a);
 }
 #endif // __cplusplus
 
-#include <vector4.inl>
+#include <math/vector4.inl>
 
 #endif // VECTOR4_H

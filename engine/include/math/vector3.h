@@ -38,6 +38,6 @@ __forceinline void vector3_print(vector3_t a);
 }
 #endif // __cplusplus
 
-#include <vector3.inl>
+#include <math/vector3.inl>
 
 #endif // VECTOR3_H

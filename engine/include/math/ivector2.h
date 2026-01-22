@@ -32,6 +32,6 @@ __forceinline void ivector2_print(ivector2_t a);
 }
 #endif // __cplusplus
 
-#include <ivector2.inl>
+#include <math/ivector2.inl>
 
 #endif // IVECTOR2_H

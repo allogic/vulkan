@@ -1,5 +1,5 @@
-#ifndef MUTILS_H
-#define MUTILS_H
+#ifndef MATH_H
+#define MATH_H
 
 #define PI_HALF ((float)1.57079632679489655800)
 #define PI ((float)3.14159265358979323846)
@@ -14,6 +14,7 @@
 #define EPSILON_6 ((float)1E-6)
 #define EPSILON_7 ((float)1E-7)
 #define EPSILON_8 ((float)1E-8)
+#define EPSILON_9 ((float)1E-9)
 
 #include <fwd.h>
 
@@ -33,6 +34,6 @@ __forceinline int32_t signum(float a);
 }
 #endif // __cplusplus
 
-#include <mutils.inl>
+#include <math/math.inl>
 
-#endif // MUTILS_H
+#endif // MATH_H

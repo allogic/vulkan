@@ -28,6 +28,6 @@ __forceinline void ivector4_print(ivector4_t a);
 }
 #endif // __cplusplus
 
-#include <ivector4.inl>
+#include <math/ivector4.inl>
 
 #endif // IVECTOR4_H

@@ -137,6 +137,7 @@ typedef struct window_t {
   float time;
   float delta_time;
   float elapsed_time_since_fps_count_update;
+  float max_sampler_anisotropy;
   int8_t is_window_running;
   int32_t window_width;
   int32_t window_height;
