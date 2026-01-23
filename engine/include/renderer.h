@@ -67,7 +67,7 @@ typedef struct renderer_t {
   buffer_t debug_line_index_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
   buffer_t full_screen_vertex_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
   buffer_t full_screen_index_buffer[RENDERER_MAX_FRAMES_IN_FLIGHT];
-  vdb_t vdb[RENDERER_MAX_FRAMES_IN_FLIGHT];
+  vdb_t vdb;
 } renderer_t;
 
 #ifdef __cplusplus

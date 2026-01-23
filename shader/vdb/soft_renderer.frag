@@ -36,7 +36,7 @@ void main() {
 	vec3 ray_origin = camera_info.position;
 	vec3 ray_direction = normalize(world_position - ray_origin);
 	vec3 box_min = vec3(0.0);
-	vec3 box_max = vec3(VDB_BASE_RES);
+	vec3 box_max = vec3(VDB_BASE_RES) - vec3(EPSILON_4);
 
 	float t_enter = 0.0;
 	float t_exit = 0.0;
@@ -51,7 +51,7 @@ void main() {
 		discard;
 	}
 
-	float t = max(t_enter, 0.0);
+	float t = max(t_enter, 0.0) + EPSILON_4;
 
 	if (t > camera_info.max_ray_distance) {
 		discard;
@@ -59,7 +59,7 @@ void main() {
 
 	float max_distance = min(t_exit - t, camera_info.max_ray_distance - t);
 
-	ray_origin = ray_origin + ray_direction * t;
+	ray_origin += ray_direction * t;
 
 	vdb_hit_t hit = vdb_hdda_raymarch(ray_origin, ray_direction, max_distance);
 
@@ -67,5 +67,15 @@ void main() {
 		discard;
 	}
 
-	output_color = vec4(1.0, 0.0, 0.0, 1.0);
+	if (hit.face_position.x < box_min.x || hit.face_position.y < box_min.y || hit.face_position.z < box_min.z ||
+		hit.face_position.x > box_max.x || hit.face_position.y > box_max.y || hit.face_position.z > box_max.z)
+	{
+		discard;
+	}
+
+	vec3 color = vec3(1.0);
+
+	//color *= hit.ao;
+
+	output_color = vec4(hit.uv, 0.0, 1.0);
 }

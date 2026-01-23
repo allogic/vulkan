@@ -35,8 +35,8 @@ void main() {
 	float density = vdb_dummy_surface_density(world_position + local_position, VDB_BASE_RES);
 
 	if (density < 0.0) {
-		vdb_voxel_set(0, local_position.x, local_position.y, local_position.z);
+		vdb_voxel_set(0, local_position);
 	} else {
-		vdb_voxel_clr(0, local_position.x, local_position.y, local_position.z);
+		vdb_voxel_clr(0, local_position);
 	}
 }

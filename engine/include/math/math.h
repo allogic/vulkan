@@ -30,6 +30,9 @@ __forceinline int32_t clampi(int32_t a, int32_t min, int32_t max);
 
 __forceinline int32_t signum(float a);
 
+__forceinline int32_t vec_to_index(ivector3_t position, ivector3_t size);
+__forceinline ivector3_t index_to_vec(int32_t index, ivector3_t size);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

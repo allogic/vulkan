@@ -1,102 +1,72 @@
 #include <pch.h>
 
+static void vdb_insert(vdb_t *vdb, ivector3_t position);
+static void vdb_remove(vdb_t *vdb, ivector3_t position);
 static void vdb_grow(vdb_t *vdb);
 static float vdb_load(vdb_t *vdb);
-static int32_t vdb_hash(ivector3_t position, int32_t modulus);
 
-vdb_t vdb_create(void) {
-  return (vdb_t){
-    .table = (vdb_record_t **)HEAP_ALLOC(VDB_INITIAL_TABLE_COUNT * sizeof(vdb_record_t *), 1, 0),
-    .table_size = VDB_INITIAL_TABLE_COUNT * sizeof(vdb_record_t *),
+static vdb_brick_t *vdb_brick_create(ivector3_t position);
+static void vdb_brick_debug(vdb_brick_t *brick);
+static void vdb_brick_destroy(vdb_brick_t *brick);
+
+static int32_t vdb_position_hash(ivector3_t position, int32_t modulus);
+
+vdb_t vdb_create(ivector3_t cluster_dim, float radius_lod0) {
+  vdb_t vdb = {
+    .table = (vdb_brick_t **)HEAP_ALLOC(VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t *), 1, 0),
+    .table_size = VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t *),
     .table_count = VDB_INITIAL_TABLE_COUNT,
-    .record_count = 0,
+    .brick_count = 0,
+    .cluster_dim = cluster_dim,
   };
-}
-void vdb_insert(vdb_t *vdb, ivector3_t position) {
-  float load_factor = vdb_load(vdb);
 
-  if (load_factor > VDB_LOAD_FACTOR) {
-    vdb_grow(vdb);
-  }
+  for (int32_t x = 0; x < cluster_dim.x; x++) {
+    for (int32_t y = 0; y < cluster_dim.y; y++) {
+      for (int32_t z = 0; z < cluster_dim.z; z++) {
 
-  int8_t position_exists = 0;
-  int32_t position_hash = vdb_hash(position, vdb->table_count);
-
-  vdb_record_t *record = vdb->table[position_hash];
-
-  while (record) {
-
-    if (record->position.x == position.x &&
-        record->position.y == position.y &&
-        record->position.z == position.z) {
-
-      position_exists = 1;
-
-      break;
-    }
-
-    record = record->next;
-  }
-
-  if (position_exists == 0) {
-
-    record = (vdb_record_t *)HEAP_ALLOC(sizeof(vdb_record_t), 1, 0);
-
-    record->next = vdb->table[position_hash];
-    record->position = position;
-    record->brick = vdb_brick_create();
-
-    vdb->table[position_hash] = record;
-    vdb->record_count++;
-  }
-}
-void vdb_remove(vdb_t *vdb, ivector3_t position) {
-  int32_t position_hash = vdb_hash(position, vdb->table_count);
-
-  vdb_record_t *curr_record = vdb->table[position_hash];
-  vdb_record_t *prev_record = 0;
-
-  while (curr_record) {
-
-    if (curr_record->position.x == position.x &&
-        curr_record->position.y == position.y &&
-        curr_record->position.z == position.z) {
-
-      if (prev_record) {
-        prev_record->next = curr_record->next;
-      } else {
-        vdb->table[position_hash] = curr_record->next;
+        vdb_insert(&vdb, (ivector3_t){x, y, z});
       }
-
-      HEAP_FREE(curr_record);
-
-      vdb->record_count--;
-
-      break;
     }
-
-    prev_record = curr_record;
-    curr_record = curr_record->next;
   }
+
+  return vdb;
 }
 vdb_brick_t *vdb_brick(vdb_t *vdb, ivector3_t position) {
-  int32_t position_hash = vdb_hash(position, vdb->table_count);
+  int32_t position_hash = vdb_position_hash(position, vdb->table_count);
 
-  vdb_record_t *record = vdb->table[position_hash];
+  vdb_brick_t *brick = vdb->table[position_hash];
 
-  while (record) {
+  while (brick) {
 
-    if (record->position.x == position.x &&
-        record->position.y == position.y &&
-        record->position.z == position.z) {
+    if (brick->position.x == position.x &&
+        brick->position.y == position.y &&
+        brick->position.z == position.z) {
 
-      return &record->brick;
+      return brick;
     }
 
-    record = record->next;
+    brick = brick->next;
   }
 
   return 0;
+}
+void vdb_debug(vdb_t *vdb) {
+  int32_t table_index = 0;
+  int32_t table_count = vdb->table_count;
+
+  while (table_index < table_count) {
+
+    vdb_brick_t *brick = vdb->table[table_index];
+
+    while (brick) {
+
+      vdb_brick_debug(brick);
+
+      brick = brick->next;
+    }
+
+    table_index++;
+  }
 }
 void vdb_destroy(vdb_t *vdb) {
   int32_t table_index = 0;
@@ -104,17 +74,15 @@ void vdb_destroy(vdb_t *vdb) {
 
   while (table_index < table_count) {
 
-    vdb_record_t *record = vdb->table[table_index];
+    vdb_brick_t *brick = vdb->table[table_index];
 
-    while (record) {
+    while (brick) {
 
-      vdb_record_t *next = record->next;
+      vdb_brick_t *next = brick->next;
 
-      vdb_brick_destroy(&record->brick);
+      vdb_brick_destroy(brick);
 
-      HEAP_FREE(record);
-
-      record = next;
+      brick = next;
     }
 
     table_index++;
@@ -123,7 +91,112 @@ void vdb_destroy(vdb_t *vdb) {
   HEAP_FREE(vdb->table);
 }
 
-vdb_brick_t vdb_brick_create(void) {
+static void vdb_insert(vdb_t *vdb, ivector3_t position) {
+  float load_factor = vdb_load(vdb);
+
+  if (load_factor > VDB_LOAD_FACTOR) {
+    vdb_grow(vdb);
+  }
+
+  int8_t position_exists = 0;
+  int32_t position_hash = vdb_position_hash(position, vdb->table_count);
+
+  vdb_brick_t *brick = vdb->table[position_hash];
+
+  while (brick) {
+
+    if (brick->position.x == position.x &&
+        brick->position.y == position.y &&
+        brick->position.z == position.z) {
+
+      position_exists = 1;
+
+      break;
+    }
+
+    brick = brick->next;
+  }
+
+  if (position_exists == 0) {
+
+    brick = vdb_brick_create(position);
+
+    brick->next = vdb->table[position_hash];
+
+    vdb->table[position_hash] = brick;
+    vdb->brick_count++;
+  }
+}
+static void vdb_remove(vdb_t *vdb, ivector3_t position) {
+  int32_t position_hash = vdb_position_hash(position, vdb->table_count);
+
+  vdb_brick_t *curr_brick = vdb->table[position_hash];
+  vdb_brick_t *prev_brick = 0;
+
+  while (curr_brick) {
+
+    if (curr_brick->position.x == position.x &&
+        curr_brick->position.y == position.y &&
+        curr_brick->position.z == position.z) {
+
+      if (prev_brick) {
+        prev_brick->next = curr_brick->next;
+      } else {
+        vdb->table[position_hash] = curr_brick->next;
+      }
+
+      vdb_brick_destroy(curr_brick);
+
+      vdb->brick_count--;
+
+      break;
+    }
+
+    prev_brick = curr_brick;
+    curr_brick = curr_brick->next;
+  }
+}
+static void vdb_grow(vdb_t *vdb) {
+  int32_t next_table_count = (int32_t)ceilf((float)vdb->table_count * VDB_GROWTH_FACTOR);
+  int32_t next_table_size = next_table_count * sizeof(vdb_brick_t *);
+
+  vdb_brick_t **table = (vdb_brick_t **)HEAP_ALLOC(next_table_size, 1, 0);
+
+  int32_t table_index = 0;
+  int32_t table_count = vdb->table_count;
+
+  while (table_index < table_count) {
+
+    vdb_brick_t *brick = vdb->table[table_index];
+
+    while (brick) {
+
+      vdb_brick_t *next = brick->next;
+
+      int32_t position_hash = vdb_position_hash(brick->position, next_table_count);
+
+      brick->next = table[position_hash];
+      table[position_hash] = brick;
+
+      brick = next;
+    }
+
+    table_index++;
+  }
+
+  HEAP_FREE(vdb->table);
+
+  vdb->table = table;
+  vdb->table_size = next_table_size;
+  vdb->table_count = next_table_count;
+}
+static float vdb_load(vdb_t *vdb) {
+  return (((float)vdb->brick_count + 1.0F) / (float)vdb->table_count) * 100.0F;
+}
+
+static vdb_brick_t *vdb_brick_create(ivector3_t position) {
+  vdb_brick_t *brick = (vdb_brick_t *)HEAP_ALLOC(sizeof(vdb_brick_t), 1, 0);
+
   uint64_t mask_buffer_size_lod6 = 1;
   uint64_t mask_buffer_size_lod5 = 1;
   uint64_t mask_buffer_size_lod4 = 2;
@@ -141,52 +214,24 @@ vdb_brick_t vdb_brick_create(void) {
     mask_buffer_size_lod1 +
     mask_buffer_size_lod0;
 
-  return (vdb_brick_t){
-    .mask_buffer = buffer_create_storage(0, sizeof(uint32_t) * mask_buffer_size),
-  };
+  brick->position = position;
+  brick->mask_buffer = buffer_create_storage(0, sizeof(uint32_t) * mask_buffer_size);
+
+  return brick;
 }
-void vdb_brick_destroy(vdb_brick_t *brick) {
+static void vdb_brick_debug(vdb_brick_t *brick) {
+  renderer_draw_debug_box(
+    (vector3_t){(float)brick->position.x, (float)brick->position.y, (float)brick->position.z},
+    (vector3_t){(float)VDB_BASE_RES, (float)VDB_BASE_RES, (float)VDB_BASE_RES},
+    (vector4_t){1.0F, 1.0F, 0.0F, 1.0F});
+}
+static void vdb_brick_destroy(vdb_brick_t *brick) {
   buffer_destroy(&brick->mask_buffer);
+
+  HEAP_FREE(brick);
 }
 
-static void vdb_grow(vdb_t *vdb) {
-  int32_t next_table_count = (int32_t)ceilf((float)vdb->table_count * VDB_GROWTH_FACTOR);
-  int32_t next_table_size = next_table_count * sizeof(vdb_record_t *);
-
-  vdb_record_t **table = (vdb_record_t **)HEAP_ALLOC(next_table_size, 1, 0);
-
-  int32_t table_index = 0;
-  int32_t table_count = vdb->table_count;
-
-  while (table_index < table_count) {
-
-    vdb_record_t *record = vdb->table[table_index];
-
-    while (record) {
-
-      vdb_record_t *next = record->next;
-
-      int32_t position_hash = vdb_hash(record->position, next_table_count);
-
-      record->next = table[position_hash];
-      table[position_hash] = record;
-
-      record = next;
-    }
-
-    table_index++;
-  }
-
-  HEAP_FREE(vdb->table);
-
-  vdb->table = table;
-  vdb->table_size = next_table_size;
-  vdb->table_count = next_table_count;
-}
-static float vdb_load(vdb_t *vdb) {
-  return (((float)vdb->record_count + 1.0F) / (float)vdb->table_count) * 100.0F;
-}
-static int32_t vdb_hash(ivector3_t position, int32_t modulus) {
+static int32_t vdb_position_hash(ivector3_t position, int32_t modulus) {
   return (((1 << 20) - 1) & ((int32_t)(position.x) * 73856093 ^
                              (int32_t)(position.y) * 19349669 ^
                              (int32_t)(position.z) * 83492791)) %
