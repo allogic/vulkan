@@ -22,7 +22,7 @@ layout (binding = 1) uniform screen_info_t {
 
 layout (binding = 2) buffer vdb_brick_t {
 	uint mask_buffer[];
-} vdb_brick;
+} vdb_brick[];
 
 #include "vdb.glsl"
 

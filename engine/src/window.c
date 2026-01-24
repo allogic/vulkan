@@ -72,7 +72,8 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2); // TODO
-  renderer_create(2);  // TODO
+  vdb_create((ivector3_t){5, 1, 5}, 1000.0F);
+  renderer_create();
 }
 void window_run(void) {
   QueryPerformanceFrequency(&g_window.time_freq);
@@ -120,12 +121,14 @@ void window_run(void) {
       VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
       renderer_destroy();
+      vdb_destroy();
       swapchain_destroy();
 
       window_update_surface_capabilities();
 
       swapchain_create(2); // TODO
-      renderer_create(2);  // TODO
+      vdb_create((ivector3_t){5, 1, 5}, 1000.0F);
+      renderer_create();
     }
 
     if (g_renderer.is_dirty) {
@@ -136,8 +139,10 @@ void window_run(void) {
       VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
       renderer_destroy();
+      vdb_destroy();
 
-      renderer_create(2); // TODO
+      vdb_create((ivector3_t){5, 1, 5}, 1000.0F);
+      renderer_create();
     }
 
     while (PeekMessageA(&g_window.window_message, 0, 0, 0, PM_REMOVE)) {
@@ -160,6 +165,8 @@ void window_run(void) {
       (vector3_t){0.0F, 0.0F, 0.0F},
       (vector3_t){0.0F, 0.0F, 1.0F},
       (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
+
+    vdb_debug(); // TODO: remove me
 
     player_update(&player);
 
@@ -208,6 +215,7 @@ void window_destroy(void) {
   VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
   renderer_destroy();
+  vdb_destroy();
   swapchain_destroy();
 
   renderpass_destroy_main();

@@ -3,6 +3,15 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_nonuniform_qualifier : require
 
+#include "../math/utility.glsl"
+
+#include "../noise/cellular.glsl"
+#include "../noise/curl.glsl"
+#include "../noise/fbm.glsl"
+#include "../noise/gradient.glsl"
+#include "../noise/perlin.glsl"
+#include "../noise/simplex.glsl"
+
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout (binding = 0) buffer vdb_brick_t {
@@ -10,31 +19,45 @@ layout (binding = 0) buffer vdb_brick_t {
 } vdb_brick;
 
 layout (push_constant) uniform vdb_terrain_gen_info_t {
-	ivec3 position;
-	int lod;
+	ivec3 brick_position;
+	ivec3 cluster_dim;
 } vdb_terrain_gen_info;
 
 #include "vdb.glsl"
 
-float vdb_dummy_surface_density(ivec3 position, int voxel_count) {
-  float fx = (float(position.x) + 0.5) / voxel_count * 2.0 - 1.0;
-  float fy = (float(position.y) + 0.5) / voxel_count * 2.0 - 1.0;
-  float fz = (float(position.z) + 0.5) / voxel_count * 2.0 - 1.0;
+float vdb_default_terrain(ivec3 position, float ground_level, float cluster_height) {
+	float density = 0.0;
 
-  float nx = 0.7071;
-  float ny = 0.4082;
-  float nz = 0.5773;
+	//density += noise_curl(position * 0.05);
+	//density += noise_fbm(position * 0.05, 1.0, 1.0, 4);
+	//density += noise_perlin(position * 0.1) * 2.0;
+	//density += noise_voronoi(position * 0.1, 0.0, 0.0);
 
-  return fx * nx + fy * ny + fz * nz;
+	density += noise_gradient(position * 0.01);
+	density *= noise_simplex(position * 0.01) * 2.0;
+	density += noise_fbm(position * 0.02, 0.7, 1.0, 4);
+	density += noise_fbm((position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
+
+	density = soft_terrace(density, 2, 1.8);
+
+	float height_threshold = ground_level / cluster_height;
+	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, position.y / cluster_height);
+
+	density += blend_factor;
+	density *= blend_factor;
+
+	return density;
 }
 
 void main() {
-	ivec3 world_position = vdb_terrain_gen_info.position;
+	ivec3 world_position = vdb_terrain_gen_info.brick_position;
 	ivec3 local_position = ivec3(gl_GlobalInvocationID.xyz);
 
-	float density = vdb_dummy_surface_density(world_position + local_position, VDB_BASE_RES);
+	float ground_level = vdb_terrain_gen_info.cluster_dim.y * VDB_BASE_RES / 2.0;
+	float cluster_height = vdb_terrain_gen_info.cluster_dim.y * VDB_BASE_RES;
+	float terrain_density = vdb_default_terrain(world_position + local_position, ground_level, cluster_height);
 
-	if (density < 0.0) {
+	if (terrain_density < 0.0) {
 		vdb_voxel_set(0, local_position);
 	} else {
 		vdb_voxel_clr(0, local_position);

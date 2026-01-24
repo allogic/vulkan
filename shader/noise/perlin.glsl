@@ -14,8 +14,8 @@ float noise_perlin(vec2 position) {
 
 	vec4 ix = pi.xzxz;
 	vec4 iy = pi.yyww;
-	vec4 fx = Pf.xzxz;
-	vec4 fy = Pf.yyww;
+	vec4 fx = pf.xzxz;
+	vec4 fy = pf.yyww;
 
 	vec4 i = permute(permute(ix) + iy);
 
@@ -42,7 +42,7 @@ float noise_perlin(vec2 position) {
 	float n01 = dot(g01, vec2(fx.z, fy.z));
 	float n11 = dot(g11, vec2(fx.w, fy.w));
 
-	vec2 fade_xy = quintic(Pf.xy);
+	vec2 fade_xy = quintic(pf.xy);
 
 	vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
 

@@ -3,7 +3,7 @@
 
 #include "../math/urandom.glsl"
 
-float noise_voronoi(vec2 position, float u, float v) {
+float noise_cellular(vec2 position, float u, float v) {
 	float k = 1.0 + 63.0 * pow(1.0 - v, 6.0);
 
 	vec2 i = floor(position);
@@ -28,7 +28,7 @@ float noise_voronoi(vec2 position, float u, float v) {
 	return a.x / a.y;
 }
 
-float noise_voronoi(vec3 position, float u, float v) {
+float noise_cellular(vec3 position, float u, float v) {
 	float k = 1.0 + 63.0 * pow(1.0 - v, 6.0);
 
 	vec3 i = floor(position);

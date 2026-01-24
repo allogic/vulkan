@@ -19,10 +19,12 @@ typedef struct vdb_t {
 extern "C" {
 #endif // __cplusplus
 
-vdb_t vdb_create(ivector3_t cluster_dim, float radius_lod0);
-vdb_brick_t *vdb_brick(vdb_t *vdb, ivector3_t position);
-void vdb_debug(vdb_t *vdb);
-void vdb_destroy(vdb_t *vdb);
+extern vdb_t g_vdb;
+
+void vdb_create(ivector3_t cluster_dim, float radius_lod0);
+vdb_brick_t *vdb_brick(ivector3_t position);
+void vdb_debug(void);
+void vdb_destroy(void);
 
 #ifdef __cplusplus
 }
