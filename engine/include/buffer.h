@@ -23,10 +23,10 @@ buffer_t buffer_create_index(void *buffer, uint64_t buffer_size);
 buffer_t buffer_create_uniform(void *buffer, uint64_t buffer_size);
 buffer_t buffer_create_storage(void *buffer, uint64_t buffer_size);
 
-buffer_t buffer_create_vertex_coherent(uint64_t buffer_size);
-buffer_t buffer_create_index_coherent(uint64_t buffer_size);
-buffer_t buffer_create_uniform_coherent(uint64_t buffer_size);
-buffer_t buffer_create_storage_coherent(uint64_t buffer_size);
+buffer_t buffer_create_vertex_coherent(void *buffer, uint64_t buffer_size);
+buffer_t buffer_create_index_coherent(void *buffer, uint64_t buffer_size);
+buffer_t buffer_create_uniform_coherent(void *buffer, uint64_t buffer_size);
+buffer_t buffer_create_storage_coherent(void *buffer, uint64_t buffer_size);
 
 #ifdef __cplusplus
 }

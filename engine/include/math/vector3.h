@@ -27,6 +27,8 @@ __forceinline vector3_t vector3_muls(vector3_t a, float b);
 __forceinline vector3_t vector3_divs(vector3_t a, float b);
 __forceinline vector3_t vector3_norm(vector3_t a);
 __forceinline vector3_t vector3_inv(vector3_t a);
+__forceinline vector3_t vector3_floor(vector3_t a);
+__forceinline vector3_t vector3_ceil(vector3_t a);
 __forceinline vector3_t vector3_cross(vector3_t a, vector3_t b);
 __forceinline vector3_t vector3_rotate(vector3_t a, quaternion_t b);
 __forceinline float vector3_dot(vector3_t a, vector3_t b);

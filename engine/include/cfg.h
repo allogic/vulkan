@@ -16,6 +16,8 @@
 #define VDB_LOAD_FACTOR (75.0F)
 #define VDB_GROWTH_FACTOR (1.618F)
 #define VDB_INITIAL_TABLE_COUNT (0x400)
+#define VDB_MAX_LOD_LEVEL (0x6)
 #define VDB_BASE_RES (0x40)
+#define VDB_BITS_PER_WORD (0x20)
 
 #endif // CFG_H

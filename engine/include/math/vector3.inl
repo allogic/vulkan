@@ -178,6 +178,24 @@ __forceinline vector3_t vector3_inv(vector3_t a) {
 
   return v;
 }
+__forceinline vector3_t vector3_floor(vector3_t a) {
+  vector3_t v = {
+    floor(a.x),
+    floor(a.y),
+    floor(a.z),
+  };
+
+  return v;
+}
+__forceinline vector3_t vector3_ceil(vector3_t a) {
+  vector3_t v = {
+    ceil(a.x),
+    ceil(a.y),
+    ceil(a.z),
+  };
+
+  return v;
+}
 __forceinline vector3_t vector3_cross(vector3_t a, vector3_t b) {
   vector3_t v = {
     (a.y * b.z) - (a.z * b.y),

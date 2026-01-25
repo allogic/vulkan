@@ -25,6 +25,8 @@ __forceinline vector2_t vector2_muls(vector2_t a, float b);
 __forceinline vector2_t vector2_divs(vector2_t a, float b);
 __forceinline vector2_t vector2_norm(vector2_t a);
 __forceinline vector2_t vector2_inv(vector2_t a);
+__forceinline vector2_t vector2_floor(vector2_t a);
+__forceinline vector2_t vector2_ceil(vector2_t a);
 __forceinline float vector2_dot(vector2_t a, vector2_t b);
 __forceinline float vector2_length(vector2_t a);
 __forceinline float vector2_length2(vector2_t a);

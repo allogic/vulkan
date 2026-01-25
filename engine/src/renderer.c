@@ -1,6 +1,6 @@
 #include <pch.h>
 
-#define RENDERER_MAKE_GROUP_COUNT(GLOBAL_SIZE, LOCAL_SIZE) ((int32_t)ceilf(((float)(GLOBAL_SIZE)) / (LOCAL_SIZE)))
+#define MAKE_GROUP_COUNT(GLOBAL_SIZE, LOCAL_SIZE) ((int32_t)ceilf(((float)(GLOBAL_SIZE)) / (LOCAL_SIZE)))
 
 static void renderer_create_command_buffer(void);
 static void renderer_create_sync_objects(void);
@@ -11,14 +11,21 @@ static void renderer_create_buffers(void);
 static void renderer_create_pipeline_layouts(void);
 
 static void renderer_create_vdb_terrain_gen_pipeline(char const *compute_shader_file_path);
+static void renderer_create_vdb_lod_gen_pipeline(char const *compute_shader_file_path);
 static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path);
 static void renderer_create_debug_line_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path);
 
 static void renderer_update_vdb_terrain_gen_descriptor_sets(void);
+static void renderer_update_vdb_lod_gen_descriptor_sets(void);
 static void renderer_update_vdb_soft_renderer_descriptor_sets(void);
 static void renderer_update_debug_line_descriptor_sets(void);
 
 static void renderer_update_uniform_buffers(transform_t *transform, camera_t *camera);
+
+static void renderer_compute_terrain(void);
+static void renderer_compute_lod(int8_t lod);
+
+static void renderer_push_compute_barrier(void);
 
 static void renderer_record_compute_commands(void);
 static void renderer_record_graphics_commands(void);
@@ -75,12 +82,21 @@ static VkPushConstantRange const s_vdb_terrain_gen_push_constant_ranges[] = {
   {
     .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
     .offset = 0,
-    .size = sizeof(vdb_terrain_gen_info_t),
+    .size = sizeof(vdb_push_constant_t),
+  },
+};
+static VkPushConstantRange const s_vdb_lod_gen_push_constant_ranges[] = {
+  {
+    .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+    .offset = 0,
+    .size = sizeof(vdb_push_constant_t),
   },
 };
 
 void renderer_create(void) {
   g_renderer.is_debug_enabled = 1;
+  g_renderer.regenerate_terrain = 1;
+  g_renderer.regenerate_lod = 1;
 
   renderer_create_command_buffer();
   renderer_create_sync_objects();
@@ -91,10 +107,12 @@ void renderer_create(void) {
   renderer_create_pipeline_layouts();
 
   renderer_create_vdb_terrain_gen_pipeline(ROOT_DIR "/shader/vdb/terrain_gen.comp.spv");
+  renderer_create_vdb_lod_gen_pipeline(ROOT_DIR "/shader/vdb/lod_gen.comp.spv");
   renderer_create_vdb_soft_renderer_pipeline(ROOT_DIR "/shader/vdb/soft_renderer.vert.spv", ROOT_DIR "/shader/vdb/soft_renderer.frag.spv");
   renderer_create_debug_line_pipeline(ROOT_DIR "/shader/debug/line.vert.spv", ROOT_DIR "/shader/debug/line.frag.spv");
 
   renderer_update_vdb_terrain_gen_descriptor_sets();
+  renderer_update_vdb_lod_gen_descriptor_sets();
   renderer_update_vdb_soft_renderer_descriptor_sets();
   renderer_update_debug_line_descriptor_sets();
 }
@@ -177,18 +195,13 @@ void renderer_draw(transform_t *transform, camera_t *camera) {
 
   while (brick_index < brick_count) {
 
-    ivector3_t cluster_dim = g_vdb.cluster_dim;
-    ivector3_t brick_position = index_to_vec(brick_index, cluster_dim);
-
-    vdb_brick_t *brick = vdb_brick(brick_position);
-
     VkBufferMemoryBarrier buffer_memory_barrier = {
       .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
       .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
       .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .buffer = brick->mask_buffer.handle,
+      .buffer = g_vdb.bricks[brick_index].mask_buffer.handle,
       .offset = 0,
       .size = VK_WHOLE_SIZE,
     };
@@ -199,11 +212,11 @@ void renderer_draw(transform_t *transform, camera_t *camera) {
       VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
       0,
       0,
-      NULL,
+      0,
       1,
       &buffer_memory_barrier,
       0,
-      NULL);
+      0);
 
     brick_index++;
   }
@@ -422,6 +435,24 @@ static void renderer_create_descriptor_pools(void) {
   {
     VkDescriptorPoolSize descriptor_pool_sizes[] = {
       {
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = g_vdb.brick_count,
+      },
+    };
+
+    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      .pPoolSizes = descriptor_pool_sizes,
+      .poolSizeCount = ARRAY_COUNT(descriptor_pool_sizes),
+      .maxSets = 1,
+    };
+
+    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_lod_gen_descriptor_pool));
+  }
+
+  {
+    VkDescriptorPoolSize descriptor_pool_sizes[] = {
+      {
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .descriptorCount = 2,
       },
@@ -479,6 +510,27 @@ static void renderer_create_descriptor_set_layouts(void) {
     };
 
     VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_terrain_gen_descriptor_set_layout));
+  }
+
+  {
+    VkDescriptorSetLayoutBinding descriptor_set_layout_bindings[] = {
+      {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = g_vdb.brick_count,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        .pImmutableSamplers = 0,
+      },
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .pBindings = descriptor_set_layout_bindings,
+      .bindingCount = ARRAY_COUNT(descriptor_set_layout_bindings),
+      .pNext = 0,
+    };
+
+    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_lod_gen_descriptor_set_layout));
   }
 
   {
@@ -553,6 +605,17 @@ static void renderer_create_descriptor_sets(void) {
     VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
       .descriptorSetCount = 1,
+      .descriptorPool = g_renderer.vdb_lod_gen_descriptor_pool,
+      .pSetLayouts = &g_renderer.vdb_lod_gen_descriptor_set_layout,
+    };
+
+    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_lod_gen_descriptor_set));
+  }
+
+  {
+    VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      .descriptorSetCount = 1,
       .descriptorPool = g_renderer.vdb_soft_renderer_descriptor_pool,
       .pSetLayouts = &g_renderer.vdb_soft_renderer_descriptor_set_layout,
     };
@@ -587,12 +650,12 @@ static void renderer_create_buffers(void) {
     1,
   };
 
-  g_renderer.time_info_buffer = buffer_create_uniform_coherent(sizeof(time_info_t));
-  g_renderer.screen_info_buffer = buffer_create_uniform_coherent(sizeof(screen_info_t));
-  g_renderer.camera_info_buffer = buffer_create_uniform_coherent(sizeof(camera_info_t));
+  g_renderer.time_info_buffer = buffer_create_uniform_coherent(0, sizeof(time_info_t));
+  g_renderer.screen_info_buffer = buffer_create_uniform_coherent(0, sizeof(screen_info_t));
+  g_renderer.camera_info_buffer = buffer_create_uniform_coherent(0, sizeof(camera_info_t));
 
-  g_renderer.debug_line_vertex_buffer = buffer_create_vertex_coherent(sizeof(debug_line_vertex_t) * RENDERER_DEBUG_LINE_VERTEX_COUNT);
-  g_renderer.debug_line_index_buffer = buffer_create_index_coherent(sizeof(debug_line_index_t) * RENDERER_DEBUG_LINE_INDEX_COUNT);
+  g_renderer.debug_line_vertex_buffer = buffer_create_vertex_coherent(0, sizeof(debug_line_vertex_t) * RENDERER_DEBUG_LINE_VERTEX_COUNT);
+  g_renderer.debug_line_index_buffer = buffer_create_index_coherent(0, sizeof(debug_line_index_t) * RENDERER_DEBUG_LINE_INDEX_COUNT);
 
   g_renderer.full_screen_vertex_buffer = buffer_create_vertex(full_screen_vertices, sizeof(full_screen_vertices));
   g_renderer.full_screen_index_buffer = buffer_create_index(full_screen_indices, sizeof(full_screen_indices));
@@ -608,6 +671,18 @@ static void renderer_create_pipeline_layouts(void) {
     };
 
     VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_terrain_gen_pipeline_layout));
+  }
+
+  {
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+      .setLayoutCount = 1,
+      .pSetLayouts = &g_renderer.vdb_lod_gen_descriptor_set_layout,
+      .pPushConstantRanges = s_vdb_lod_gen_push_constant_ranges,
+      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_lod_gen_push_constant_ranges),
+    };
+
+    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_lod_gen_pipeline_layout));
   }
 
   {
@@ -669,6 +744,43 @@ static void renderer_create_vdb_terrain_gen_pipeline(char const *compute_shader_
   };
 
   VK_CHECK(vkCreateComputePipelines(g_window.device, 0, 1, &compute_pipeline_create_info, 0, &g_renderer.vdb_terrain_gen_pipeline));
+
+  vkDestroyShaderModule(g_window.device, compute_module, 0);
+}
+static void renderer_create_vdb_lod_gen_pipeline(char const *compute_shader_file_path) {
+  VkShaderModule compute_module = 0;
+
+  {
+    uint8_t *shader_bytes = 0;
+    uint64_t shader_size = 0;
+
+    fsutils_load_binary(&shader_bytes, &shader_size, compute_shader_file_path);
+
+    VkShaderModuleCreateInfo shader_module_create_info = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .pCode = (uint32_t const *)shader_bytes,
+      .codeSize = shader_size,
+    };
+
+    VK_CHECK(vkCreateShaderModule(g_window.device, &shader_module_create_info, 0, &compute_module));
+
+    HEAP_FREE(shader_bytes);
+  }
+
+  VkPipelineShaderStageCreateInfo compute_shader_stage_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+    .module = compute_module,
+    .pName = "main",
+  };
+
+  VkComputePipelineCreateInfo compute_pipeline_create_info = {
+    .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+    .layout = g_renderer.vdb_lod_gen_pipeline_layout,
+    .stage = compute_shader_stage_create_info,
+  };
+
+  VK_CHECK(vkCreateComputePipelines(g_window.device, 0, 1, &compute_pipeline_create_info, 0, &g_renderer.vdb_lod_gen_pipeline));
 
   vkDestroyShaderModule(g_window.device, compute_module, 0);
 }
@@ -1059,13 +1171,8 @@ static void renderer_update_vdb_terrain_gen_descriptor_sets(void) {
 
   while (brick_index < brick_count) {
 
-    ivector3_t cluster_dim = g_vdb.cluster_dim;
-    ivector3_t brick_position = index_to_vec(brick_index, cluster_dim);
-
-    vdb_brick_t *brick = vdb_brick(brick_position);
-
     vdb_brick_descriptor_buffer_infos[brick_index].offset = 0;
-    vdb_brick_descriptor_buffer_infos[brick_index].buffer = brick->mask_buffer.handle;
+    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.bricks[brick_index].mask_buffer.handle;
     vdb_brick_descriptor_buffer_infos[brick_index].range = VK_WHOLE_SIZE;
 
     brick_index++;
@@ -1090,6 +1197,40 @@ static void renderer_update_vdb_terrain_gen_descriptor_sets(void) {
 
   HEAP_FREE(vdb_brick_descriptor_buffer_infos);
 }
+static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
+  int32_t brick_index = 0;
+  int32_t brick_count = g_vdb.brick_count;
+
+  VkDescriptorBufferInfo *vdb_brick_descriptor_buffer_infos = (VkDescriptorBufferInfo *)HEAP_ALLOC(sizeof(VkDescriptorBufferInfo) * brick_count, 1, 0);
+
+  while (brick_index < brick_count) {
+
+    vdb_brick_descriptor_buffer_infos[brick_index].offset = 0;
+    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.bricks[brick_index].mask_buffer.handle;
+    vdb_brick_descriptor_buffer_infos[brick_index].range = VK_WHOLE_SIZE;
+
+    brick_index++;
+  }
+
+  VkWriteDescriptorSet write_descriptor_sets[] = {
+    {
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext = 0,
+      .dstSet = g_renderer.vdb_lod_gen_descriptor_set,
+      .dstBinding = 0,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount = brick_count,
+      .pImageInfo = 0,
+      .pBufferInfo = vdb_brick_descriptor_buffer_infos,
+      .pTexelBufferView = 0,
+    },
+  };
+
+  vkUpdateDescriptorSets(g_window.device, ARRAY_COUNT(write_descriptor_sets), write_descriptor_sets, 0, 0);
+
+  HEAP_FREE(vdb_brick_descriptor_buffer_infos);
+}
 static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
   int32_t brick_index = 0;
   int32_t brick_count = g_vdb.brick_count;
@@ -1098,13 +1239,8 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
 
   while (brick_index < brick_count) {
 
-    ivector3_t cluster_dim = g_vdb.cluster_dim;
-    ivector3_t brick_position = index_to_vec(brick_index, cluster_dim);
-
-    vdb_brick_t *brick = vdb_brick(brick_position);
-
     vdb_brick_descriptor_buffer_infos[brick_index].offset = 0;
-    vdb_brick_descriptor_buffer_infos[brick_index].buffer = brick->mask_buffer.handle;
+    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.bricks[brick_index].mask_buffer.handle;
     vdb_brick_descriptor_buffer_infos[brick_index].range = VK_WHOLE_SIZE;
 
     brick_index++;
@@ -1235,30 +1371,110 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   camera_info->view_projection_inv = view_projection_inv;
 }
 
+static void renderer_compute_terrain(void) {
+  vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_terrain_gen_pipeline);
+  vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_terrain_gen_pipeline_layout, 0, 1, &g_renderer.vdb_terrain_gen_descriptor_set, 0, 0);
+
+  int32_t voxel_size = vdb_voxels_per_axis(0);
+  int32_t group_count = MAKE_GROUP_COUNT(voxel_size, 8);
+  int32_t brick_index = 0;
+  int32_t brick_count = g_vdb.brick_count;
+
+  while (brick_index < brick_count) {
+
+    vdb_push_constant_t vdb_push_constant = {
+      .brick_position = index_to_vec(brick_index, g_vdb.dimension),
+      .brick_index = brick_index,
+      .vdb_dimension = g_vdb.dimension,
+      .brick_lod = 0,
+    };
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_terrain_gen_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_push_constant_t), &vdb_push_constant);
+    vkCmdDispatch(g_renderer.command_buffer, group_count, group_count, group_count);
+
+    renderer_push_compute_barrier();
+
+    brick_index++;
+  }
+}
+static void renderer_compute_lod(int8_t lod) {
+  vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_lod_gen_pipeline);
+  vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_lod_gen_pipeline_layout, 0, 1, &g_renderer.vdb_lod_gen_descriptor_set, 0, 0);
+
+  int32_t voxel_size = vdb_voxels_per_axis(lod);
+  int32_t group_count = MAKE_GROUP_COUNT(voxel_size, 8);
+  int32_t brick_index = 0;
+  int32_t brick_count = g_vdb.brick_count;
+
+  while (brick_index < brick_count) {
+
+    vdb_push_constant_t vdb_push_constant = {
+      .brick_position = index_to_vec(brick_index, g_vdb.dimension),
+      .brick_index = brick_index,
+      .vdb_dimension = g_vdb.dimension,
+      .brick_lod = lod,
+    };
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_lod_gen_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_push_constant_t), &vdb_push_constant);
+    vkCmdDispatch(g_renderer.command_buffer, group_count, group_count, group_count);
+
+    renderer_push_compute_barrier();
+
+    brick_index++;
+  }
+}
+
+static void renderer_push_compute_barrier(void) {
+  int32_t brick_index = 0;
+  int32_t brick_count = g_vdb.brick_count;
+
+  while (brick_index < brick_count) {
+
+    VkBufferMemoryBarrier buffer_memory_barrier = {
+      .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+      .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+      .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+      .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+      .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+      .buffer = g_vdb.bricks[brick_index].mask_buffer.handle,
+      .offset = 0,
+      .size = VK_WHOLE_SIZE,
+    };
+
+    vkCmdPipelineBarrier(
+      g_renderer.command_buffer,
+      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      0,
+      0,
+      0,
+      1,
+      &buffer_memory_barrier,
+      0,
+      0);
+
+    brick_index++;
+  }
+}
+
 static void renderer_record_compute_commands(void) {
-  {
-    vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_terrain_gen_pipeline);
-    vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_terrain_gen_pipeline_layout, 0, 1, &g_renderer.vdb_terrain_gen_descriptor_set, 0, 0);
+  if (g_renderer.regenerate_terrain) {
 
-    int32_t group_count = RENDERER_MAKE_GROUP_COUNT(VDB_BASE_RES, 8);
-    int32_t brick_index = 0;
-    int32_t brick_count = g_vdb.brick_count;
+    g_renderer.regenerate_terrain = 0;
 
-    while (brick_index < brick_count) {
+    renderer_compute_terrain();
+  }
 
-      ivector3_t cluster_dim = g_vdb.cluster_dim;
-      ivector3_t brick_position = index_to_vec(brick_index, cluster_dim);
+  if (g_renderer.regenerate_lod) {
 
-      vdb_terrain_gen_info_t vdb_terrain_gen_info = {
-        .brick_position = brick_position,
-        .cluster_dim = cluster_dim,
-      };
+    g_renderer.regenerate_lod = 0;
 
-      vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_terrain_gen_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_terrain_gen_info_t), &vdb_terrain_gen_info);
-      vkCmdDispatch(g_renderer.command_buffer, group_count, group_count, group_count);
-
-      brick_index++;
-    }
+    renderer_compute_lod(1);
+    renderer_compute_lod(2);
+    renderer_compute_lod(3);
+    renderer_compute_lod(4);
+    renderer_compute_lod(5);
+    renderer_compute_lod(6);
   }
 }
 static void renderer_record_graphics_commands(void) {
@@ -1328,7 +1544,7 @@ static void renderer_record_graphics_commands(void) {
     vkCmdBindVertexBuffers(g_renderer.command_buffer, 0, ARRAY_COUNT(vertex_buffers), vertex_buffers, vertex_offsets);
     vkCmdBindIndexBuffer(g_renderer.command_buffer, g_renderer.full_screen_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_soft_renderer_pipeline_layout, 0, 1, &g_renderer.vdb_soft_renderer_descriptor_set, 0, 0);
-    vkCmdDrawIndexed(g_renderer.command_buffer, 6, 1, 0, 0, 0);
+    // vkCmdDrawIndexed(g_renderer.command_buffer, 6, 1, 0, 0, 0); // TODO
   }
 
   {
@@ -1370,11 +1586,13 @@ static void renderer_destroy_sync_objects(void) {
 }
 static void renderer_destroy_descriptor_pools(void) {
   vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_terrain_gen_descriptor_pool, 0);
+  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_lod_gen_descriptor_pool, 0);
   vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_soft_renderer_descriptor_pool, 0);
   vkDestroyDescriptorPool(g_window.device, g_renderer.debug_line_descriptor_pool, 0);
 }
 static void renderer_destroy_descriptor_set_layouts(void) {
   vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_terrain_gen_descriptor_set_layout, 0);
+  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_lod_gen_descriptor_set_layout, 0);
   vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_soft_renderer_descriptor_set_layout, 0);
   vkDestroyDescriptorSetLayout(g_window.device, g_renderer.debug_line_descriptor_set_layout, 0);
 }
@@ -1391,11 +1609,13 @@ static void renderer_destroy_buffers(void) {
 }
 static void renderer_destroy_pipeline_layouts(void) {
   vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_terrain_gen_pipeline_layout, 0);
+  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_lod_gen_pipeline_layout, 0);
   vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_soft_renderer_pipeline_layout, 0);
   vkDestroyPipelineLayout(g_window.device, g_renderer.debug_line_pipeline_layout, 0);
 }
 static void renderer_destroy_pipelines(void) {
   vkDestroyPipeline(g_window.device, g_renderer.vdb_terrain_gen_pipeline, 0);
+  vkDestroyPipeline(g_window.device, g_renderer.vdb_lod_gen_pipeline, 0);
   vkDestroyPipeline(g_window.device, g_renderer.vdb_soft_renderer_pipeline, 0);
   vkDestroyPipeline(g_window.device, g_renderer.debug_line_pipeline, 0);
 }

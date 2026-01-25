@@ -1,18 +1,25 @@
 #ifndef VDB_H
 #define VDB_H
 
+typedef struct vdb_hit_t {
+  uint8_t intersect;
+  ivector3_t index;
+  vector3_t hit_position;
+  vector3_t face_position;
+  vector3_t normal;
+  vector2_t uv;
+  float ao;
+} vdb_hit_t;
+
 typedef struct vdb_brick_t {
-  struct vdb_brick_t *next;
   ivector3_t position;
   buffer_t mask_buffer;
 } vdb_brick_t;
 
 typedef struct vdb_t {
-  struct vdb_brick_t **table;
-  int32_t table_size;
-  int32_t table_count;
+  struct vdb_brick_t *bricks;
   int32_t brick_count;
-  ivector3_t cluster_dim;
+  ivector3_t dimension;
 } vdb_t;
 
 #ifdef __cplusplus
@@ -21,10 +28,22 @@ extern "C" {
 
 extern vdb_t g_vdb;
 
-void vdb_create(ivector3_t cluster_dim, float radius_lod0);
-vdb_brick_t *vdb_brick(ivector3_t position);
-void vdb_debug(void);
+void vdb_create(ivector3_t dimension);
+void vdb_debug(vector3_t ray_origin, vector3_t ray_direction);
+vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_distance);
 void vdb_destroy(void);
+
+int32_t vdb_voxels_per_axis(int8_t lod);
+int32_t vdb_total_voxel_count(int8_t lod);
+int32_t vdb_word_count(int8_t lod);
+int32_t vdb_voxel_index(int8_t lod, ivector3_t index);
+int32_t vdb_voxel_size(int8_t lod);
+int32_t vdb_word_index(int32_t voxel_index);
+
+int8_t vdb_voxel_is_solid(int32_t brick_index, int8_t lod, ivector3_t index);
+
+void vdb_voxel_set(int32_t brick_index, int8_t lod, ivector3_t index);
+void vdb_voxel_clr(int32_t brick_index, int8_t lod, ivector3_t index);
 
 #ifdef __cplusplus
 }

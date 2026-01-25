@@ -143,6 +143,22 @@ __forceinline vector2_t vector2_inv(vector2_t a) {
 
   return v;
 }
+__forceinline vector2_t vector2_floor(vector2_t a) {
+  vector2_t v = {
+    floor(a.x),
+    floor(a.y),
+  };
+
+  return v;
+}
+__forceinline vector2_t vector2_ceil(vector2_t a) {
+  vector2_t v = {
+    ceil(a.x),
+    ceil(a.y),
+  };
+
+  return v;
+}
 __forceinline float vector2_dot(vector2_t a, vector2_t b) {
   return (a.x * b.x) + (a.y * b.y);
 }

@@ -166,31 +166,47 @@ buffer_t buffer_create_storage(void *buffer, uint64_t buffer_size) {
   return target_buffer;
 }
 
-buffer_t buffer_create_vertex_coherent(uint64_t buffer_size) {
+buffer_t buffer_create_vertex_coherent(void *buffer, uint64_t buffer_size) {
   buffer_t target_buffer = buffer_create(buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
   VK_CHECK(vkMapMemory(g_window.device, target_buffer.device_memory, 0, target_buffer.size, 0, &target_buffer.mapped_memory));
 
+  if (buffer) {
+    memcpy(target_buffer.mapped_memory, buffer, buffer_size);
+  }
+
   return target_buffer;
 }
-buffer_t buffer_create_index_coherent(uint64_t buffer_size) {
+buffer_t buffer_create_index_coherent(void *buffer, uint64_t buffer_size) {
   buffer_t target_buffer = buffer_create(buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
   VK_CHECK(vkMapMemory(g_window.device, target_buffer.device_memory, 0, target_buffer.size, 0, &target_buffer.mapped_memory));
 
+  if (buffer) {
+    memcpy(target_buffer.mapped_memory, buffer, buffer_size);
+  }
+
   return target_buffer;
 }
-buffer_t buffer_create_uniform_coherent(uint64_t buffer_size) {
+buffer_t buffer_create_uniform_coherent(void *buffer, uint64_t buffer_size) {
   buffer_t target_buffer = buffer_create(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
   VK_CHECK(vkMapMemory(g_window.device, target_buffer.device_memory, 0, target_buffer.size, 0, &target_buffer.mapped_memory));
 
+  if (buffer) {
+    memcpy(target_buffer.mapped_memory, buffer, buffer_size);
+  }
+
   return target_buffer;
 }
-buffer_t buffer_create_storage_coherent(uint64_t buffer_size) {
+buffer_t buffer_create_storage_coherent(void *buffer, uint64_t buffer_size) {
   buffer_t target_buffer = buffer_create(buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
   VK_CHECK(vkMapMemory(g_window.device, target_buffer.device_memory, 0, target_buffer.size, 0, &target_buffer.mapped_memory));
+
+  if (buffer) {
+    memcpy(target_buffer.mapped_memory, buffer, buffer_size);
+  }
 
   return target_buffer;
 }

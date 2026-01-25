@@ -137,6 +137,26 @@ __forceinline vector4_t vector4_inv(vector4_t a) {
 
   return v;
 }
+__forceinline vector4_t vector4_floor(vector4_t a) {
+  vector4_t v = {
+    floor(a.x),
+    floor(a.y),
+    floor(a.z),
+    floor(a.w),
+  };
+
+  return v;
+}
+__forceinline vector4_t vector4_ceil(vector4_t a) {
+  vector4_t v = {
+    ceil(a.x),
+    ceil(a.y),
+    ceil(a.z),
+    ceil(a.w),
+  };
+
+  return v;
+}
 __forceinline float vector4_dot(vector4_t a, vector4_t b) {
   return (a.x * b.x) + (a.y * b.y) + (a.z * b.z) + (a.w * b.w);
 }

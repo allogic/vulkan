@@ -1,0 +1,56 @@
+#version 460 core
+
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+layout (binding = 0) buffer vdb_brick_t {
+	uint mask_buffer[];
+} vdb_brick[];
+
+layout (push_constant) uniform vdb_push_constant_t {
+	ivec3 brick_position;
+	int brick_index;
+	ivec3 vdb_dimension;
+	int brick_lod;
+} vdb_push_constant;
+
+#include "vdb.glsl"
+
+void main() {
+	ivec3 curr_voxel_position = ivec3(gl_GlobalInvocationID.xyz);
+
+	ivec3 c0 = curr_voxel_position * 2;
+
+	int brick_index = vdb_push_constant.brick_index;
+
+	int curr_lod = vdb_push_constant.brick_lod;
+	int child_lod = vdb_push_constant.brick_lod - 1;
+
+	int curr_voxel_count = vdb_voxels_per_axis(curr_lod);
+
+	if (curr_voxel_position.x < curr_voxel_count &&
+		curr_voxel_position.y < curr_voxel_count &&
+		curr_voxel_position.z < curr_voxel_count) {
+
+		int solid = 0;
+
+		for (int x = 0; x < 2; x++) {
+			for (int y = 0; y < 2; y++) {
+				for (int z = 0; z < 2; z++) {
+
+					ivec3 child_voxel_position = c0 + ivec3(x, y, z);
+
+					solid |= int(vdb_voxel_is_solid(brick_index, child_lod, child_voxel_position));
+				}
+			}
+		}
+
+		if (solid == 0) {
+			vdb_voxel_clr(brick_index, curr_lod, curr_voxel_position);
+		} else {
+			vdb_voxel_set(brick_index, curr_lod, curr_voxel_position);
+		}
+	}
+}

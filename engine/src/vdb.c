@@ -1,199 +1,33 @@
 #include <pch.h>
 
-static void vdb_insert(ivector3_t position);
-static void vdb_remove(ivector3_t position);
-static void vdb_grow(void);
-static float vdb_load(void);
-
-static vdb_brick_t *vdb_brick_create(ivector3_t position);
-static void vdb_brick_debug(vdb_brick_t *brick);
-static void vdb_brick_destroy(vdb_brick_t *brick);
-
-static int32_t vdb_position_hash(ivector3_t position, int32_t modulus);
+static void vdb_debug_lod(int32_t brick_index, int8_t lod);
 
 vdb_t g_vdb = {0};
 
-void vdb_create(ivector3_t cluster_dim, float radius_lod0) {
-  g_vdb.table = (vdb_brick_t **)HEAP_ALLOC(VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t *), 1, 0);
-  g_vdb.table_size = VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t *);
-  g_vdb.table_count = VDB_INITIAL_TABLE_COUNT;
-  g_vdb.brick_count = 0;
-  g_vdb.cluster_dim = cluster_dim;
+static int32_t const s_vdb_word_offset[7] = {
+  0,
+  8192,
+  8192 + 1024,
+  8192 + 1024 + 128,
+  8192 + 1024 + 128 + 16,
+  8192 + 1024 + 128 + 16 + 2,
+  8192 + 1024 + 128 + 16 + 2 + 1,
+};
 
-  for (int32_t x = 0; x < cluster_dim.x; x++) {
-    for (int32_t y = 0; y < cluster_dim.y; y++) {
-      for (int32_t z = 0; z < cluster_dim.z; z++) {
+static vector4_t const s_vdb_lod_color[7] = {
+  {0.0F, 0.5F, 0.0F, 0.5F},
+  {0.1F, 0.4F, 0.0F, 0.5F},
+  {0.2F, 0.3F, 0.0F, 0.5F},
+  {0.2F, 0.2F, 0.0F, 0.5F},
+  {0.3F, 0.2F, 0.0F, 0.5F},
+  {0.4F, 0.1F, 0.0F, 0.5F},
+  {0.5F, 0.0F, 0.0F, 0.5F},
+};
 
-        vdb_insert((ivector3_t){x, y, z});
-      }
-    }
-  }
-}
-vdb_brick_t *vdb_brick(ivector3_t position) {
-  int32_t position_hash = vdb_position_hash(position, g_vdb.table_count);
-
-  vdb_brick_t *brick = g_vdb.table[position_hash];
-
-  while (brick) {
-
-    if (brick->position.x == position.x &&
-        brick->position.y == position.y &&
-        brick->position.z == position.z) {
-
-      return brick;
-    }
-
-    brick = brick->next;
-  }
-
-  return 0;
-}
-void vdb_debug(void) {
-  int32_t table_index = 0;
-  int32_t table_count = g_vdb.table_count;
-
-  while (table_index < table_count) {
-
-    vdb_brick_t *brick = g_vdb.table[table_index];
-
-    while (brick) {
-
-      vdb_brick_debug(brick);
-
-      brick = brick->next;
-    }
-
-    table_index++;
-  }
-}
-void vdb_destroy(void) {
-  int32_t table_index = 0;
-  int32_t table_count = g_vdb.table_count;
-
-  while (table_index < table_count) {
-
-    vdb_brick_t *brick = g_vdb.table[table_index];
-
-    while (brick) {
-
-      vdb_brick_t *next = brick->next;
-
-      vdb_brick_destroy(brick);
-
-      brick = next;
-    }
-
-    table_index++;
-  }
-
-  HEAP_FREE(g_vdb.table);
-}
-
-static void vdb_insert(ivector3_t position) {
-  float load_factor = vdb_load();
-
-  if (load_factor > VDB_LOAD_FACTOR) {
-    vdb_grow();
-  }
-
-  int8_t position_exists = 0;
-  int32_t position_hash = vdb_position_hash(position, g_vdb.table_count);
-
-  vdb_brick_t *brick = g_vdb.table[position_hash];
-
-  while (brick) {
-
-    if (brick->position.x == position.x &&
-        brick->position.y == position.y &&
-        brick->position.z == position.z) {
-
-      position_exists = 1;
-
-      break;
-    }
-
-    brick = brick->next;
-  }
-
-  if (position_exists == 0) {
-
-    brick = vdb_brick_create(position);
-
-    brick->next = g_vdb.table[position_hash];
-
-    g_vdb.table[position_hash] = brick;
-    g_vdb.brick_count++;
-  }
-}
-static void vdb_remove(ivector3_t position) {
-  int32_t position_hash = vdb_position_hash(position, g_vdb.table_count);
-
-  vdb_brick_t *curr_brick = g_vdb.table[position_hash];
-  vdb_brick_t *prev_brick = 0;
-
-  while (curr_brick) {
-
-    if (curr_brick->position.x == position.x &&
-        curr_brick->position.y == position.y &&
-        curr_brick->position.z == position.z) {
-
-      if (prev_brick) {
-        prev_brick->next = curr_brick->next;
-      } else {
-        g_vdb.table[position_hash] = curr_brick->next;
-      }
-
-      vdb_brick_destroy(curr_brick);
-
-      g_vdb.brick_count--;
-
-      break;
-    }
-
-    prev_brick = curr_brick;
-    curr_brick = curr_brick->next;
-  }
-}
-static void vdb_grow(void) {
-  int32_t next_table_count = (int32_t)ceilf((float)g_vdb.table_count * VDB_GROWTH_FACTOR);
-  int32_t next_table_size = next_table_count * sizeof(vdb_brick_t *);
-
-  vdb_brick_t **table = (vdb_brick_t **)HEAP_ALLOC(next_table_size, 1, 0);
-
-  int32_t table_index = 0;
-  int32_t table_count = g_vdb.table_count;
-
-  while (table_index < table_count) {
-
-    vdb_brick_t *brick = g_vdb.table[table_index];
-
-    while (brick) {
-
-      vdb_brick_t *next = brick->next;
-
-      int32_t position_hash = vdb_position_hash(brick->position, next_table_count);
-
-      brick->next = table[position_hash];
-      table[position_hash] = brick;
-
-      brick = next;
-    }
-
-    table_index++;
-  }
-
-  HEAP_FREE(g_vdb.table);
-
-  g_vdb.table = table;
-  g_vdb.table_size = next_table_size;
-  g_vdb.table_count = next_table_count;
-}
-static float vdb_load(void) {
-  return (((float)g_vdb.brick_count + 1.0F) / (float)g_vdb.table_count) * 100.0F;
-}
-
-static vdb_brick_t *vdb_brick_create(ivector3_t position) {
-  vdb_brick_t *brick = (vdb_brick_t *)HEAP_ALLOC(sizeof(vdb_brick_t), 1, 0);
+void vdb_create(ivector3_t dimension) {
+  g_vdb.bricks = (vdb_brick_t *)HEAP_ALLOC(VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t), 1, 0);
+  g_vdb.brick_count = dimension.x * dimension.y * dimension.z;
+  g_vdb.dimension = dimension;
 
   uint64_t mask_buffer_size_lod6 = 1;
   uint64_t mask_buffer_size_lod5 = 1;
@@ -212,26 +46,299 @@ static vdb_brick_t *vdb_brick_create(ivector3_t position) {
     mask_buffer_size_lod1 +
     mask_buffer_size_lod0;
 
-  brick->position = position;
-  brick->mask_buffer = buffer_create_storage(0, sizeof(uint32_t) * mask_buffer_size);
+  for (int32_t x = 0; x < dimension.x; x++) {
+    for (int32_t y = 0; y < dimension.y; y++) {
+      for (int32_t z = 0; z < dimension.z; z++) {
 
-  return brick;
-}
-static void vdb_brick_debug(vdb_brick_t *brick) {
-  renderer_draw_debug_box(
-    (vector3_t){(float)brick->position.x * VDB_BASE_RES, (float)brick->position.y * VDB_BASE_RES, (float)brick->position.z * VDB_BASE_RES},
-    (vector3_t){(float)VDB_BASE_RES, (float)VDB_BASE_RES, (float)VDB_BASE_RES},
-    (vector4_t){1.0F, 1.0F, 0.0F, 1.0F});
-}
-static void vdb_brick_destroy(vdb_brick_t *brick) {
-  buffer_destroy(&brick->mask_buffer);
+        ivector3_t brick_position = {x, y, z};
 
-  HEAP_FREE(brick);
+        int32_t brick_index = vec_to_index(brick_position, g_vdb.dimension);
+
+        g_vdb.bricks[brick_index].position = brick_position;
+        g_vdb.bricks[brick_index].mask_buffer = buffer_create_storage_coherent(0, sizeof(uint32_t) * mask_buffer_size); // TODO
+      }
+    }
+  }
+}
+void vdb_debug(vector3_t ray_origin, vector3_t ray_direction) {
+  int32_t brick_index = 0;
+  int32_t brick_count = g_vdb.brick_count;
+
+  while (brick_index < brick_count) {
+
+    vdb_debug_lod(brick_index, 0);
+    vdb_debug_lod(brick_index, 1);
+    vdb_debug_lod(brick_index, 2);
+    vdb_debug_lod(brick_index, 3);
+    vdb_debug_lod(brick_index, 4);
+    vdb_debug_lod(brick_index, 5);
+    vdb_debug_lod(brick_index, 6);
+
+    brick_index++;
+  }
+
+  vdb_raymarch(ray_origin, ray_direction, 1000.0F);
+}
+vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_distance) {
+  vdb_hit_t hit = {
+    .ao = 1.0F,
+  };
+
+  vector3_t prev_position = ray_origin; // TODO: remove me
+
+  int32_t lod = 0; // VDB_MAX_LOD_LEVEL;
+  int32_t hit_axis = -1;
+  int32_t brick_index = 0;
+
+  float voxel_size = (float)vdb_voxel_size(lod);
+  int32_t voxel_count = vdb_total_voxel_count(lod);
+
+  float t = 0.0F;
+
+  ivector3_t index = {
+    (int32_t)floorf(ray_origin.x / voxel_size),
+    (int32_t)floorf(ray_origin.y / voxel_size),
+    (int32_t)floorf(ray_origin.z / voxel_size),
+  };
+
+  ivector3_t step = {
+    signf(ray_direction.x),
+    signf(ray_direction.y),
+    signf(ray_direction.z),
+  };
+
+  vector3_t direction_inv = {
+    ray_direction.x != 0.0F ? 1.0F / ray_direction.x : FLT_MAX,
+    ray_direction.y != 0.0F ? 1.0F / ray_direction.y : FLT_MAX,
+    ray_direction.z != 0.0F ? 1.0F / ray_direction.z : FLT_MAX,
+  };
+
+  vector3_t next_boundary = {
+    (step.x > 0 ? (float)(index.x + 1) : (float)(index.x)) * voxel_size,
+    (step.y > 0 ? (float)(index.y + 1) : (float)(index.y)) * voxel_size,
+    (step.z > 0 ? (float)(index.z + 1) : (float)(index.z)) * voxel_size,
+  };
+
+  vector3_t t_max = {
+    (next_boundary.x - ray_origin.x) * direction_inv.x,
+    (next_boundary.y - ray_origin.y) * direction_inv.y,
+    (next_boundary.z - ray_origin.z) * direction_inv.z,
+  };
+
+  vector3_t t_delta = {
+    fabsf(voxel_size * direction_inv.x),
+    fabsf(voxel_size * direction_inv.y),
+    fabsf(voxel_size * direction_inv.z),
+  };
+
+  while (t < max_distance) {
+
+    if (index.x < 0 || index.y < 0 || index.z < 0 ||
+        index.x >= voxel_count ||
+        index.y >= voxel_count ||
+        index.z >= voxel_count) {
+
+      break;
+    }
+
+    int8_t solid = vdb_voxel_is_solid(brick_index, lod, index);
+
+    if (solid && lod > 0) {
+
+      lod--;
+
+      float advance = fminf(t_max.x, fminf(t_max.y, t_max.z));
+
+      ray_origin = vector3_add(ray_origin, vector3_muls(ray_direction, advance + EPSILON_6));
+
+      t += advance + EPSILON_6;
+
+      voxel_size = (float)vdb_voxel_size(lod);
+      voxel_count = vdb_total_voxel_count(lod);
+
+      index = (ivector3_t){
+        (int32_t)floorf(ray_origin.x / voxel_size),
+        (int32_t)floorf(ray_origin.y / voxel_size),
+        (int32_t)floorf(ray_origin.z / voxel_size),
+      };
+
+      step = (ivector3_t){
+        signf(ray_direction.x),
+        signf(ray_direction.y),
+        signf(ray_direction.z),
+      };
+
+      direction_inv = (vector3_t){
+        ray_direction.x != 0.0F ? 1.0F / ray_direction.x : FLT_MAX,
+        ray_direction.y != 0.0F ? 1.0F / ray_direction.y : FLT_MAX,
+        ray_direction.z != 0.0F ? 1.0F / ray_direction.z : FLT_MAX,
+      };
+
+      next_boundary = (vector3_t){
+        (step.x > 0 ? (float)(index.x + 1) : (float)(index.x)) * voxel_size,
+        (step.y > 0 ? (float)(index.y + 1) : (float)(index.y)) * voxel_size,
+        (step.z > 0 ? (float)(index.z + 1) : (float)(index.z)) * voxel_size,
+      };
+
+      t_max = (vector3_t){
+        (next_boundary.x - ray_origin.x) * direction_inv.x,
+        (next_boundary.y - ray_origin.y) * direction_inv.y,
+        (next_boundary.z - ray_origin.z) * direction_inv.z,
+      };
+
+      t_delta = (vector3_t){
+        fabsf(voxel_size * direction_inv.x),
+        fabsf(voxel_size * direction_inv.y),
+        fabsf(voxel_size * direction_inv.z),
+      };
+
+      continue;
+    }
+
+    if (solid && lod == 0) {
+
+      vector3_t hit_position = vector3_add(ray_origin, vector3_muls(ray_direction, t));
+
+      hit.intersect = 1;
+      hit.index = index;
+      hit.hit_position = hit_position;
+
+      return hit;
+    }
+
+    float t_next = fminf(t_max.x, fminf(t_max.y, t_max.z));
+
+    int32_t next_axis = -1;
+
+    if (t_max.x <= t_max.y && t_max.x <= t_max.z) {
+      next_axis = 0;
+    } else if (t_max.y <= t_max.z) {
+      next_axis = 1;
+    } else {
+      next_axis = 2;
+    }
+
+    int32_t step_x = fabsf(t_max.x - t_next) < EPSILON_6;
+    int32_t step_y = fabsf(t_max.y - t_next) < EPSILON_6;
+    int32_t step_z = fabsf(t_max.z - t_next) < EPSILON_6;
+
+    if (step_x) {
+      index.x += step.x;
+      t_max.x += t_delta.x;
+    }
+
+    if (step_y) {
+      index.y += step.y;
+      t_max.y += t_delta.y;
+    }
+
+    if (step_z) {
+      index.z += step.z;
+      t_max.z += t_delta.z;
+    }
+
+    hit_axis = next_axis;
+
+    t = t_next + EPSILON_6;
+  }
+
+  return hit;
+}
+void vdb_destroy(void) {
+  int32_t brick_index = 0;
+  int32_t brick_count = g_vdb.brick_count;
+
+  while (brick_index < brick_count) {
+
+    buffer_destroy(&g_vdb.bricks[brick_index].mask_buffer);
+
+    brick_index++;
+  }
+
+  HEAP_FREE(g_vdb.bricks);
 }
 
-static int32_t vdb_position_hash(ivector3_t position, int32_t modulus) {
-  return (((1 << 20) - 1) & ((int32_t)(position.x) * 73856093 ^
-                             (int32_t)(position.y) * 19349669 ^
-                             (int32_t)(position.z) * 83492791)) %
-         modulus;
+int32_t vdb_voxels_per_axis(int8_t lod) {
+  return VDB_BASE_RES >> lod;
+}
+int32_t vdb_total_voxel_count(int8_t lod) {
+  int32_t n = vdb_voxels_per_axis(lod);
+
+  return n * n * n;
+}
+int32_t vdb_word_count(int8_t lod) {
+  int32_t n = vdb_total_voxel_count(lod);
+
+  return (n + (VDB_BITS_PER_WORD - 1)) >> 5;
+}
+int32_t vdb_voxel_index(int8_t lod, ivector3_t index) {
+  int32_t n = vdb_voxels_per_axis(lod);
+
+  return index.x + index.y * n + index.z * n * n;
+}
+int32_t vdb_voxel_size(int8_t lod) {
+  return 1 << lod;
+}
+int32_t vdb_word_index(int32_t voxel_index) {
+  return voxel_index >> 5;
+}
+
+int8_t vdb_voxel_is_solid(int32_t brick_index, int8_t lod, ivector3_t index) {
+  int32_t i = vdb_voxel_index(lod, index);
+  int32_t word = s_vdb_word_offset[lod] + vdb_word_index(i);
+
+  uint32_t bit = 1U << (i & 31);
+
+  uint32_t *mask = (uint32_t *)g_vdb.bricks[brick_index].mask_buffer.mapped_memory;
+
+  return (mask[word] & bit) != 0u;
+}
+
+void vdb_voxel_set(int32_t brick_index, int8_t lod, ivector3_t index) {
+  int32_t i = vdb_voxel_index(lod, index);
+  int32_t word = s_vdb_word_offset[lod] + vdb_word_index(i);
+
+  uint32_t bit = 1U << (i & 31);
+
+  uint32_t *mask = (uint32_t *)g_vdb.bricks[brick_index].mask_buffer.mapped_memory;
+
+  mask[word] |= bit;
+}
+void vdb_voxel_clr(int32_t brick_index, int8_t lod, ivector3_t index) {
+  int32_t i = vdb_voxel_index(lod, index);
+  int32_t word = s_vdb_word_offset[lod] + vdb_word_index(i);
+
+  uint32_t bit = ~(1U << (i & 31));
+
+  uint32_t *mask = (uint32_t *)g_vdb.bricks[brick_index].mask_buffer.mapped_memory;
+
+  mask[word] &= bit;
+}
+
+static void vdb_debug_lod(int32_t brick_index, int8_t lod) {
+  ivector3_t brick_position = g_vdb.bricks[brick_index].position;
+
+  int32_t voxel_count = vdb_voxels_per_axis(lod);
+  int32_t voxel_size = vdb_voxel_size(lod);
+
+  for (int32_t x = 0; x < voxel_count; x++) {
+    for (int32_t y = 0; y < voxel_count; y++) {
+      for (int32_t z = 0; z < voxel_count; z++) {
+
+        ivector3_t voxel_position = {x, y, z};
+
+        int8_t solid = vdb_voxel_is_solid(brick_index, lod, voxel_position);
+
+        if (solid) {
+
+          ivector3_t position = ivector3_add(ivector3_muls(voxel_position, voxel_size), brick_position);
+
+          renderer_draw_debug_box(
+            (vector3_t){(float)position.x, (float)position.y, (float)position.z},
+            (vector3_t){(float)voxel_size, (float)voxel_size, (float)voxel_size},
+            s_vdb_lod_color[lod]);
+        }
+      }
+    }
+  }
 }

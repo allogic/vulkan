@@ -72,7 +72,7 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2); // TODO
-  vdb_create((ivector3_t){5, 1, 5}, 1000.0F);
+  vdb_create((ivector3_t){1, 1, 1});
   renderer_create();
 }
 void window_run(void) {
@@ -80,6 +80,9 @@ void window_run(void) {
   QueryPerformanceCounter(&g_window.time_prev);
 
   player_t player = player_create();
+
+  vector3_t ray_origin = vector3_zero();
+  vector3_t ray_direction = vector3_front();
 
   while (g_window.is_window_running) {
 
@@ -127,7 +130,7 @@ void window_run(void) {
       window_update_surface_capabilities();
 
       swapchain_create(2); // TODO
-      vdb_create((ivector3_t){5, 1, 5}, 1000.0F);
+      vdb_create((ivector3_t){1, 1, 1});
       renderer_create();
     }
 
@@ -141,7 +144,7 @@ void window_run(void) {
       renderer_destroy();
       vdb_destroy();
 
-      vdb_create((ivector3_t){5, 1, 5}, 1000.0F);
+      vdb_create((ivector3_t){1, 1, 1});
       renderer_create();
     }
 
@@ -166,7 +169,12 @@ void window_run(void) {
       (vector3_t){0.0F, 0.0F, 1.0F},
       (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
 
-    vdb_debug(); // TODO: remove me
+    if (window_is_mouse_key_held(KEYBOARD_KEY_SPACE)) {
+      ray_origin = player.transform.world_position;
+      ray_direction = transform_local_front(&player.transform);
+    }
+
+    vdb_debug(ray_origin, ray_direction); // TODO: remove me
 
     player_update(&player);
 
@@ -180,7 +188,7 @@ void window_run(void) {
 
     float delta_time = (float)((time_curr - time_prev) / time_freq);
 
-    delta_time = clamp(delta_time, 0.0F, WINDOW_MAX_DELTA_TIME);
+    delta_time = clampf(delta_time, 0.0F, WINDOW_MAX_DELTA_TIME);
 
     g_window.delta_time = delta_time;
     g_window.time_prev = g_window.time_curr;

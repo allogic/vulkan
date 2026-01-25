@@ -28,15 +28,18 @@ typedef struct debug_line_vertex_t {
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
 
-typedef struct vdb_terrain_gen_info_t {
+typedef struct vdb_push_constant_t {
   ivector3_t brick_position;
-  float reserved0;
-  ivector3_t cluster_dim;
-} vdb_terrain_gen_info_t;
+  int32_t brick_index;
+  ivector3_t vdb_dimension;
+  int32_t brick_lod;
+} vdb_push_constant_t;
 
 typedef struct renderer_t {
   int8_t is_dirty;
   int8_t is_debug_enabled;
+  int8_t regenerate_terrain;
+  int8_t regenerate_lod;
   int32_t image_index;
   int32_t debug_line_vertex_offset;
   int32_t debug_line_index_offset;
@@ -45,18 +48,23 @@ typedef struct renderer_t {
   VkSemaphore image_available_semaphore;
   VkFence frame_fence;
   VkDescriptorPool vdb_terrain_gen_descriptor_pool;
+  VkDescriptorPool vdb_lod_gen_descriptor_pool;
   VkDescriptorPool vdb_soft_renderer_descriptor_pool;
   VkDescriptorPool debug_line_descriptor_pool;
   VkDescriptorSetLayout vdb_terrain_gen_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_lod_gen_descriptor_set_layout;
   VkDescriptorSetLayout vdb_soft_renderer_descriptor_set_layout;
   VkDescriptorSetLayout debug_line_descriptor_set_layout;
   VkDescriptorSet vdb_terrain_gen_descriptor_set;
+  VkDescriptorSet vdb_lod_gen_descriptor_set;
   VkDescriptorSet vdb_soft_renderer_descriptor_set;
   VkDescriptorSet debug_line_descriptor_set;
   VkPipelineLayout vdb_terrain_gen_pipeline_layout;
+  VkPipelineLayout vdb_lod_gen_pipeline_layout;
   VkPipelineLayout vdb_soft_renderer_pipeline_layout;
   VkPipelineLayout debug_line_pipeline_layout;
   VkPipeline vdb_terrain_gen_pipeline;
+  VkPipeline vdb_lod_gen_pipeline;
   VkPipeline vdb_soft_renderer_pipeline;
   VkPipeline debug_line_pipeline;
   buffer_t time_info_buffer;

@@ -21,6 +21,8 @@ __forceinline vector4_t vector4_muls(vector4_t a, float b);
 __forceinline vector4_t vector4_divs(vector4_t a, float b);
 __forceinline vector4_t vector4_norm(vector4_t a);
 __forceinline vector4_t vector4_inv(vector4_t a);
+__forceinline vector4_t vector4_floor(vector4_t a);
+__forceinline vector4_t vector4_ceil(vector4_t a);
 __forceinline float vector4_dot(vector4_t a, vector4_t b);
 __forceinline float vector4_length(vector4_t a);
 __forceinline float vector4_length2(vector4_t a);
