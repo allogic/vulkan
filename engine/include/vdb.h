@@ -3,8 +3,8 @@
 
 typedef struct vdb_hit_t {
   uint8_t intersect;
-  ivector3_t brick_index;
-  ivector3_t voxel_index;
+  ivector3_t brick_position;
+  ivector3_t voxel_position;
   vector3_t hit_position;
   // vector3_t face_position;
   // vector3_t normal;
@@ -38,14 +38,14 @@ void vdb_destroy(void);
 int32_t vdb_voxels_per_axis(int8_t lod);
 int32_t vdb_total_voxel_count(int8_t lod);
 int32_t vdb_word_count(int8_t lod);
-int32_t vdb_voxel_index(int8_t lod, ivector3_t index);
+int32_t vdb_voxel_index(int8_t lod, ivector3_t voxel_position);
 int32_t vdb_voxel_size(int8_t lod);
 int32_t vdb_word_index(int32_t voxel_index);
 
-int8_t vdb_voxel_is_solid(int32_t brick_index, int8_t lod, ivector3_t index);
+int8_t vdb_voxel_is_solid(int32_t brick_index, int8_t lod, ivector3_t voxel_position);
 
-void vdb_voxel_set(int32_t brick_index, int8_t lod, ivector3_t index);
-void vdb_voxel_clr(int32_t brick_index, int8_t lod, ivector3_t index);
+void vdb_voxel_set(int32_t brick_index, int8_t lod, ivector3_t voxel_position);
+void vdb_voxel_clr(int32_t brick_index, int8_t lod, ivector3_t voxel_position);
 
 #ifdef __cplusplus
 }
