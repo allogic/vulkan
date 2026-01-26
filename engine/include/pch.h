@@ -1,6 +1,7 @@
 #ifndef PCH_H
 #define PCH_H
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>

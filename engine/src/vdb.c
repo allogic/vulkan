@@ -88,11 +88,11 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
 
   int32_t iter = 0;
   int32_t lod = VDB_MAX_LOD_LEVEL;
-  int32_t hit_axis = -1;
   int32_t brick_index = 0;
   int32_t voxels_per_axis = vdb_voxels_per_axis(lod);
   int32_t voxel_size = vdb_voxel_size(lod);
 
+  vector3_t prev_hit_position = ray_origin;
   vector3_t hit_position = ray_origin;
 
   ivector3_t step_direction = {
@@ -131,10 +131,19 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
 
   while (t < max_distance) {
 
-    float t_next = fminf(t_max.x, fminf(t_max.y, t_max.z));
+    assert(t_max.x >= -EPSILON_6);
+    assert(t_max.y >= -EPSILON_6);
+    assert(t_max.z >= -EPSILON_6);
 
-    vector3_t prev_hit_position = hit_position; // TODO
+    float t_voxel = fminf(t_max.x, fminf(t_max.y, t_max.z));
+    float t_next = t + t_voxel;
 
+    if (iter > 0) {
+      assert(t_voxel >= 0.0F); // distance to next face must be positive
+      assert(t_next > t);      // ray must move forward monotonically
+    }
+
+    prev_hit_position = hit_position; // TODO
     hit_position = vector3_add(ray_origin, vector3_muls(ray_direction, t_next));
 
     if ((voxel_index.x >= 0) && (voxel_index.x < voxels_per_axis) &&
@@ -177,23 +186,12 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
           continue;
         }
 
-        if (lod == 0) {
+        hit.intersect = 1;
+        hit.voxel_index = voxel_index;
+        hit.hit_position = hit_position;
 
-          hit.intersect = 1;
-          hit.voxel_index = voxel_index;
-          hit.hit_position = hit_position;
-
-          return hit;
-        }
+        return hit;
       }
-    }
-
-    if (t_max.x <= t_max.y && t_max.x <= t_max.z) {
-      hit_axis = 0;
-    } else if (t_max.y <= t_max.z) {
-      hit_axis = 1;
-    } else {
-      hit_axis = 2;
     }
 
     int32_t step_x = fabsf(t_max.x - t_next) < EPSILON_6;
@@ -205,16 +203,19 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
     if (step_x) {
       voxel_index.x += step_direction.x;
       t_max.x += t_delta.x;
+      t_max.x -= t_voxel; // Is this correct?
     }
 
     if (step_y) {
       voxel_index.y += step_direction.y;
       t_max.y += t_delta.y;
+      t_max.y -= t_voxel; // Is this correct?
     }
 
     if (step_z) {
       voxel_index.z += step_direction.z;
-      t_max.z += t_delta.z;
+      t_max.z -= t_voxel;
+      t_max.z += t_delta.z; // Is this correct?
     }
 
     renderer_draw_debug_box(
