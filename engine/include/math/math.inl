@@ -12,7 +12,7 @@ __forceinline int32_t clampi(int32_t a, int32_t min, int32_t max) {
   return (int32_t)fmaxf((float)min, fminf((float)max, (float)a));
 }
 
-__forceinline int32_t signf(float a) {
+__forceinline float fsignf(float a) {
   return (a > 0.0F) - (a < 0.0F);
 }
 

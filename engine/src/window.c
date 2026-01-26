@@ -169,10 +169,12 @@ void window_run(void) {
       (vector3_t){0.0F, 0.0F, 1.0F},
       (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
 
-    if (window_is_mouse_key_held(KEYBOARD_KEY_SPACE)) {
+    if (window_is_keyboard_key_held(KEYBOARD_KEY_SPACE)) {
       ray_origin = player.transform.world_position;
-      ray_direction = transform_local_front(&player.transform);
+      ray_direction = vector3_norm(transform_local_front(&player.transform));
     }
+
+    vdb_raymarch(ray_origin, ray_direction, 1000.0F);
 
     vdb_debug(ray_origin, ray_direction); // TODO: remove me
 

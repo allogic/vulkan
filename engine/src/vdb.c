@@ -25,9 +25,15 @@ static vector4_t const s_vdb_lod_color[7] = {
 };
 
 void vdb_create(ivector3_t dimension) {
-  g_vdb.bricks = (vdb_brick_t *)HEAP_ALLOC(VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t), 1, 0);
+  g_vdb.brick = (vdb_brick_t *)HEAP_ALLOC(VDB_INITIAL_TABLE_COUNT * sizeof(vdb_brick_t), 1, 0);
   g_vdb.brick_count = dimension.x * dimension.y * dimension.z;
   g_vdb.dimension = dimension;
+  g_vdb.color = (vector4_t *)HEAP_ALLOC(sizeof(vector4_t) * 1000, 1, 0);
+
+  // TODO: remove this
+  for (int i = 0; i < 1000; i++) {
+    g_vdb.color[i] = (vector4_t){(float)rand() / (float)RAND_MAX, (float)rand() / (float)RAND_MAX, (float)rand() / (float)RAND_MAX, 1.0F};
+  }
 
   uint64_t mask_buffer_size_lod6 = 1;
   uint64_t mask_buffer_size_lod5 = 1;
@@ -54,8 +60,8 @@ void vdb_create(ivector3_t dimension) {
 
         int32_t brick_index = vec_to_index(brick_position, g_vdb.dimension);
 
-        g_vdb.bricks[brick_index].position = brick_position;
-        g_vdb.bricks[brick_index].mask_buffer = buffer_create_storage_coherent(0, sizeof(uint32_t) * mask_buffer_size); // TODO
+        g_vdb.brick[brick_index].position = brick_position;
+        g_vdb.brick[brick_index].mask_buffer = buffer_create_storage_coherent(0, sizeof(uint32_t) * mask_buffer_size); // TODO
       }
     }
   }
@@ -76,170 +82,154 @@ void vdb_debug(vector3_t ray_origin, vector3_t ray_direction) {
 
     brick_index++;
   }
-
-  vdb_raymarch(ray_origin, ray_direction, 1000.0F);
 }
 vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_distance) {
-  vdb_hit_t hit = {
-    .ao = 1.0F,
-  };
+  vdb_hit_t hit = {0};
 
-  vector3_t prev_position = ray_origin; // TODO: remove me
-
-  int32_t lod = 0; // VDB_MAX_LOD_LEVEL;
+  int32_t iter = 0;
+  int32_t lod = VDB_MAX_LOD_LEVEL;
   int32_t hit_axis = -1;
   int32_t brick_index = 0;
+  int32_t voxels_per_axis = vdb_voxels_per_axis(lod);
+  int32_t voxel_size = vdb_voxel_size(lod);
 
-  float voxel_size = (float)vdb_voxel_size(lod);
-  int32_t voxel_count = vdb_total_voxel_count(lod);
+  vector3_t hit_position = ray_origin;
 
-  float t = 0.0F;
-
-  ivector3_t index = {
-    (int32_t)floorf(ray_origin.x / voxel_size),
-    (int32_t)floorf(ray_origin.y / voxel_size),
-    (int32_t)floorf(ray_origin.z / voxel_size),
+  ivector3_t step_direction = {
+    (int32_t)fsignf(ray_direction.x),
+    (int32_t)fsignf(ray_direction.y),
+    (int32_t)fsignf(ray_direction.z),
   };
-
-  ivector3_t step = {
-    signf(ray_direction.x),
-    signf(ray_direction.y),
-    signf(ray_direction.z),
-  };
-
-  vector3_t direction_inv = {
-    ray_direction.x != 0.0F ? 1.0F / ray_direction.x : FLT_MAX,
-    ray_direction.y != 0.0F ? 1.0F / ray_direction.y : FLT_MAX,
-    ray_direction.z != 0.0F ? 1.0F / ray_direction.z : FLT_MAX,
+  ivector3_t voxel_index = {
+    (int32_t)floorf(hit_position.x / (float)voxel_size),
+    (int32_t)floorf(hit_position.y / (float)voxel_size),
+    (int32_t)floorf(hit_position.z / (float)voxel_size),
   };
 
   vector3_t next_boundary = {
-    (step.x > 0 ? (float)(index.x + 1) : (float)(index.x)) * voxel_size,
-    (step.y > 0 ? (float)(index.y + 1) : (float)(index.y)) * voxel_size,
-    (step.z > 0 ? (float)(index.z + 1) : (float)(index.z)) * voxel_size,
+    ((step_direction.x > 0) ? (float)(voxel_index.x + 1) : (float)voxel_index.x) * (float)voxel_size,
+    ((step_direction.y > 0) ? (float)(voxel_index.y + 1) : (float)voxel_index.y) * (float)voxel_size,
+    ((step_direction.z > 0) ? (float)(voxel_index.z + 1) : (float)voxel_index.z) * (float)voxel_size,
   };
-
+  vector3_t ray_direction_inv = {
+    (ray_direction.x == 0.0F) ? FLT_MAX : 1.0F / ray_direction.x,
+    (ray_direction.y == 0.0F) ? FLT_MAX : 1.0F / ray_direction.y,
+    (ray_direction.z == 0.0F) ? FLT_MAX : 1.0F / ray_direction.z,
+  };
   vector3_t t_max = {
-    (next_boundary.x - ray_origin.x) * direction_inv.x,
-    (next_boundary.y - ray_origin.y) * direction_inv.y,
-    (next_boundary.z - ray_origin.z) * direction_inv.z,
+    (next_boundary.x - hit_position.x) * ray_direction_inv.x,
+    (next_boundary.y - hit_position.y) * ray_direction_inv.y,
+    (next_boundary.z - hit_position.z) * ray_direction_inv.z,
+  };
+  vector3_t t_delta = {
+    fabsf(ray_direction_inv.x * (float)voxel_size),
+    fabsf(ray_direction_inv.y * (float)voxel_size),
+    fabsf(ray_direction_inv.z * (float)voxel_size),
   };
 
-  vector3_t t_delta = {
-    fabsf(voxel_size * direction_inv.x),
-    fabsf(voxel_size * direction_inv.y),
-    fabsf(voxel_size * direction_inv.z),
-  };
+  float t = 0.0F;
 
   while (t < max_distance) {
 
-    if (index.x < 0 || index.y < 0 || index.z < 0 ||
-        index.x >= voxel_count ||
-        index.y >= voxel_count ||
-        index.z >= voxel_count) {
-
-      break;
-    }
-
-    int8_t solid = vdb_voxel_is_solid(brick_index, lod, index);
-
-    if (solid && lod > 0) {
-
-      lod--;
-
-      float advance = fminf(t_max.x, fminf(t_max.y, t_max.z));
-
-      ray_origin = vector3_add(ray_origin, vector3_muls(ray_direction, advance + EPSILON_6));
-
-      t += advance + EPSILON_6;
-
-      voxel_size = (float)vdb_voxel_size(lod);
-      voxel_count = vdb_total_voxel_count(lod);
-
-      index = (ivector3_t){
-        (int32_t)floorf(ray_origin.x / voxel_size),
-        (int32_t)floorf(ray_origin.y / voxel_size),
-        (int32_t)floorf(ray_origin.z / voxel_size),
-      };
-
-      step = (ivector3_t){
-        signf(ray_direction.x),
-        signf(ray_direction.y),
-        signf(ray_direction.z),
-      };
-
-      direction_inv = (vector3_t){
-        ray_direction.x != 0.0F ? 1.0F / ray_direction.x : FLT_MAX,
-        ray_direction.y != 0.0F ? 1.0F / ray_direction.y : FLT_MAX,
-        ray_direction.z != 0.0F ? 1.0F / ray_direction.z : FLT_MAX,
-      };
-
-      next_boundary = (vector3_t){
-        (step.x > 0 ? (float)(index.x + 1) : (float)(index.x)) * voxel_size,
-        (step.y > 0 ? (float)(index.y + 1) : (float)(index.y)) * voxel_size,
-        (step.z > 0 ? (float)(index.z + 1) : (float)(index.z)) * voxel_size,
-      };
-
-      t_max = (vector3_t){
-        (next_boundary.x - ray_origin.x) * direction_inv.x,
-        (next_boundary.y - ray_origin.y) * direction_inv.y,
-        (next_boundary.z - ray_origin.z) * direction_inv.z,
-      };
-
-      t_delta = (vector3_t){
-        fabsf(voxel_size * direction_inv.x),
-        fabsf(voxel_size * direction_inv.y),
-        fabsf(voxel_size * direction_inv.z),
-      };
-
-      continue;
-    }
-
-    if (solid && lod == 0) {
-
-      vector3_t hit_position = vector3_add(ray_origin, vector3_muls(ray_direction, t));
-
-      hit.intersect = 1;
-      hit.index = index;
-      hit.hit_position = hit_position;
-
-      return hit;
-    }
-
     float t_next = fminf(t_max.x, fminf(t_max.y, t_max.z));
 
-    int32_t next_axis = -1;
+    vector3_t prev_hit_position = hit_position; // TODO
+
+    hit_position = vector3_add(ray_origin, vector3_muls(ray_direction, t_next));
+
+    if ((voxel_index.x >= 0) && (voxel_index.x < voxels_per_axis) &&
+        (voxel_index.y >= 0) && (voxel_index.y < voxels_per_axis) &&
+        (voxel_index.z >= 0) && (voxel_index.z < voxels_per_axis)) {
+
+      int8_t solid = vdb_voxel_is_solid(brick_index, lod, voxel_index);
+
+      if (solid) {
+
+        if (lod > 0) {
+
+          lod--;
+
+          voxels_per_axis = vdb_voxels_per_axis(lod);
+          voxel_size = vdb_voxel_size(lod);
+
+          voxel_index = (ivector3_t){
+            (int32_t)floorf(hit_position.x / (float)voxel_size),
+            (int32_t)floorf(hit_position.y / (float)voxel_size),
+            (int32_t)floorf(hit_position.z / (float)voxel_size),
+          };
+
+          next_boundary = (vector3_t){
+            ((step_direction.x > 0) ? (float)(voxel_index.x + 1) : (float)voxel_index.x) * (float)voxel_size,
+            ((step_direction.y > 0) ? (float)(voxel_index.y + 1) : (float)voxel_index.y) * (float)voxel_size,
+            ((step_direction.z > 0) ? (float)(voxel_index.z + 1) : (float)voxel_index.z) * (float)voxel_size,
+          };
+          t_max = (vector3_t){
+            (next_boundary.x - hit_position.x) * ray_direction_inv.x,
+            (next_boundary.y - hit_position.y) * ray_direction_inv.y,
+            (next_boundary.z - hit_position.z) * ray_direction_inv.z,
+          };
+          t_delta = (vector3_t){
+            fabsf(ray_direction_inv.x * (float)voxel_size),
+            fabsf(ray_direction_inv.y * (float)voxel_size),
+            fabsf(ray_direction_inv.z * (float)voxel_size),
+          };
+
+          continue;
+        }
+
+        if (lod == 0) {
+
+          hit.intersect = 1;
+          hit.voxel_index = voxel_index;
+          hit.hit_position = hit_position;
+
+          return hit;
+        }
+      }
+    }
 
     if (t_max.x <= t_max.y && t_max.x <= t_max.z) {
-      next_axis = 0;
+      hit_axis = 0;
     } else if (t_max.y <= t_max.z) {
-      next_axis = 1;
+      hit_axis = 1;
     } else {
-      next_axis = 2;
+      hit_axis = 2;
     }
 
     int32_t step_x = fabsf(t_max.x - t_next) < EPSILON_6;
     int32_t step_y = fabsf(t_max.y - t_next) < EPSILON_6;
     int32_t step_z = fabsf(t_max.z - t_next) < EPSILON_6;
 
+    ivector3_t prev_voxel_index = voxel_index; // TODO
+
     if (step_x) {
-      index.x += step.x;
+      voxel_index.x += step_direction.x;
       t_max.x += t_delta.x;
     }
 
     if (step_y) {
-      index.y += step.y;
+      voxel_index.y += step_direction.y;
       t_max.y += t_delta.y;
     }
 
     if (step_z) {
-      index.z += step.z;
+      voxel_index.z += step_direction.z;
       t_max.z += t_delta.z;
     }
 
-    hit_axis = next_axis;
+    renderer_draw_debug_box(
+      (vector3_t){(float)prev_voxel_index.x * voxel_size, (float)prev_voxel_index.y * voxel_size, (float)prev_voxel_index.z * voxel_size},
+      (vector3_t){(float)voxel_size, (float)voxel_size, (float)voxel_size},
+      g_vdb.color[iter]);
+
+    renderer_draw_debug_line(
+      prev_hit_position,
+      hit_position,
+      g_vdb.color[iter]);
 
     t = t_next + EPSILON_6;
+
+    iter++;
   }
 
   return hit;
@@ -250,12 +240,12 @@ void vdb_destroy(void) {
 
   while (brick_index < brick_count) {
 
-    buffer_destroy(&g_vdb.bricks[brick_index].mask_buffer);
+    buffer_destroy(&g_vdb.brick[brick_index].mask_buffer);
 
     brick_index++;
   }
 
-  HEAP_FREE(g_vdb.bricks);
+  HEAP_FREE(g_vdb.brick);
 }
 
 int32_t vdb_voxels_per_axis(int8_t lod) {
@@ -289,7 +279,7 @@ int8_t vdb_voxel_is_solid(int32_t brick_index, int8_t lod, ivector3_t index) {
 
   uint32_t bit = 1U << (i & 31);
 
-  uint32_t *mask = (uint32_t *)g_vdb.bricks[brick_index].mask_buffer.mapped_memory;
+  uint32_t *mask = (uint32_t *)g_vdb.brick[brick_index].mask_buffer.mapped_memory;
 
   return (mask[word] & bit) != 0u;
 }
@@ -300,7 +290,7 @@ void vdb_voxel_set(int32_t brick_index, int8_t lod, ivector3_t index) {
 
   uint32_t bit = 1U << (i & 31);
 
-  uint32_t *mask = (uint32_t *)g_vdb.bricks[brick_index].mask_buffer.mapped_memory;
+  uint32_t *mask = (uint32_t *)g_vdb.brick[brick_index].mask_buffer.mapped_memory;
 
   mask[word] |= bit;
 }
@@ -310,13 +300,13 @@ void vdb_voxel_clr(int32_t brick_index, int8_t lod, ivector3_t index) {
 
   uint32_t bit = ~(1U << (i & 31));
 
-  uint32_t *mask = (uint32_t *)g_vdb.bricks[brick_index].mask_buffer.mapped_memory;
+  uint32_t *mask = (uint32_t *)g_vdb.brick[brick_index].mask_buffer.mapped_memory;
 
   mask[word] &= bit;
 }
 
 static void vdb_debug_lod(int32_t brick_index, int8_t lod) {
-  ivector3_t brick_position = g_vdb.bricks[brick_index].position;
+  ivector3_t brick_position = g_vdb.brick[brick_index].position;
 
   int32_t voxel_count = vdb_voxels_per_axis(lod);
   int32_t voxel_size = vdb_voxel_size(lod);

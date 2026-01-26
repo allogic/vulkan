@@ -201,7 +201,7 @@ void renderer_draw(transform_t *transform, camera_t *camera) {
       .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .buffer = g_vdb.bricks[brick_index].mask_buffer.handle,
+      .buffer = g_vdb.brick[brick_index].mask_buffer.handle,
       .offset = 0,
       .size = VK_WHOLE_SIZE,
     };
@@ -1172,7 +1172,7 @@ static void renderer_update_vdb_terrain_gen_descriptor_sets(void) {
   while (brick_index < brick_count) {
 
     vdb_brick_descriptor_buffer_infos[brick_index].offset = 0;
-    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.bricks[brick_index].mask_buffer.handle;
+    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.brick[brick_index].mask_buffer.handle;
     vdb_brick_descriptor_buffer_infos[brick_index].range = VK_WHOLE_SIZE;
 
     brick_index++;
@@ -1206,7 +1206,7 @@ static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
   while (brick_index < brick_count) {
 
     vdb_brick_descriptor_buffer_infos[brick_index].offset = 0;
-    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.bricks[brick_index].mask_buffer.handle;
+    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.brick[brick_index].mask_buffer.handle;
     vdb_brick_descriptor_buffer_infos[brick_index].range = VK_WHOLE_SIZE;
 
     brick_index++;
@@ -1240,7 +1240,7 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
   while (brick_index < brick_count) {
 
     vdb_brick_descriptor_buffer_infos[brick_index].offset = 0;
-    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.bricks[brick_index].mask_buffer.handle;
+    vdb_brick_descriptor_buffer_infos[brick_index].buffer = g_vdb.brick[brick_index].mask_buffer.handle;
     vdb_brick_descriptor_buffer_infos[brick_index].range = VK_WHOLE_SIZE;
 
     brick_index++;
@@ -1436,7 +1436,7 @@ static void renderer_push_compute_barrier(void) {
       .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .buffer = g_vdb.bricks[brick_index].mask_buffer.handle,
+      .buffer = g_vdb.brick[brick_index].mask_buffer.handle,
       .offset = 0,
       .size = VK_WHOLE_SIZE,
     };

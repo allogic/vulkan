@@ -3,12 +3,12 @@
 
 typedef struct vdb_hit_t {
   uint8_t intersect;
-  ivector3_t index;
+  ivector3_t voxel_index;
   vector3_t hit_position;
-  vector3_t face_position;
-  vector3_t normal;
-  vector2_t uv;
-  float ao;
+  // vector3_t face_position;
+  // vector3_t normal;
+  // vector2_t uv;
+  // float ao;
 } vdb_hit_t;
 
 typedef struct vdb_brick_t {
@@ -17,9 +17,10 @@ typedef struct vdb_brick_t {
 } vdb_brick_t;
 
 typedef struct vdb_t {
-  struct vdb_brick_t *bricks;
+  struct vdb_brick_t *brick;
   int32_t brick_count;
   ivector3_t dimension;
+  vector4_t *color;
 } vdb_t;
 
 #ifdef __cplusplus
