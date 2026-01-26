@@ -57,10 +57,11 @@ void vdb_create(ivector3_t dimension) {
       for (int32_t z = 0; z < dimension.z; z++) {
 
         ivector3_t brick_position = {x, y, z};
+        ivector3_t brick_position_scaled = ivector3_muls(brick_position, VDB_BASE_RES);
 
         int32_t brick_index = vec_to_index(brick_position, g_vdb.dimension);
 
-        g_vdb.brick[brick_index].position = brick_position;
+        g_vdb.brick[brick_index].position = brick_position_scaled;
         g_vdb.brick[brick_index].mask_buffer = buffer_create_storage_coherent(0, sizeof(uint32_t) * mask_buffer_size); // TODO
       }
     }
@@ -88,23 +89,29 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
 
   int32_t iter = 0;
   int32_t lod = VDB_MAX_LOD_LEVEL;
-  int32_t brick_index = 0;
   int32_t voxels_per_axis = vdb_voxels_per_axis(lod);
   int32_t voxel_size = vdb_voxel_size(lod);
 
-  vector3_t prev_hit_position = ray_origin;
   vector3_t hit_position = ray_origin;
+  vector3_t prev_hit_position = hit_position;
 
   ivector3_t step_direction = {
     (int32_t)fsignf(ray_direction.x),
     (int32_t)fsignf(ray_direction.y),
     (int32_t)fsignf(ray_direction.z),
   };
-  ivector3_t voxel_index = {
-    (int32_t)floorf(hit_position.x / (float)voxel_size),
-    (int32_t)floorf(hit_position.y / (float)voxel_size),
-    (int32_t)floorf(hit_position.z / (float)voxel_size),
+  ivector3_t brick_index = {
+    (int32_t)floorf(hit_position.x / VDB_MAX_LOD_LEVEL),
+    (int32_t)floorf(hit_position.y / VDB_MAX_LOD_LEVEL),
+    (int32_t)floorf(hit_position.z / VDB_MAX_LOD_LEVEL),
   };
+  ivector3_t prev_brick_index = brick_index;
+  ivector3_t voxel_index = {
+    (int32_t)floorf(hit_position.x / voxel_size),
+    (int32_t)floorf(hit_position.y / voxel_size),
+    (int32_t)floorf(hit_position.z / voxel_size),
+  };
+  ivector3_t prev_voxel_index = voxel_index;
 
   vector3_t next_boundary = {
     ((step_direction.x > 0) ? (float)(voxel_index.x + 1) : (float)voxel_index.x) * (float)voxel_size,
@@ -131,28 +138,23 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
 
   while (t < max_distance) {
 
-    assert(t_max.x >= -EPSILON_6);
-    assert(t_max.y >= -EPSILON_6);
-    assert(t_max.z >= -EPSILON_6);
-
-    float t_voxel = fminf(t_max.x, fminf(t_max.y, t_max.z));
-    float t_next = t + t_voxel;
-
     if (iter > 0) {
-      assert(t_voxel >= 0.0F); // distance to next face must be positive
-      assert(t_next > t);      // ray must move forward monotonically
+      renderer_draw_debug_line(prev_hit_position, hit_position, g_vdb.color[iter - 1]);
     }
 
-    prev_hit_position = hit_position; // TODO
-    hit_position = vector3_add(ray_origin, vector3_muls(ray_direction, t_next));
+    prev_hit_position = hit_position;
+    prev_brick_index = brick_index;
+    prev_voxel_index = voxel_index;
 
-    if ((voxel_index.x >= 0) && (voxel_index.x < voxels_per_axis) &&
-        (voxel_index.y >= 0) && (voxel_index.y < voxels_per_axis) &&
-        (voxel_index.z >= 0) && (voxel_index.z < voxels_per_axis)) {
+    int8_t in_bounds = (voxel_index.x >= 0) && (voxel_index.x < voxels_per_axis) &&
+                       (voxel_index.y >= 0) && (voxel_index.y < voxels_per_axis) &&
+                       (voxel_index.z >= 0) && (voxel_index.z < voxels_per_axis);
 
-      int8_t solid = vdb_voxel_is_solid(brick_index, lod, voxel_index);
+    if (in_bounds) {
 
-      if (solid) {
+      int8_t is_solid = vdb_voxel_is_solid(0, lod, voxel_index);
+
+      if (is_solid) {
 
         if (lod > 0) {
 
@@ -161,10 +163,16 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
           voxels_per_axis = vdb_voxels_per_axis(lod);
           voxel_size = vdb_voxel_size(lod);
 
+          // TODO
+          // brick_index = (ivector3_t){
+          //   (int32_t)floorf(hit_position.x / VDB_MAX_LOD_LEVEL),
+          //   (int32_t)floorf(hit_position.y / VDB_MAX_LOD_LEVEL),
+          //   (int32_t)floorf(hit_position.z / VDB_MAX_LOD_LEVEL),
+          // };
           voxel_index = (ivector3_t){
-            (int32_t)floorf(hit_position.x / (float)voxel_size),
-            (int32_t)floorf(hit_position.y / (float)voxel_size),
-            (int32_t)floorf(hit_position.z / (float)voxel_size),
+            (int32_t)floorf(hit_position.x / voxel_size),
+            (int32_t)floorf(hit_position.y / voxel_size),
+            (int32_t)floorf(hit_position.z / voxel_size),
           };
 
           next_boundary = (vector3_t){
@@ -187,35 +195,15 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
         }
 
         hit.intersect = 1;
+        hit.brick_index = brick_index;
         hit.voxel_index = voxel_index;
         hit.hit_position = hit_position;
 
         return hit;
       }
-    }
+    } else if (lod == VDB_MAX_LOD_LEVEL) {
 
-    int32_t step_x = fabsf(t_max.x - t_next) < EPSILON_6;
-    int32_t step_y = fabsf(t_max.y - t_next) < EPSILON_6;
-    int32_t step_z = fabsf(t_max.z - t_next) < EPSILON_6;
-
-    ivector3_t prev_voxel_index = voxel_index; // TODO
-
-    if (step_x) {
-      voxel_index.x += step_direction.x;
-      t_max.x += t_delta.x;
-      t_max.x -= t_voxel; // Is this correct?
-    }
-
-    if (step_y) {
-      voxel_index.y += step_direction.y;
-      t_max.y += t_delta.y;
-      t_max.y -= t_voxel; // Is this correct?
-    }
-
-    if (step_z) {
-      voxel_index.z += step_direction.z;
-      t_max.z -= t_voxel;
-      t_max.z += t_delta.z; // Is this correct?
+      break;
     }
 
     renderer_draw_debug_box(
@@ -223,12 +211,60 @@ vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_
       (vector3_t){(float)voxel_size, (float)voxel_size, (float)voxel_size},
       g_vdb.color[iter]);
 
-    renderer_draw_debug_line(
-      prev_hit_position,
-      hit_position,
-      g_vdb.color[iter]);
+    float t_voxel = fminf(t_max.x, fminf(t_max.y, t_max.z));
+    float dist = t_voxel + EPSILON_6;
 
-    t = t_next + EPSILON_6;
+    if (t_voxel <= EPSILON_6) {
+      t_voxel = 0.0F;
+      dist = 0.0F;
+    }
+
+    if ((t + dist) >= max_distance) {
+      break;
+    }
+
+    // assert(t_voxel >= -EPSILON_6);
+
+    int32_t step_x = fabsf(t_max.x - t_voxel) < EPSILON_6;
+    int32_t step_y = fabsf(t_max.y - t_voxel) < EPSILON_6;
+    int32_t step_z = fabsf(t_max.z - t_voxel) < EPSILON_6;
+
+    if (step_x) {
+      voxel_index.x += step_direction.x;
+      t_max.x += t_delta.x;
+    }
+
+    if (step_y) {
+      voxel_index.y += step_direction.y;
+      t_max.y += t_delta.y;
+    }
+
+    if (step_z) {
+      voxel_index.z += step_direction.z;
+      t_max.z += t_delta.z;
+    }
+
+    if (dist > 0.0F) {
+      t += dist;
+      hit_position = vector3_add(hit_position, vector3_muls(ray_direction, dist));
+
+      // TODO
+      // if ((iter % 100) == 0) {
+      //   hit_position = vector3_add(ray_origin, vector3_muls(ray_direction, t));
+      // }
+
+      t_max.x -= dist;
+      t_max.y -= dist;
+      t_max.z -= dist;
+    }
+
+    t_max.x = fmaxf(t_max.x, 0.0F);
+    t_max.y = fmaxf(t_max.y, 0.0F);
+    t_max.z = fmaxf(t_max.z, 0.0F);
+
+    if (!step_x && !step_y && !step_z && dist <= 0.0F) {
+      break;
+    }
 
     iter++;
   }

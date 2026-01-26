@@ -3,6 +3,7 @@
 
 typedef struct vdb_hit_t {
   uint8_t intersect;
+  ivector3_t brick_index;
   ivector3_t voxel_index;
   vector3_t hit_position;
   // vector3_t face_position;

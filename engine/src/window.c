@@ -72,7 +72,7 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2); // TODO
-  vdb_create((ivector3_t){1, 1, 1});
+  vdb_create((ivector3_t){2, 1, 1});
   renderer_create();
 }
 void window_run(void) {
@@ -130,7 +130,7 @@ void window_run(void) {
       window_update_surface_capabilities();
 
       swapchain_create(2); // TODO
-      vdb_create((ivector3_t){1, 1, 1});
+      vdb_create((ivector3_t){2, 1, 1});
       renderer_create();
     }
 
@@ -144,7 +144,7 @@ void window_run(void) {
       renderer_destroy();
       vdb_destroy();
 
-      vdb_create((ivector3_t){1, 1, 1});
+      vdb_create((ivector3_t){2, 1, 1});
       renderer_create();
     }
 
