@@ -14,19 +14,83 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
+struct cellular_noise_args_t {
+	vec4 offset;
+	uint type;
+	float u;
+	float v;
+	int reserved0;
+};
+struct curl_noise_args_t {
+	vec4 offset;
+	uint type;
+	int reserved0;
+	int reserved1;
+	int reserved2;
+};
+struct fbm_noise_args_t {
+	vec4 offset;
+	uint type;
+	float scale;
+	float tile_length;
+	float amplitude;
+	float lacunarity;
+	uint octaves;
+	int reserved0;
+	int reserved1;
+};
+struct gradient_noise_args_t {
+	vec4 offset;
+	uint type;
+	float tile_length;
+	int reserved0;
+	int reserved1;
+};
+struct perlin_noise_args_t {
+	vec4 offset;
+	uint type;
+	int reserved0;
+	int reserved1;
+	int reserved2;
+};
+struct simplex_noise_args_t {
+	vec4 offset;
+	uint type;
+	int reserved0;
+	int reserved1;
+	int reserved2;
+};
+
+struct terrain_mod_t {
+	cellular_noise_args_t cellular_noise_args;
+	curl_noise_args_t curl_noise_args;
+	fbm_noise_args_t fbm_noise_args;
+	gradient_noise_args_t gradient_noise_args;
+	perlin_noise_args_t perlin_noise_args;
+	simplex_noise_args_t simplex_noise_args;
+	uint noise_type;
+	float scale;
+	int reserved0;
+	int reserved1;
+};
+
 layout (binding = 0) uniform vdb_info_t {
 	ivec3 dimension;
 } vdb_info;
 
-layout (binding = 1) buffer vdb_brick_t {
+layout (binding = 1) uniform terrain_layer_t {
+	terrain_mod_t modifier[];
+} terrain_layer;
+
+layout (binding = 2) buffer vdb_brick_t {
 	uint mask_buffer[];
 } vdb_brick[];
 
-layout (push_constant) uniform vdb_push_constant_t {
+layout (push_constant) uniform vdb_terrain_gen_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
 	int brick_lod;
-} vdb_push_constant;
+} vdb_terrain_gen_push_constant;
 
 #include "vdb.glsl"
 
@@ -55,7 +119,7 @@ float vdb_default_terrain(ivec3 position, float ground_level, float global_heigh
 }
 
 void main() {
-	ivec3 brick_position = vdb_push_constant.brick_position * VDB_BASE_RES;
+	ivec3 brick_position = vdb_terrain_gen_push_constant.brick_position * VDB_BASE_RES;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
 
 	float ground_level = vdb_info.dimension.y * VDB_BASE_RES / 2.0;
@@ -63,8 +127,8 @@ void main() {
 	float terrain_density = vdb_default_terrain(brick_position + voxel_position, ground_level, global_height);
 
 	if (terrain_density < 0.0) {
-		vdb_voxel_set(vdb_push_constant.brick_index, 0, voxel_position);
+		vdb_voxel_set(vdb_terrain_gen_push_constant.brick_index, 0, voxel_position);
 	} else {
-		vdb_voxel_clr(vdb_push_constant.brick_index, 0, voxel_position);
+		vdb_voxel_clr(vdb_terrain_gen_push_constant.brick_index, 0, voxel_position);
 	}
 }

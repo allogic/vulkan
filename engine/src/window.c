@@ -49,11 +49,11 @@ static char const *s_window_device_extensions[] = {
 };
 
 void window_create(int32_t width, int32_t height, char const *title) {
-  g_window.window_title = title,
-  g_window.window_width = width,
-  g_window.window_height = height,
-  g_window.primary_queue_index = -1,
-  g_window.present_queue_index = -1,
+  g_window.window_title = title;
+  g_window.window_width = width;
+  g_window.window_height = height;
+  g_window.primary_queue_index = -1;
+  g_window.present_queue_index = -1;
 
   window_create_native();
   window_create_instance();
@@ -71,8 +71,8 @@ void window_create(int32_t width, int32_t height, char const *title) {
 
   renderpass_create_main();
 
-  swapchain_create(2); // TODO
-  vdb_create((ivector3_t){25, 1, 25});
+  swapchain_create(2);
+  vdb_create((ivector3_t){10, 3, 10});
   renderer_create();
 }
 void window_run(void) {
@@ -80,11 +80,6 @@ void window_run(void) {
   QueryPerformanceCounter(&g_window.time_prev);
 
   player_t player = player_create();
-
-#if 0
-  vector3_t ray_origin = vector3_zero();
-  vector3_t ray_direction = vector3_front();
-#endif
 
   while (g_window.is_window_running) {
 
@@ -131,8 +126,8 @@ void window_run(void) {
 
       window_update_surface_capabilities();
 
-      swapchain_create(2); // TODO
-      vdb_create((ivector3_t){25, 1, 25});
+      swapchain_create(2);
+      vdb_create((ivector3_t){10, 3, 10});
       renderer_create();
     }
 
@@ -146,7 +141,7 @@ void window_run(void) {
       renderer_destroy();
       vdb_destroy();
 
-      vdb_create((ivector3_t){25, 1, 25});
+      vdb_create((ivector3_t){10, 3, 10});
       renderer_create();
     }
 
@@ -155,32 +150,6 @@ void window_run(void) {
       TranslateMessage(&g_window.window_message);
       DispatchMessageA(&g_window.window_message);
     }
-
-#if 0
-    renderer_draw_debug_line(
-      (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){1.0F, 0.0F, 0.0F},
-      (vector4_t){1.0F, 0.0F, 0.0F, 1.0F});
-
-    renderer_draw_debug_line(
-      (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){0.0F, 1.0F, 0.0F},
-      (vector4_t){0.0F, 1.0F, 0.0F, 1.0F});
-
-    renderer_draw_debug_line(
-      (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){0.0F, 0.0F, 1.0F},
-      (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
-
-    if (window_is_keyboard_key_held(KEYBOARD_KEY_SPACE)) {
-      ray_origin = player.transform.world_position;
-      ray_direction = vector3_norm(transform_local_front(&player.transform));
-    }
-
-    vdb_raymarch(ray_origin, ray_direction, 1000.0F, 10000);
-
-    vdb_debug(ray_origin, ray_direction);
-#endif
 
     player_update(&player);
 

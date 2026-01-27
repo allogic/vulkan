@@ -1,6 +1,8 @@
 #ifndef TRANSFORM_H
 #define TRANSFORM_H
 
+#define TRANSFORM_MAX_CHILDREN (0x10)
+
 typedef struct transform_t {
   vector3_t local_position;
   quaternion_t local_rotation;

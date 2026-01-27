@@ -40,7 +40,7 @@ struct vdb_hit_t {
 	vec3 normal;
 	//vec3 face_position;
 	//vec2 uv;
-	float ao;
+	//float ao;
 };
 
 int vec_to_index(ivec3 position, ivec3 size) {

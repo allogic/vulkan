@@ -1,6 +1,9 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
+#define RENDERER_DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
+#define RENDERER_DEBUG_LINE_INDEX_COUNT (0xFFFFF)
+
 typedef struct time_info_t {
   float time;
   float delta_time;
@@ -16,9 +19,6 @@ typedef struct camera_info_t {
   matrix4_t view_projection;
   matrix4_t view_projection_inv;
 } camera_info_t;
-typedef struct vdb_info_t {
-  ivector3_t dimension;
-} vdb_info_t;
 
 typedef struct full_screen_vertex_t {
   vector3_t position;
@@ -31,11 +31,16 @@ typedef struct debug_line_vertex_t {
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
 
-typedef struct vdb_push_constant_t {
+typedef struct vdb_terrain_gen_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
   int32_t brick_lod;
-} vdb_push_constant_t;
+} vdb_terrain_gen_push_constant_t;
+typedef struct vdb_lod_gen_push_constant_t {
+  ivector3_t brick_position;
+  int32_t brick_index;
+  int32_t brick_lod;
+} vdb_lod_gen_push_constant_t;
 
 typedef struct renderer_t {
   int8_t is_dirty;
@@ -72,7 +77,6 @@ typedef struct renderer_t {
   buffer_t time_info_buffer;
   buffer_t screen_info_buffer;
   buffer_t camera_info_buffer;
-  buffer_t vdb_info_buffer;
   buffer_t debug_line_vertex_buffer;
   buffer_t debug_line_index_buffer;
   buffer_t full_screen_vertex_buffer;

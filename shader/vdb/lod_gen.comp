@@ -13,11 +13,11 @@ layout (binding = 1) buffer vdb_brick_t {
 	uint mask_buffer[];
 } vdb_brick[];
 
-layout (push_constant) uniform vdb_push_constant_t {
+layout (push_constant) uniform vdb_lod_gen_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
 	int brick_lod;
-} vdb_push_constant;
+} vdb_lod_gen_push_constant;
 
 #include "vdb.glsl"
 
@@ -26,10 +26,10 @@ void main() {
 
 	ivec3 c0 = curr_voxel_position * 2;
 
-	int brick_index = vdb_push_constant.brick_index;
+	int brick_index = vdb_lod_gen_push_constant.brick_index;
 
-	int curr_lod = vdb_push_constant.brick_lod;
-	int child_lod = vdb_push_constant.brick_lod - 1;
+	int curr_lod = vdb_lod_gen_push_constant.brick_lod;
+	int child_lod = vdb_lod_gen_push_constant.brick_lod - 1;
 
 	int curr_voxel_count = vdb_voxels_per_axis(curr_lod);
 

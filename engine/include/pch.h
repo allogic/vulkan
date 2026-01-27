@@ -20,7 +20,6 @@
 
 #include <macros.h>
 #include <fwd.h>
-#include <cfg.h>
 
 #include <math/math.h>
 #include <math/vector2.h>
@@ -43,9 +42,9 @@
 #include <image.h>
 #include <vdb.h>
 #include <player.h>
+#include <swapchain.h>
 #include <renderer.h>
 #include <renderpass.h>
-#include <swapchain.h>
 #include <vkutils.h>
 #include <window.h>
 

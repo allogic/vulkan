@@ -1,6 +1,8 @@
 #ifndef SWAPCHAIN_H
 #define SWAPCHAIN_H
 
+#define SWAPCHAIN_MAX_IMAGE_COUNT (0x10)
+
 typedef struct swapchain_t {
   int8_t is_dirty;
   int32_t image_count;
