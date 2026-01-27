@@ -37,6 +37,7 @@
 
 #include <aabb.h>
 #include <buffer.h>
+#include <dbgui.h>
 #include <fsutils.h>
 #include <heap.h>
 #include <image.h>

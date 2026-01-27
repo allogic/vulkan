@@ -115,6 +115,8 @@ void renderer_create(void) {
   renderer_update_vdb_lod_gen_descriptor_sets();
   renderer_update_vdb_soft_renderer_descriptor_sets();
   renderer_update_debug_line_descriptor_sets();
+
+  dbgui_create();
 }
 void renderer_draw(transform_t *transform, camera_t *camera) {
   VkResult result = VK_SUCCESS;
@@ -283,6 +285,8 @@ void renderer_draw(transform_t *transform, camera_t *camera) {
   }
 }
 void renderer_destroy(void) {
+  dbgui_destroy();
+
   renderer_destroy_pipelines();
   renderer_destroy_pipeline_layouts();
   renderer_destroy_buffers();
@@ -1654,6 +1658,8 @@ static void renderer_record_graphics_commands(void) {
       g_renderer.debug_line_index_offset = 0;
     }
   }
+
+  dbgui_draw();
 
   vkCmdEndRenderPass(g_renderer.command_buffer);
 }

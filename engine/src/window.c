@@ -72,7 +72,7 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2); // TODO
-  vdb_create((ivector3_t){15, 3, 15});
+  vdb_create((ivector3_t){25, 1, 25});
   renderer_create();
 }
 void window_run(void) {
@@ -132,7 +132,7 @@ void window_run(void) {
       window_update_surface_capabilities();
 
       swapchain_create(2); // TODO
-      vdb_create((ivector3_t){15, 3, 15});
+      vdb_create((ivector3_t){25, 1, 25});
       renderer_create();
     }
 
@@ -146,7 +146,7 @@ void window_run(void) {
       renderer_destroy();
       vdb_destroy();
 
-      vdb_create((ivector3_t){15, 3, 15});
+      vdb_create((ivector3_t){25, 1, 25});
       renderer_create();
     }
 
@@ -263,6 +263,8 @@ uint8_t window_is_mouse_key_released(mouse_key_t key) {
 
 static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param) {
   window_t *window = (window_t *)GetWindowLongPtr(window_handle, GWLP_USERDATA);
+
+  dbgui_message(window_handle, window_message, w_param, l_param);
 
   switch (window_message) {
 

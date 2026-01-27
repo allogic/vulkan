@@ -191,9 +191,9 @@ __forceinline vector3_t quaternion_to_euler_angles_xyzw(float x, float y, float 
   return q;
 }
 __forceinline quaternion_t quaternion_from_euler_angles(vector3_t a) {
-  float pitch = dto_rad(a.x);
-  float yaw = dto_rad(a.y);
-  float roll = dto_rad(a.z);
+  float pitch = deg_to_rad(a.x);
+  float yaw = deg_to_rad(a.y);
+  float roll = deg_to_rad(a.z);
 
   float sp = sinf(pitch * 0.5F);
   float sy = sinf(yaw * 0.5F);
@@ -213,9 +213,9 @@ __forceinline quaternion_t quaternion_from_euler_angles(vector3_t a) {
   return q;
 }
 __forceinline quaternion_t quaternion_from_euler_angles_pyr(float p, float y, float r) {
-  float pitch = dto_rad(p);
-  float yaw = dto_rad(y);
-  float roll = dto_rad(r);
+  float pitch = deg_to_rad(p);
+  float yaw = deg_to_rad(y);
+  float roll = deg_to_rad(r);
 
   float sp = sinf(pitch * 0.5F);
   float sy = sinf(yaw * 0.5F);
