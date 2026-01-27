@@ -16,14 +16,30 @@ const int vdb_word_offset[7] = int[7](
 	8192 + 1024 + 128 + 16 + 2,
 	8192 + 1024 + 128 + 16 + 2 + 1
 );
+const int vdb_voxel_count[7] = int[7](
+	1 * 1 * 1,
+	2 * 2 * 2,
+	4 * 4 * 4,
+	8 * 8 * 8,
+	16 * 16 * 16,
+	32 * 32 * 32,
+	64 * 64 * 64
+);
+
+struct vdb_lod_t {
+	int lod;
+	vec3 min_bounds;
+	vec3 max_bounds;
+};
 
 struct vdb_hit_t {
 	bool intersect;
-	ivec3 index;
+	ivec3 brick_position;
+	ivec3 voxel_position;
 	vec3 hit_position;
-	vec3 face_position;
 	vec3 normal;
-	vec2 uv;
+	//vec3 face_position;
+	//vec2 uv;
 	float ao;
 };
 
@@ -35,19 +51,23 @@ int vdb_voxels_per_axis(int lod) {
 	return VDB_BASE_RES >> lod;
 }
 int vdb_total_voxel_count(int lod) {
-	int n = vdb_voxels_per_axis(lod);
-
-	return n * n * n;
+	return vdb_voxel_count[lod];
 }
 int vdb_word_count(int lod) {
-	int n = vdb_total_voxel_count(lod);
-
-	return (n + (VDB_BITS_PER_WORD - 1)) >> 5;
+	return (vdb_voxel_count[lod] + (VDB_BITS_PER_WORD - 1)) >> 5;
 }
-int vdb_voxel_index(int lod, ivec3 index) {
-	int n = vdb_voxels_per_axis(lod);
+int vdb_voxel_index(int lod, ivec3 voxel_position) {
+	switch (lod) {
+		case 0: return voxel_position.x + (voxel_position.y << 6) + (voxel_position.z << 12);
+		case 1: return voxel_position.x + (voxel_position.y << 5) + (voxel_position.z << 10);
+		case 2: return voxel_position.x + (voxel_position.y << 4) + (voxel_position.z << 8);
+		case 3: return voxel_position.x + (voxel_position.y << 3) + (voxel_position.z << 6);
+		case 4: return voxel_position.x + (voxel_position.y << 2) + (voxel_position.z << 4);
+		case 5: return voxel_position.x + (voxel_position.y << 1) + (voxel_position.z << 2);
+		case 6: return 0;
+	}
 
-	return index.x + index.y * n + index.z * n * n;
+	return -1;
 }
 int vdb_voxel_size(int lod) {
 	return 1 << lod;
@@ -56,30 +76,24 @@ int vdb_word_index(int voxel_index) {
 	return voxel_index >> 5;
 }
 
-bool vdb_voxel_is_solid(int brick_index, int lod, ivec3 index) {
-	int i = vdb_voxel_index(lod, index);
+bool vdb_voxel_is_solid(int brick_index, int lod, ivec3 voxel_position) {
+	int i = vdb_voxel_index(lod, voxel_position);
 	int word = vdb_word_offset[lod] + vdb_word_index(i);
 
-	uint bit = 1u << (i & 31);
-
-	return (vdb_brick[brick_index].mask_buffer[word] & bit) != 0u;
+	return bool(vdb_brick[brick_index].mask_buffer[word] & (1u << (i & 31)));
 }
 
-void vdb_voxel_set(int brick_index, int lod, ivec3 index) {
-	int i = vdb_voxel_index(lod, index);
+void vdb_voxel_set(int brick_index, int lod, ivec3 voxel_position) {
+	int i = vdb_voxel_index(lod, voxel_position);
 	int word = vdb_word_offset[lod] + vdb_word_index(i);
 
-	uint bit = 1u << (i & 31);
-
-	atomicOr(vdb_brick[brick_index].mask_buffer[word], bit);
+	atomicOr(vdb_brick[brick_index].mask_buffer[word], (1u << (i & 31)));
 }
-void vdb_voxel_clr(int brick_index, int lod, ivec3 index) {
-	int i = vdb_voxel_index(lod, index);
+void vdb_voxel_clr(int brick_index, int lod, ivec3 voxel_position) {
+	int i = vdb_voxel_index(lod, voxel_position);
 	int word = vdb_word_offset[lod] + vdb_word_index(i);
 
-	uint bit = ~(1u << (i & 31));
-
-	atomicAnd(vdb_brick[brick_index].mask_buffer[word], bit);
+	atomicAnd(vdb_brick[brick_index].mask_buffer[word], ~(1u << (i & 31)));
 }
 
 float vdb_voxel_ao(int brick_index, int lod, ivec3 p, ivec3 s1, ivec3 s2, ivec3 c) {
@@ -94,196 +108,191 @@ float vdb_voxel_ao(int brick_index, int lod, ivec3 p, ivec3 s1, ivec3 s2, ivec3 
 	return 1.0 - float(o1 + o2 + oc) / 3.0;
 }
 
-vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, ivec3 dimensions, float max_distance) {
+vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, ivec3 vdb_dimension, float max_distance, int max_iteration) {
 	vdb_hit_t hit;
+	vdb_lod_t lod_stack[VDB_MAX_LOD_LEVEL];
 
 	hit.intersect = false;
-	hit.index = ivec3(0);
-	hit.hit_position = vec3(0.0);
-	hit.face_position = vec3(0.0);
-	hit.normal = vec3(0.0);
-	hit.uv = vec2(0.0);
-	hit.ao = 1.0;
+
+	bool in_brick = false;
+	bool in_voxel = false;
+	bool is_solid = false;
+
+	int iter = 0;
+	int lod = VDB_MAX_LOD_LEVEL;
+	int voxels_per_axis = vdb_voxels_per_axis(lod);
+	int voxel_size = vdb_voxel_size(lod);
+	int brick_index = -1;
+	int stack_depth = 0;
+
+	ivec3 step_direction = ivec3(sign(ray_direction));
+	ivec3 voxel_position = ivec3(0);
+	ivec3 brick_position = ivec3(floor(ray_origin / VDB_BASE_RES));
+	ivec3 prev_brick_position = brick_position;
+
+	vec3 position = ray_origin;
+	vec3 prev_position = ray_origin;
+	vec3 next_boundary = vec3(0.0);
+	vec3 t_max = vec3(0.0);
+	vec3 brick_origin = brick_position * VDB_BASE_RES;
+	vec3 ray_direction_inv = vec3(
+		(ray_direction.x == 0.0) ? FLT_MAX : 1.0 / ray_direction.x,
+		(ray_direction.y == 0.0) ? FLT_MAX : 1.0 / ray_direction.y,
+		(ray_direction.z == 0.0) ? FLT_MAX : 1.0 / ray_direction.z
+	);
+	vec3 current_min = vec3(0.0);
+	vec3 current_max = vec3(0.0);
+	vec3 cluster_min = vec3(0.0);
+	vec3 cluster_max = vec3(vdb_dimension * VDB_BASE_RES);
 
 	float t = 0.0;
 
-	int lod = 0; // VDB_MAX_LOD_LEVEL;
-	int hit_axis = -1;
+	while (t < max_distance && iter < max_iteration) {
 
-	/*
-	ivec3 brick = ivec3(floor(ray_origin / VDB_BASE_RES));
-	ivec3 index = ivec3(floor(ray_origin / voxel_size));
-	ivec3 step = ivec3(sign(ray_direction));
+		prev_brick_position = brick_position;
+		brick_position = ivec3(floor(position / VDB_BASE_RES));
 
-	vec3 direction_inv = vec3(
-		ray_direction.x != 0.0 ? 1.0 / ray_direction.x : FLT_MAX,
-		ray_direction.y != 0.0 ? 1.0 / ray_direction.y : FLT_MAX,
-		ray_direction.z != 0.0 ? 1.0 / ray_direction.z : FLT_MAX);
+		vec3 position_clamped = clamp(position, cluster_min, cluster_max - 0.001);
+		if (position_clamped != position) {
+			break;
+		}
 
-	vec3 next_boundary = vec3(
-		(step.x > 0 ? float(index.x + 1) : float(index.x)) * voxel_size,
-		(step.y > 0 ? float(index.y + 1) : float(index.y)) * voxel_size,
-		(step.z > 0 ? float(index.z + 1) : float(index.z)) * voxel_size);
+		if (brick_position.x != prev_brick_position.x ||
+			brick_position.y != prev_brick_position.y ||
+			brick_position.z != prev_brick_position.z) {
+		
+			lod = VDB_MAX_LOD_LEVEL;
 
-	vec3 t_max = (next_boundary - ray_origin) * direction_inv;
+			voxels_per_axis = vdb_voxels_per_axis(lod);
+			voxel_size = vdb_voxel_size(lod);
 
-	vec3 t_delta = vec3(
-		abs(voxel_size * direction_inv.x),
-		abs(voxel_size * direction_inv.y),
-		abs(voxel_size * direction_inv.z));
-	*/
+			stack_depth = 0;
+		}
 
-	vec3 ray_direction_inv = vec3(
-		ray_direction.x != 0.0 ? 1.0 / ray_direction.x : FLT_MAX,
-		ray_direction.y != 0.0 ? 1.0 / ray_direction.y : FLT_MAX,
-		ray_direction.z != 0.0 ? 1.0 / ray_direction.z : FLT_MAX);
+		while (stack_depth > 0) {
 
-	while (t < max_distance) {
-
-		float voxel_size = float(vdb_voxel_size(lod));
-		int voxel_count = vdb_total_voxel_count(lod);
-
-		vec3 position = ray_origin + ray_direction * t;
-		ivec3 index = ivec3(floor(position / voxel_size));
-
-		if (index.x < 0 || index.y < 0 || index.z < 0 ||
-			index.x >= voxel_count ||
-			index.y >= voxel_count ||
-			index.z >= voxel_count) {
-
-			if (lod < VDB_MAX_LOD_LEVEL)
-			{
-				lod++;
-
-				continue;
+			if (position.x >= lod_stack[stack_depth - 1].min_bounds.x && position.x < lod_stack[stack_depth - 1].max_bounds.x &&
+				position.y >= lod_stack[stack_depth - 1].min_bounds.y && position.y < lod_stack[stack_depth - 1].max_bounds.y &&
+				position.z >= lod_stack[stack_depth - 1].min_bounds.z && position.z < lod_stack[stack_depth - 1].max_bounds.z) {
+			
+				break;
 			}
 
-			break; // TODO: dont break... continue regularly until t > max_distance
+			lod = lod_stack[stack_depth - 1].lod;
+
+			voxels_per_axis = vdb_voxels_per_axis(lod);
+			voxel_size = vdb_voxel_size(lod);
+
+			stack_depth--;
 		}
 
-		ivec3 brick = ivec3(floor(position / VDB_BASE_RES)); // TODO: can this be voxel_size?
+		brick_origin = brick_position * VDB_BASE_RES;
 
-		int brick_index = vec_to_index(brick, dimensions);
+		voxel_position = ivec3(floor((position - brick_origin) / voxel_size));
 
-		bool solid = vdb_voxel_is_solid(brick_index, lod, index);
+		voxel_position.x = int(max(0.0, min(float(voxels_per_axis - 1), float(voxel_position.x))));
+		voxel_position.y = int(max(0.0, min(float(voxels_per_axis - 1), float(voxel_position.y))));
+		voxel_position.z = int(max(0.0, min(float(voxels_per_axis - 1), float(voxel_position.z))));
 
-		if (solid && lod > 0) {
+		in_brick = (brick_position.x >= 0 && brick_position.x < vdb_dimension.x &&
+					brick_position.y >= 0 && brick_position.y < vdb_dimension.y &&
+					brick_position.z >= 0 && brick_position.z < vdb_dimension.z);
 
-			lod--;
+		in_voxel = (voxel_position.x >= 0 && voxel_position.x < voxels_per_axis &&
+					voxel_position.y >= 0 && voxel_position.y < voxels_per_axis &&
+					voxel_position.z >= 0 && voxel_position.z < voxels_per_axis);
 
-			/*
-			float advance = min(t_max.x, min(t_max.y, t_max.z));
+		brick_index = vec_to_index(brick_position, vdb_dimension);
 
-			ray_origin += ray_direction * (advance + EPSILON_6);
+		if (in_brick && in_voxel) {
 
-			t += advance + EPSILON_6;
+			is_solid = vdb_voxel_is_solid(brick_index, lod, voxel_position);
 
-			voxel_size = float(vdb_voxel_size(lod));
-			voxel_count = vdb_total_voxel_count(lod);
+			if (is_solid) {
 
-			brick = ivec3(floor(ray_origin / VDB_BASE_RES));
-			index = ivec3(floor(ray_origin / voxel_size));
-			step = ivec3(sign(ray_direction));
+				if (lod > 0) {
 
-			direction_inv = vec3(
-				ray_direction.x != 0.0 ? 1.0 / ray_direction.x : FLT_MAX,
-				ray_direction.y != 0.0 ? 1.0 / ray_direction.y : FLT_MAX,
-				ray_direction.z != 0.0 ? 1.0 / ray_direction.z : FLT_MAX);
+					if (stack_depth < VDB_MAX_LOD_LEVEL) {
 
-			next_boundary = vec3(
-				(step.x > 0 ? float(index.x + 1) : float(index.x)) * voxel_size,
-				(step.y > 0 ? float(index.y + 1) : float(index.y)) * voxel_size,
-				(step.z > 0 ? float(index.z + 1) : float(index.z)) * voxel_size);
+						current_min = vec3(
+							brick_origin.x + float(voxel_position.x) * float(voxel_size),
+							brick_origin.y + float(voxel_position.y) * float(voxel_size),
+							brick_origin.z + float(voxel_position.z) * float(voxel_size)
+						);
+						current_max = vec3(
+							current_min.x + float(voxel_size),
+							current_min.y + float(voxel_size),
+							current_min.z + float(voxel_size)
+						);
 
-			t_max = (next_boundary - ray_origin) * direction_inv;
+						lod_stack[stack_depth].lod = lod;
+						lod_stack[stack_depth].min_bounds = current_min;
+						lod_stack[stack_depth].max_bounds = current_max;
 
-			t_delta = vec3(
-				abs(voxel_size * direction_inv.x),
-				abs(voxel_size * direction_inv.y),
-				abs(voxel_size * direction_inv.z));
-			*/
+						stack_depth++;
+					}
 
-			continue;
+					lod--;
+
+					voxels_per_axis = vdb_voxels_per_axis(lod);
+					voxel_size = vdb_voxel_size(lod);
+
+					continue;
+				}
+
+				float min_t = min(t_max.x, min(t_max.y, t_max.z));
+
+				vec3 normal = vec3(0);
+
+				if (abs(t_max.x - min_t) < EPSILON_5) {
+					normal.x = -float(step_direction.x);
+				} else if (abs(t_max.y - min_t) < EPSILON_5) {
+					normal.y = -float(step_direction.y);
+				} else {
+					normal.z = -float(step_direction.z);
+				}
+
+				hit.intersect = true;
+				hit.brick_position = brick_position;
+				hit.voxel_position = voxel_position;
+				hit.hit_position = position;
+				hit.normal = normalize(normal);
+
+				return hit;
+			}
 		}
 
-		if (solid && lod == 0) {
+		next_boundary = vec3(
+			brick_origin.x + ((step_direction.x > 0) ? float(voxel_position.x + 1) : float(voxel_position.x)) * float(voxel_size),
+			brick_origin.y + ((step_direction.y > 0) ? float(voxel_position.y + 1) : float(voxel_position.y)) * float(voxel_size),
+			brick_origin.z + ((step_direction.z > 0) ? float(voxel_position.z + 1) : float(voxel_position.z)) * float(voxel_size)
+		);
+		t_max = vec3(
+			max((next_boundary.x - position.x) * ray_direction_inv.x, 0.0),
+			max((next_boundary.y - position.y) * ray_direction_inv.y, 0.0),
+			max((next_boundary.z - position.z) * ray_direction_inv.z, 0.0)
+		);
 
-			//vec3 normal = vec3(0.0);
-			//normal[hit_axis] = -float(step[hit_axis]);
+		float t_exit = min(t_max.x, min(t_max.y, t_max.z));
+		float dist = t_exit + EPSILON_6;
 
-			hit.intersect = true;
-			//hit.index = index;
-			//hit.hit_position = hit_position;
-			//hit.face_position = face_position;
-			//hit.normal = normal;
-			//hit.uv = uv;
-			//hit.ao = ao;
-
-			return hit;
+		if (t_exit <= 0.0) {
+			dist = EPSILON_4;
 		}
 
-		ivec3 step = ivec3(sign(ray_direction));
-
-		vec3 next_boundary = vec3(
-			(step.x > 0 ? index.x + 1 : index.x) * voxel_size,
-			(step.y > 0 ? index.y + 1 : index.y) * voxel_size,
-			(step.z > 0 ? index.z + 1 : index.z) * voxel_size);
-
-		vec3 t_max = (next_boundary - position) * ray_direction_inv;
-
-		float dt = min(t_max.x, min(t_max.y, t_max.z));
-		
-		dt = max(dt, EPSILON_6);
-
-		t += dt;
-
-		if (lod < VDB_MAX_LOD_LEVEL)
-		{
-			float parent_size = float(vdb_voxel_size(lod + 1));
-
-			ivec3 parent_index = ivec3(floor((ray_origin + ray_direction * t) / parent_size));
-			ivec3 current_parent = ivec3(floor(position / parent_size));
-
-			if (parent_index != current_parent)
-				lod++;
+		if ((t + dist) >= max_distance) {
+			break;
 		}
 
-		/*
-		float t_next = min(t_max.x, min(t_max.y, t_max.z));
+		t += dist;
 
-		int next_axis = -1;
-
-		if (t_max.x <= t_max.y && t_max.x <= t_max.z) {
-			next_axis = 0;
-		} else if (t_max.y <= t_max.z) {
-			next_axis = 1;
+		if ((iter % 100) == 0) {
+			position = ray_origin + ray_direction * t;
 		} else {
-			next_axis = 2;
+			position += ray_direction * dist;
 		}
 
-		bool step_x = abs(t_max.x - t_next) < EPSILON_6;
-		bool step_y = abs(t_max.y - t_next) < EPSILON_6;
-		bool step_z = abs(t_max.z - t_next) < EPSILON_6;
-
-		if (step_x) {
-			index.x += step.x;
-			t_max.x += t_delta.x;
-		}
-
-		if (step_y) {
-			index.y += step.y;
-			t_max.y += t_delta.y;
-		}
-
-		if (step_z) {
-			index.z += step.z;
-			t_max.z += t_delta.z;
-		}
-
-		hit_axis = next_axis;
-
-		t = t_next + EPSILON_6;
-		*/
+		iter++;
 	}
 
 	return hit;

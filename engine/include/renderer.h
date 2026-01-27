@@ -16,6 +16,9 @@ typedef struct camera_info_t {
   matrix4_t view_projection;
   matrix4_t view_projection_inv;
 } camera_info_t;
+typedef struct vdb_info_t {
+  ivector3_t dimension;
+} vdb_info_t;
 
 typedef struct full_screen_vertex_t {
   vector3_t position;
@@ -31,7 +34,6 @@ typedef uint32_t debug_line_index_t;
 typedef struct vdb_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
-  ivector3_t vdb_dimension;
   int32_t brick_lod;
 } vdb_push_constant_t;
 
@@ -70,6 +72,7 @@ typedef struct renderer_t {
   buffer_t time_info_buffer;
   buffer_t screen_info_buffer;
   buffer_t camera_info_buffer;
+  buffer_t vdb_info_buffer;
   buffer_t debug_line_vertex_buffer;
   buffer_t debug_line_index_buffer;
   buffer_t full_screen_vertex_buffer;

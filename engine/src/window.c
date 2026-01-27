@@ -72,7 +72,7 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2); // TODO
-  vdb_create((ivector3_t){2, 1, 1});
+  vdb_create((ivector3_t){15, 3, 15});
   renderer_create();
 }
 void window_run(void) {
@@ -81,8 +81,10 @@ void window_run(void) {
 
   player_t player = player_create();
 
+#if 0
   vector3_t ray_origin = vector3_zero();
   vector3_t ray_direction = vector3_front();
+#endif
 
   while (g_window.is_window_running) {
 
@@ -130,7 +132,7 @@ void window_run(void) {
       window_update_surface_capabilities();
 
       swapchain_create(2); // TODO
-      vdb_create((ivector3_t){2, 1, 1});
+      vdb_create((ivector3_t){15, 3, 15});
       renderer_create();
     }
 
@@ -144,7 +146,7 @@ void window_run(void) {
       renderer_destroy();
       vdb_destroy();
 
-      vdb_create((ivector3_t){2, 1, 1});
+      vdb_create((ivector3_t){15, 3, 15});
       renderer_create();
     }
 
@@ -154,6 +156,7 @@ void window_run(void) {
       DispatchMessageA(&g_window.window_message);
     }
 
+#if 0
     renderer_draw_debug_line(
       (vector3_t){0.0F, 0.0F, 0.0F},
       (vector3_t){1.0F, 0.0F, 0.0F},
@@ -174,9 +177,10 @@ void window_run(void) {
       ray_direction = vector3_norm(transform_local_front(&player.transform));
     }
 
-    vdb_raymarch(ray_origin, ray_direction, 1000.0F);
+    vdb_raymarch(ray_origin, ray_direction, 1000.0F, 10000);
 
-    vdb_debug(ray_origin, ray_direction); // TODO: remove me
+    vdb_debug(ray_origin, ray_direction);
+#endif
 
     player_update(&player);
 

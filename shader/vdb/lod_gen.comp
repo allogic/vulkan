@@ -5,14 +5,17 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout (binding = 0) buffer vdb_brick_t {
+layout (binding = 0) uniform vdb_info_t {
+	ivec3 dimension;
+} vdb_info;
+
+layout (binding = 1) buffer vdb_brick_t {
 	uint mask_buffer[];
 } vdb_brick[];
 
 layout (push_constant) uniform vdb_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
-	ivec3 vdb_dimension;
 	int brick_lod;
 } vdb_push_constant;
 

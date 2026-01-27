@@ -20,7 +20,11 @@ layout (binding = 1) uniform screen_info_t {
 	vec2 resolution;
 } screen_info;
 
-layout (binding = 2) buffer vdb_brick_t {
+layout (binding = 2) uniform vdb_info_t {
+	ivec3 dimension;
+} vdb_info;
+
+layout (binding = 3) buffer vdb_brick_t {
 	uint mask_buffer[];
 } vdb_brick[];
 
@@ -35,45 +39,12 @@ void main() {
 	vec3 world_position = position.xyz / position.w;
 	vec3 ray_origin = camera_info.position;
 	vec3 ray_direction = normalize(world_position - ray_origin);
-	/*
-	vec3 box_min = vec3(0.0);
-	vec3 box_max = vec3(VDB_BASE_RES) - vec3(EPSILON_4);
 
-	float t_enter = 0.0;
-	float t_exit = 0.0;
-
-	if (!ray_aabb_intersect(
-			ray_origin,
-			ray_direction,
-			box_min,
-			box_max,
-			t_enter,
-			t_exit)) {
-		discard;
-	}
-
-	float t = max(t_enter, 0.0) + EPSILON_4;
-
-	if (t > camera_info.max_ray_distance) {
-		discard;
-	}
-
-	float max_distance = min(t_exit - t, camera_info.max_ray_distance - t);
-
-	ray_origin += ray_direction * t;
-	*/
-
-	vdb_hit_t hit = vdb_hdda_raymarch(ray_origin, ray_direction, ivec3(5, 1, 5), 1000.0); // TODO
+	vdb_hit_t hit = vdb_hdda_raymarch(ray_origin, ray_direction, vdb_info.dimension, camera_info.max_ray_distance, 10000);
 
 	if (!hit.intersect) {
 		discard;
 	}
 
-	//if (hit.face_position.x < box_min.x || hit.face_position.y < box_min.y || hit.face_position.z < box_min.z ||
-	//	hit.face_position.x > box_max.x || hit.face_position.y > box_max.y || hit.face_position.z > box_max.z)
-	//{
-	//	discard;
-	//}
-
-	output_color = vec4(1.0, 1.0, 1.0, 1.0);
+	output_color = vec4(hit.normal, 1.0);
 }

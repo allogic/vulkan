@@ -1,6 +1,12 @@
 #ifndef VDB_H
 #define VDB_H
 
+typedef struct vdb_lod_t {
+  int32_t lod;
+  vector3_t min_bounds;
+  vector3_t max_bounds;
+} vdb_lod_t;
+
 typedef struct vdb_hit_t {
   uint8_t intersect;
   ivector3_t brick_position;
@@ -21,7 +27,6 @@ typedef struct vdb_t {
   struct vdb_brick_t *brick;
   int32_t brick_count;
   ivector3_t dimension;
-  vector4_t *color;
 } vdb_t;
 
 #ifdef __cplusplus
@@ -32,7 +37,7 @@ extern vdb_t g_vdb;
 
 void vdb_create(ivector3_t dimension);
 void vdb_debug(vector3_t ray_origin, vector3_t ray_direction);
-vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_distance);
+vdb_hit_t vdb_raymarch(vector3_t ray_origin, vector3_t ray_direction, float max_distance, int32_t max_iteration);
 void vdb_destroy(void);
 
 int32_t vdb_voxels_per_axis(int8_t lod);

@@ -14,14 +14,17 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout (binding = 0) buffer vdb_brick_t {
+layout (binding = 0) uniform vdb_info_t {
+	ivec3 dimension;
+} vdb_info;
+
+layout (binding = 1) buffer vdb_brick_t {
 	uint mask_buffer[];
 } vdb_brick[];
 
 layout (push_constant) uniform vdb_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
-	ivec3 vdb_dimension;
 	int brick_lod;
 } vdb_push_constant;
 
@@ -35,31 +38,31 @@ float vdb_default_terrain(ivec3 position, float ground_level, float global_heigh
 	//density += noise_perlin(position * 0.1) * 2.0;
 	//density += noise_voronoi(position * 0.1, 0.0, 0.0);
 
-	//density += noise_gradient(position * 0.01);
-	//density *= noise_simplex(position * 0.01) * 2.0;
-	//density += noise_fbm(position * 0.02, 0.7, 1.0, 4);
-	//density += noise_fbm((position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
+	density += noise_gradient(position * 0.01);
+	density *= noise_simplex(position * 0.01) * 2.0;
+	density += noise_fbm(position * 0.02, 0.7, 1.0, 4);
+	density += noise_fbm((position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
 
-	//density = soft_terrace(density, 2, 1.8);
+	density = soft_terrace(density, 2, 1.8);
 
 	float height_threshold = ground_level / global_height;
 	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, position.y / global_height);
 
-	//density += blend_factor;
-	//density *= blend_factor;
+	density += blend_factor;
+	density *= blend_factor;
 
 	return density;
 }
 
 void main() {
-	ivec3 brick_position = vdb_push_constant.brick_position;
+	ivec3 brick_position = vdb_push_constant.brick_position * VDB_BASE_RES;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
 
-	float ground_level = vdb_push_constant.vdb_dimension.y * VDB_BASE_RES / 2.0;
-	float global_height = vdb_push_constant.vdb_dimension.y * VDB_BASE_RES;
+	float ground_level = vdb_info.dimension.y * VDB_BASE_RES / 2.0;
+	float global_height = vdb_info.dimension.y * VDB_BASE_RES;
 	float terrain_density = vdb_default_terrain(brick_position + voxel_position, ground_level, global_height);
 
-	if (voxel_position.y == 0) {
+	if (terrain_density < 0.0) {
 		vdb_voxel_set(vdb_push_constant.brick_index, 0, voxel_position);
 	} else {
 		vdb_voxel_clr(vdb_push_constant.brick_index, 0, voxel_position);
