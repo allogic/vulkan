@@ -42,6 +42,7 @@
 #include <image.h>
 #include <vdb.h>
 #include <player.h>
+#include <svo.h>
 #include <swapchain.h>
 #include <renderer.h>
 #include <renderpass.h>
