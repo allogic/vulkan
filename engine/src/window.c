@@ -151,6 +151,21 @@ void window_run(void) {
       DispatchMessageA(&g_window.window_message);
     }
 
+    renderer_draw_debug_line(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){1.0F, 0.0F, 0.0F},
+      (vector4_t){1.0F, 0.0F, 0.0F, 1.0F});
+
+    renderer_draw_debug_line(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){0.0F, 1.0F, 0.0F},
+      (vector4_t){0.0F, 1.0F, 0.0F, 1.0F});
+
+    renderer_draw_debug_line(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){0.0F, 0.0F, 1.0F},
+      (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
+
     player_update(&player);
 
     renderer_draw(&player.transform, &player.camera);

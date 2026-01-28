@@ -15,7 +15,7 @@ void vdb_create(ivector3_t dimension) {
   g_vdb.brick_count = brick_count;
   g_vdb.dimension = dimension;
   g_vdb.info_buffer = buffer_create_uniform(&vdb_info, sizeof(vdb_info_t));
-  g_vdb.terrain_layer_buffer = buffer_create_uniform_coherent(0, sizeof(terrain_mod_t) * VDB_MAX_TERRAIN_MODIFIER);
+  g_vdb.terrain_layer_buffer = buffer_create_uniform_coherent(0, sizeof(terrain_layer_t) * VDB_MAX_TERRAIN_MODIFIER);
 
   for (int32_t x = 0; x < dimension.x; x++) {
     for (int32_t y = 0; y < dimension.y; y++) {

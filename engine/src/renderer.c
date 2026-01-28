@@ -95,8 +95,8 @@ static VkPushConstantRange const s_vdb_lod_gen_push_constant_ranges[] = {
 
 void renderer_create(void) {
   g_renderer.is_debug_enabled = 1;
-  g_renderer.regenerate_terrain = 1;
-  g_renderer.regenerate_lod = 1;
+  g_renderer.rebuild_terrain = 1;
+  g_renderer.rebuild_lod = 1;
 
   renderer_create_command_buffer();
   renderer_create_sync_objects();
@@ -1574,18 +1574,18 @@ static void renderer_push_compute_barrier(void) {
 }
 
 static void renderer_record_compute_commands(void) {
-  if (g_renderer.regenerate_terrain) {
+  if (g_renderer.rebuild_terrain) {
 
-    g_renderer.regenerate_terrain = 0;
+    g_renderer.rebuild_terrain = 0;
 
     renderer_compute_terrain();
 
     renderer_push_compute_barrier();
   }
 
-  if (g_renderer.regenerate_lod) {
+  if (g_renderer.rebuild_lod) {
 
-    g_renderer.regenerate_lod = 0;
+    g_renderer.rebuild_lod = 0;
 
     renderer_compute_lod(1);
     renderer_compute_lod(2);

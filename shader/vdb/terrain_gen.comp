@@ -12,50 +12,55 @@
 #include "../noise/perlin.glsl"
 #include "../noise/simplex.glsl"
 
+#define NOISE_TYPE_CELLULAR (0x0)
+
+#define CELLULAR_TYPE_0 (0x0)
+#define CELLULAR_TYPE_1 (0x1)
+
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 struct cellular_noise_args_t {
 	vec4 offset;
-	uint type;
+	int type;
 	float u;
 	float v;
 	int reserved0;
 };
 struct curl_noise_args_t {
 	vec4 offset;
-	uint type;
+	int type;
 	int reserved0;
 	int reserved1;
 	int reserved2;
 };
 struct fbm_noise_args_t {
 	vec4 offset;
-	uint type;
+	int type;
 	float scale;
 	float tile_length;
 	float amplitude;
 	float lacunarity;
-	uint octaves;
+	int octaves;
 	int reserved0;
 	int reserved1;
 };
 struct gradient_noise_args_t {
 	vec4 offset;
-	uint type;
+	int type;
 	float tile_length;
 	int reserved0;
 	int reserved1;
 };
 struct perlin_noise_args_t {
 	vec4 offset;
-	uint type;
+	int type;
 	int reserved0;
 	int reserved1;
 	int reserved2;
 };
 struct simplex_noise_args_t {
 	vec4 offset;
-	uint type;
+	int type;
 	int reserved0;
 	int reserved1;
 	int reserved2;
@@ -68,7 +73,7 @@ struct terrain_mod_t {
 	gradient_noise_args_t gradient_noise_args;
 	perlin_noise_args_t perlin_noise_args;
 	simplex_noise_args_t simplex_noise_args;
-	uint noise_type;
+	int noise_type;
 	float scale;
 	int reserved0;
 	int reserved1;
@@ -76,6 +81,7 @@ struct terrain_mod_t {
 
 layout (binding = 0) uniform vdb_info_t {
 	ivec3 dimension;
+	int reserved0;
 } vdb_info;
 
 layout (binding = 1) uniform terrain_layer_t {
@@ -94,25 +100,52 @@ layout (push_constant) uniform vdb_terrain_gen_push_constant_t {
 
 #include "vdb.glsl"
 
-float vdb_default_terrain(ivec3 position, float ground_level, float global_height) {
+float vdb_terrain_from_layers(ivec3 position, float ground_level, float global_height) {
 	float density = 0.0;
+
+	terrain_mod_t mod0 = terrain_layer.modifier[0];
+
+	/*
+	switch (mod0.noise_type) {
+		case NOISE_TYPE_CELLULAR: {
+
+			cellular_noise_args_t args = mod0.cellular_noise_args;
+
+			switch (args.type) {
+				case CELLULAR_TYPE_0: {
+
+					density = noise_cellular_t0(position.xz + args.offset.xz, args.u, args.v) * mod0.scale;
+
+					break;
+				}
+				case CELLULAR_TYPE_1: {
+
+					density = noise_cellular_t1(position.xyz + args.offset.xyz, args.u, args.v) * mod0.scale;
+
+					break;
+				}
+			}
+
+			break;
+		}
+	}
+	*/
 
 	//density += noise_curl(position * 0.05);
 	//density += noise_fbm(position * 0.05, 1.0, 1.0, 4);
 	//density += noise_perlin(position * 0.1) * 2.0;
 	//density += noise_voronoi(position * 0.1, 0.0, 0.0);
-
-	density += noise_gradient(position * 0.01);
-	density *= noise_simplex(position * 0.01) * 2.0;
+	//density += noise_gradient(position * 0.01);
+	//density *= noise_simplex(position * 0.01) * 2.0;
 	density += noise_fbm(position * 0.02, 0.7, 1.0, 4);
-	density += noise_fbm((position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
+	//density += noise_fbm((position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
 
 	density = soft_terrace(density, 2, 1.8);
 
 	float height_threshold = ground_level / global_height;
 	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, position.y / global_height);
 
-	density += blend_factor;
+	//density += blend_factor;
 	density *= blend_factor;
 
 	return density;
@@ -124,7 +157,7 @@ void main() {
 
 	float ground_level = vdb_info.dimension.y * VDB_BASE_RES / 2.0;
 	float global_height = vdb_info.dimension.y * VDB_BASE_RES;
-	float terrain_density = vdb_default_terrain(brick_position + voxel_position, ground_level, global_height);
+	float terrain_density = vdb_terrain_from_layers(brick_position + voxel_position, ground_level, global_height);
 
 	if (terrain_density < 0.0) {
 		vdb_voxel_set(vdb_terrain_gen_push_constant.brick_index, 0, voxel_position);

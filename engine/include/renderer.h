@@ -20,13 +20,22 @@ typedef struct camera_info_t {
   matrix4_t view_projection_inv;
 } camera_info_t;
 
+STATIC_ASSERT(sizeof(time_info_t) % 4 == 0);
+STATIC_ASSERT(sizeof(screen_info_t) % 4 == 0);
+STATIC_ASSERT(sizeof(camera_info_t) % 4 == 0);
+
 typedef struct full_screen_vertex_t {
   vector3_t position;
+  int32_t reserved0;
 } full_screen_vertex_t;
 typedef struct debug_line_vertex_t {
   vector3_t position;
+  int32_t reserved0;
   vector4_t color;
 } debug_line_vertex_t;
+
+STATIC_ASSERT(sizeof(full_screen_vertex_t) % 4 == 0);
+STATIC_ASSERT(sizeof(debug_line_vertex_t) % 4 == 0);
 
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
@@ -35,18 +44,27 @@ typedef struct vdb_terrain_gen_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
   int32_t brick_lod;
+  int32_t reserved0;
+  int32_t reserved1;
+  int32_t reserved2;
 } vdb_terrain_gen_push_constant_t;
 typedef struct vdb_lod_gen_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
   int32_t brick_lod;
+  int32_t reserved0;
+  int32_t reserved1;
+  int32_t reserved2;
 } vdb_lod_gen_push_constant_t;
+
+STATIC_ASSERT(sizeof(vdb_terrain_gen_push_constant_t) % 4 == 0);
+STATIC_ASSERT(sizeof(vdb_lod_gen_push_constant_t) % 4 == 0);
 
 typedef struct renderer_t {
   int8_t is_dirty;
   int8_t is_debug_enabled;
-  int8_t regenerate_terrain;
-  int8_t regenerate_lod;
+  int8_t rebuild_terrain;
+  int8_t rebuild_lod;
   int32_t image_index;
   int32_t debug_line_vertex_offset;
   int32_t debug_line_index_offset;

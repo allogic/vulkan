@@ -7,6 +7,8 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
+static void dbgui_draw_terrain_layer(void);
+
 static VkDescriptorPool s_dbgui_descriptor_pool = 0;
 
 static VkDescriptorPoolSize s_dbgui_descriptor_pool_sizes[] = {
@@ -64,8 +66,7 @@ void dbgui_draw(void) {
 
   ImGui::NewFrame();
 
-  ImGui::Begin("Test");
-  ImGui::End();
+  dbgui_draw_terrain_layer();
 
   ImGui::Render();
 
@@ -83,4 +84,61 @@ void dbgui_destroy(void) {
   ImGui::DestroyContext();
 
   vkDestroyDescriptorPool(g_window.device, s_dbgui_descriptor_pool, 0);
+}
+
+static void dbgui_draw_terrain_layer(void) {
+  ImGui::Begin("Terrain Layer");
+
+  int32_t layer_index = 0;
+  int32_t layer_count = VDB_MAX_TERRAIN_MODIFIER;
+
+  while (layer_index < layer_count) {
+
+    terrain_layer_t *terrain_layer = &((terrain_layer_t *)g_vdb.terrain_layer_buffer.mapped_memory)[layer_index];
+
+    if (terrain_layer) {
+
+      if (ImGui::TreeNodeEx(terrain_layer, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding, "Layer %d", layer_index)) {
+
+        // TODO: select type..
+
+        switch (terrain_layer->noise_type) {
+          case VDB_NOISE_TYPE_CELLULAR: {
+
+            // TODO: select type..
+
+            cellular_noise_args_t *args = &terrain_layer->cellular_noise_args;
+
+            if (ImGui::DragFloat4("Offset", (float *)&args->offset, 0.1F, 0.0F, 0.0F, "%.3F")) {
+              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_lod = 1;
+            }
+
+            if (ImGui::DragFloat("U", &args->u, 0.1F, 0.0F, 0.0F, "%.3F")) {
+              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_lod = 1;
+            }
+
+            if (ImGui::DragFloat("V", &args->v, 0.1F, 0.0F, 0.0F, "%.3F")) {
+              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_lod = 1;
+            }
+
+            if (ImGui::DragFloat("Scale", &terrain_layer->scale, 0.1F, 0.0F, 0.0F, "%.3F")) {
+              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_lod = 1;
+            }
+
+            break;
+          }
+        }
+
+        ImGui::TreePop();
+      }
+    }
+
+    layer_index++;
+  }
+
+  ImGui::End();
 }
