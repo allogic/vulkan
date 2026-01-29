@@ -40,7 +40,7 @@ void main() {
 	vec3 ray_origin = camera_info.position;
 	vec3 ray_direction = normalize(world_position - ray_origin);
 
-	vdb_hit_t hit = vdb_hdda_trace_t0(ray_origin, ray_direction, camera_info.max_ray_distance, 10000);
+	vdb_hit_t hit = vdb_hdda_trace(ray_origin, ray_direction, camera_info.max_ray_distance, 10000);
 
 	if (!hit.intersect) {
 		discard;

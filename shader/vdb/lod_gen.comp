@@ -33,6 +33,8 @@ void main() {
 
 	int curr_voxel_count = vdb_voxels_per_axis(curr_lod);
 
+	int brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+
 	if (curr_voxel_position.x < curr_voxel_count &&
 		curr_voxel_position.y < curr_voxel_count &&
 		curr_voxel_position.z < curr_voxel_count) {
@@ -45,15 +47,15 @@ void main() {
 
 					ivec3 child_voxel_position = c0 + ivec3(x, y, z);
 
-					solid |= int(vdb_voxel_is_solid(child_lod, brick_position, child_voxel_position));
+					solid |= int(vdb_voxel_is_solid(child_lod, brick_offset, child_voxel_position));
 				}
 			}
 		}
 
 		if (solid == 0) {
-			vdb_voxel_clr(curr_lod, brick_position, curr_voxel_position);
+			vdb_voxel_clr(curr_lod, brick_offset, curr_voxel_position);
 		} else {
-			vdb_voxel_set(curr_lod, brick_position, curr_voxel_position);
+			vdb_voxel_set(curr_lod, brick_offset, curr_voxel_position);
 		}
 	}
 }

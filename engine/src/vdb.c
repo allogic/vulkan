@@ -3,10 +3,12 @@
 vdb_t g_vdb = {0};
 
 void vdb_create(void) {
-  ivector3_t cluster_dim = {VDB_CLUSTER_DIM_X, VDB_CLUSTER_DIM_Y, VDB_CLUSTER_DIM_Z};
-
   vdb_info_t vdb_info = {
-    .cluster_dim = cluster_dim,
+    .cluster_dim = {
+      .x = VDB_CLUSTER_DIM_X,
+      .y = VDB_CLUSTER_DIM_Y,
+      .z = VDB_CLUSTER_DIM_Z,
+    },
   };
 
   g_vdb.voxel_buffer = buffer_create_storage(0, sizeof(vdb_voxel_t) * VDB_BRICK_COUNT * VDB_BRICK_SIZE);

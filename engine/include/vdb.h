@@ -3,10 +3,10 @@
 
 #define VDB_MAX_LOD (0x06)
 #define VDB_BASE_RES (0x40)
-#define VDB_CLUSTER_DIM_X (0x14)
-#define VDB_CLUSTER_DIM_Y (0x05)
-#define VDB_CLUSTER_DIM_Z (0x14)
-#define VDB_BRICK_COUNT (0x7D0)
+#define VDB_CLUSTER_DIM_X (30)
+#define VDB_CLUSTER_DIM_Y (2)
+#define VDB_CLUSTER_DIM_Z (30)
+#define VDB_BRICK_COUNT (1800)
 #define VDB_BRICK_SIZE (0x49249)
 
 #define VDB_MAX_LAYER (0xF)

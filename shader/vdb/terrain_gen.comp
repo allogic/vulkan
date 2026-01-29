@@ -138,7 +138,7 @@ float vdb_terrain_from_layers(ivec3 sample_position, float ground_level, float g
 	//density += noise_voronoi(sample_position * 0.1, 0.0, 0.0);
 	//density += noise_gradient(sample_position * 0.01);
 	//density *= noise_simplex(sample_position * 0.01) * 2.0;
-	density += noise_fbm(sample_position * 0.02, 0.7, 1.0, 4);
+	//density += noise_fbm(sample_position * 0.02, 0.7, 1.0, 4);
 	//density += noise_fbm((sample_position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
 
 	density = soft_terrace(density, 2, 1.8);
@@ -161,9 +161,11 @@ void main() {
 	float global_height = VDB_CLUSTER_DIM_Y * VDB_BASE_RES;
 	float terrain_density = vdb_terrain_from_layers(sample_position, ground_level, global_height);
 
+	int brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+
 	if (terrain_density < 0.0) {
-		vdb_voxel_set(0, brick_position, voxel_position);
+		vdb_voxel_set(0, brick_offset, voxel_position);
 	} else {
-		vdb_voxel_clr(0, brick_position, voxel_position);
+		vdb_voxel_clr(0, brick_offset, voxel_position);
 	}
 }
