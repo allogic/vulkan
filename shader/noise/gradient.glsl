@@ -1,5 +1,5 @@
-#ifndef GRADIENT_H
-#define GRADIENT_H
+#ifndef NOISE_GRADIENT_H
+#define NOISE_GRADIENT_H
 
 #include "../math/urandom.glsl"
 #include "../math/cubic.glsl"
@@ -45,4 +45,4 @@ float noise_gradient(vec3 position, float tile_length) {
 	return mix(mix(mix(dot(srandom3(i + vec3(0.0, 0.0, 0.0), tile_length), f - vec3(0.0, 0.0, 0.0)), dot(srandom3(i + vec3(1.0, 0.0, 0.0), tile_length), f - vec3(1.0, 0.0, 0.0)), u.x), mix(dot(srandom3(i + vec3(0.0, 1.0, 0.0), tile_length), f - vec3(0.0, 1.0, 0.0)), dot(srandom3(i + vec3(1.0, 1.0, 0.0), tile_length), f - vec3(1.0, 1.0, 0.0)), u.x), u.y), mix(mix(dot(srandom3(i + vec3(0.0, 0.0, 1.0), tile_length), f - vec3(0.0, 0.0, 1.0)), dot(srandom3(i + vec3(1.0, 0.0, 1.0), tile_length), f - vec3(1.0, 0.0, 1.0)), u.x), mix(dot(srandom3(i + vec3(0.0, 1.0, 1.0), tile_length), f - vec3(0.0, 1.0, 1.0)), dot(srandom3(i + vec3(1.0, 1.0, 1.0), tile_length), f - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z);
 }
 
-#endif // GRADIENT_H
+#endif // NOISE_GRADIENT_H

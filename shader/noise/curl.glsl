@@ -1,5 +1,5 @@
-#ifndef CURL_H
-#define CURL_H
+#ifndef NOISE_CURL_H
+#define NOISE_CURL_H
 
 #include "simplex.glsl"
 
@@ -68,4 +68,4 @@ vec3 noise_curl(vec4 position) {
 	return normalize(vec3(x, y, z) * divisor);
 }
 
-#endif // CURL_H
+#endif // NOISE_CURL_H

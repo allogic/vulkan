@@ -1,5 +1,5 @@
-#ifndef UTILITY_H
-#define UTILITY_H
+#ifndef MATH_UTILITY_H
+#define MATH_UTILITY_H
 
 float remap01(float value, float min_from, float max_from) {
 	return (value - min_from) / (max_from - min_from);
@@ -37,4 +37,4 @@ float binarize(float value, float threshold) {
 	return (value > threshold) ? 1.0 : 0.0;
 }
 
-#endif // UTILITY_H
+#endif // MATH_UTILITY_H

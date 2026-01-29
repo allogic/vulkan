@@ -418,8 +418,8 @@ static void renderer_create_descriptor_pools(void) {
         .descriptorCount = 2,
       },
       {
-        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .descriptorCount = VDB_BRICK_COUNT,
       },
     };
 
@@ -440,8 +440,8 @@ static void renderer_create_descriptor_pools(void) {
         .descriptorCount = 1,
       },
       {
-        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .descriptorCount = VDB_BRICK_COUNT,
       },
     };
 
@@ -462,8 +462,8 @@ static void renderer_create_descriptor_pools(void) {
         .descriptorCount = 3,
       },
       {
-        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
+        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = VDB_BRICK_COUNT,
       },
     };
 
@@ -514,8 +514,8 @@ static void renderer_create_descriptor_set_layouts(void) {
       },
       {
         .binding = 2,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .descriptorCount = VDB_BRICK_COUNT,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
         .pImmutableSamplers = 0,
       },
@@ -542,8 +542,8 @@ static void renderer_create_descriptor_set_layouts(void) {
       },
       {
         .binding = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .descriptorCount = VDB_BRICK_COUNT,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
         .pImmutableSamplers = 0,
       },
@@ -584,8 +584,8 @@ static void renderer_create_descriptor_set_layouts(void) {
       },
       {
         .binding = 3,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = VDB_BRICK_COUNT,
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         .pImmutableSamplers = 0,
       },
@@ -1204,7 +1204,6 @@ static void renderer_update_vdb_terrain_gen_descriptor_sets(void) {
       .range = VK_WHOLE_SIZE,
     },
   };
-
   VkDescriptorBufferInfo vdb_layer_descriptor_buffer_info[] = {
     {
       .offset = 0,
@@ -1212,14 +1211,19 @@ static void renderer_update_vdb_terrain_gen_descriptor_sets(void) {
       .range = VK_WHOLE_SIZE,
     },
   };
+  VkDescriptorImageInfo vdb_brick_descriptor_image_info[VDB_BRICK_COUNT] = {0};
 
-  VkDescriptorBufferInfo vdb_voxel_descriptor_buffer_info[] = {
-    {
-      .offset = 0,
-      .buffer = g_vdb.voxel_buffer.handle,
-      .range = VK_WHOLE_SIZE,
-    },
-  };
+  int32_t brick_index = 0;
+  int32_t brick_count = VDB_BRICK_COUNT;
+
+  while (brick_index < brick_count) {
+
+    vdb_brick_descriptor_image_info[brick_index].sampler = 0;
+    vdb_brick_descriptor_image_info[brick_index].imageView = g_vdb.brick[brick_index].image_view;
+    vdb_brick_descriptor_image_info[brick_index].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    brick_index++;
+  }
 
   VkWriteDescriptorSet write_descriptor_set[] = {
     {
@@ -1252,10 +1256,10 @@ static void renderer_update_vdb_terrain_gen_descriptor_sets(void) {
       .dstSet = g_renderer.vdb_terrain_gen_descriptor_set,
       .dstBinding = 2,
       .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = ARRAY_COUNT(vdb_voxel_descriptor_buffer_info),
-      .pImageInfo = 0,
-      .pBufferInfo = vdb_voxel_descriptor_buffer_info,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+      .descriptorCount = ARRAY_COUNT(vdb_brick_descriptor_image_info),
+      .pImageInfo = vdb_brick_descriptor_image_info,
+      .pBufferInfo = 0,
       .pTexelBufferView = 0,
     },
   };
@@ -1270,14 +1274,19 @@ static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
       .range = VK_WHOLE_SIZE,
     },
   };
+  VkDescriptorImageInfo vdb_brick_descriptor_image_info[VDB_BRICK_COUNT] = {0};
 
-  VkDescriptorBufferInfo vdb_voxel_descriptor_buffer_info[] = {
-    {
-      .offset = 0,
-      .buffer = g_vdb.voxel_buffer.handle,
-      .range = VK_WHOLE_SIZE,
-    },
-  };
+  int32_t brick_index = 0;
+  int32_t brick_count = VDB_BRICK_COUNT;
+
+  while (brick_index < brick_count) {
+
+    vdb_brick_descriptor_image_info[brick_index].sampler = 0;
+    vdb_brick_descriptor_image_info[brick_index].imageView = g_vdb.brick[brick_index].image_view;
+    vdb_brick_descriptor_image_info[brick_index].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    brick_index++;
+  }
 
   VkWriteDescriptorSet write_descriptor_set[] = {
     {
@@ -1298,10 +1307,10 @@ static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
       .dstSet = g_renderer.vdb_lod_gen_descriptor_set,
       .dstBinding = 1,
       .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = ARRAY_COUNT(vdb_voxel_descriptor_buffer_info),
-      .pImageInfo = 0,
-      .pBufferInfo = vdb_voxel_descriptor_buffer_info,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+      .descriptorCount = ARRAY_COUNT(vdb_brick_descriptor_image_info),
+      .pImageInfo = vdb_brick_descriptor_image_info,
+      .pBufferInfo = 0,
       .pTexelBufferView = 0,
     },
   };
@@ -1316,7 +1325,6 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
       .range = VK_WHOLE_SIZE,
     },
   };
-
   VkDescriptorBufferInfo screen_info_descriptor_buffer_info[] = {
     {
       .offset = 0,
@@ -1324,7 +1332,6 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
       .range = VK_WHOLE_SIZE,
     },
   };
-
   VkDescriptorBufferInfo vdb_info_descriptor_buffer_info[] = {
     {
       .offset = 0,
@@ -1332,14 +1339,19 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
       .range = VK_WHOLE_SIZE,
     },
   };
+  VkDescriptorImageInfo vdb_brick_descriptor_image_info[VDB_BRICK_COUNT] = {0};
 
-  VkDescriptorBufferInfo vdb_voxel_descriptor_buffer_info[] = {
-    {
-      .offset = 0,
-      .buffer = g_vdb.voxel_buffer.handle,
-      .range = VK_WHOLE_SIZE,
-    },
-  };
+  int32_t brick_index = 0;
+  int32_t brick_count = VDB_BRICK_COUNT;
+
+  while (brick_index < brick_count) {
+
+    vdb_brick_descriptor_image_info[brick_index].sampler = g_vdb.brick[brick_index].sampler;
+    vdb_brick_descriptor_image_info[brick_index].imageView = g_vdb.brick[brick_index].image_view;
+    vdb_brick_descriptor_image_info[brick_index].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    brick_index++;
+  }
 
   VkWriteDescriptorSet write_descriptor_set[] = {
     {
@@ -1384,10 +1396,10 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
       .dstSet = g_renderer.vdb_soft_renderer_descriptor_set,
       .dstBinding = 3,
       .dstArrayElement = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = ARRAY_COUNT(vdb_voxel_descriptor_buffer_info),
-      .pImageInfo = 0,
-      .pBufferInfo = vdb_voxel_descriptor_buffer_info,
+      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      .descriptorCount = ARRAY_COUNT(vdb_brick_descriptor_image_info),
+      .pImageInfo = vdb_brick_descriptor_image_info,
+      .pBufferInfo = 0,
       .pTexelBufferView = 0,
     },
   };
@@ -1515,28 +1527,31 @@ static void renderer_record_compute_commands(void) {
 
     renderer_compute_terrain();
 
-    VkBufferMemoryBarrier buffer_memory_barrier = {
-      .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-      .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-      .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-      .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .buffer = g_vdb.voxel_buffer.handle,
-      .offset = 0,
-      .size = VK_WHOLE_SIZE,
-    };
+    // TODO
+    /*
+VkBufferMemoryBarrier buffer_memory_barrier = {
+  .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+  .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+  .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+  .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+  .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+  .buffer = g_vdb.voxel_buffer.handle,
+  .offset = 0,
+  .size = VK_WHOLE_SIZE,
+};
 
-    vkCmdPipelineBarrier(
-      g_renderer.command_buffer,
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-      0,
-      0,
-      0,
-      1,
-      &buffer_memory_barrier,
-      0,
-      0);
+vkCmdPipelineBarrier(
+  g_renderer.command_buffer,
+  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+  0,
+  0,
+  0,
+  1,
+  &buffer_memory_barrier,
+  0,
+  0);
+      */
   }
 
   if (g_renderer.rebuild_lod) {

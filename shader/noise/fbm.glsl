@@ -1,5 +1,5 @@
-#ifndef FBM_H
-#define FBM_H
+#ifndef NOISE_FBM_H
+#define NOISE_FBM_H
 
 #include "simplex.glsl"
 #include "gradient.glsl"
@@ -55,4 +55,4 @@ float noise_fbm(vec3 position, float tile_length, float lacunarity, float persis
 	return t / n;
 }
 
-#endif // FBM_H
+#endif // NOISE_FBM_H

@@ -1,5 +1,5 @@
-#ifndef URANDOM_H
-#define URANDOM_H
+#ifndef MATH_URANDOM_H
+#define MATH_URANDOM_H
 
 const vec4 urandom_scale = vec4(443.897, 441.423, 0.0973, 0.1099);
 
@@ -110,4 +110,4 @@ vec4 urandom4(vec4 p4) {
 	return fract((p4.xxyz + p4.yzzw) * p4.zywx);
 }
 
-#endif // URANDOM_H
+#endif // MATH_URANDOM_H

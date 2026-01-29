@@ -1,5 +1,5 @@
-#ifndef GRAD4_H
-#define GRAD4_H
+#ifndef MATH_GRAD4_H
+#define MATH_GRAD4_H
 
 vec4 grad4(float j, vec4 ip) {
 	const vec4 ones = vec4(1.0, 1.0, 1.0, -1.0);
@@ -17,4 +17,4 @@ vec4 grad4(float j, vec4 ip) {
 	return p;
 }
 
-#endif // GRAD4_H
+#endif // MATH_GRAD4_H

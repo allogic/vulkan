@@ -89,9 +89,7 @@ layout (binding = 1) uniform vdb_layer_t {
 	terrain_mod_t modifier[];
 } vdb_layer;
 
-layout (binding = 2) buffer vdb_cluster_t {
-	vdb_voxel_t voxel[];
-} vdb_cluster;
+layout (binding = 2, r32ui) uniform uimage3D vdb_brick[];
 
 layout (push_constant) uniform vdb_terrain_gen_push_constant_t {
 	ivec3 brick_position;
@@ -99,6 +97,7 @@ layout (push_constant) uniform vdb_terrain_gen_push_constant_t {
 	int brick_lod;
 } vdb_terrain_gen_push_constant;
 
+#define EXCLUDE_HDDA_TRACER
 #include "vdb.glsl"
 
 float vdb_terrain_from_layers(ivec3 sample_position, float ground_level, float global_height) {
@@ -161,11 +160,15 @@ void main() {
 	float global_height = VDB_CLUSTER_DIM_Y * VDB_BASE_RES;
 	float terrain_density = vdb_terrain_from_layers(sample_position, ground_level, global_height);
 
-	int brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+	int brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
 
-	if (terrain_density < 0.0) {
-		vdb_voxel_set(0, brick_offset, voxel_position);
+	uint voxel = VDB_GET_VOXEL(0, brick_index, voxel_position);
+
+	if (terrain_density > 0.0) {
+		voxel &= ~VDB_VOXEL_IS_SOLID_BIT;
 	} else {
-		vdb_voxel_clr(0, brick_offset, voxel_position);
+		voxel |= VDB_VOXEL_IS_SOLID_BIT;
 	}
+
+	VDB_SET_VOXEL(0, brick_index, voxel_position, voxel);
 }

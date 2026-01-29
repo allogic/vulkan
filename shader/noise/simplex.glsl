@@ -1,5 +1,5 @@
-#ifndef SIMPLEX_H
-#define SIMPLEX_H
+#ifndef NOISE_SIMPLEX_H
+#define NOISE_SIMPLEX_H
 
 #include "../math/grad4.glsl"
 #include "../math/mod289.glsl"
@@ -174,4 +174,4 @@ vec3 noise_simplex4(vec4 position) {
 	return vec3(s, s1, s2);
 }
 
-#endif // SIMPLEX_H
+#endif // NOISE_SIMPLEX_H

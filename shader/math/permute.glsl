@@ -1,5 +1,5 @@
-#ifndef PERMUTE_H
-#define PERMUTE_H
+#ifndef MATH_PERMUTE_H
+#define MATH_PERMUTE_H
 
 #include "mod289.glsl"
 
@@ -19,4 +19,4 @@ vec4 permute(vec4 v) {
 	return mod289(((v * 34.0) + 1.0) * v);
 }
 
-#endif // PERMUTE_H
+#endif // MATH_PERMUTE_H

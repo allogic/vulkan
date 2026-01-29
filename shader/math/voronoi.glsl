@@ -1,5 +1,5 @@
-#ifndef VORONOI_H
-#define VORONOI_H
+#ifndef MATH_VORONOI_H
+#define MATH_VORONOI_H
 
 #include "constants.glsl"
 #include "urandom.glsl"
@@ -65,4 +65,4 @@ float voronoi(vec3 position, float angle_offset, float radius, float density) {
 	return f1;
 }
 
-#endif // VORONOI_H
+#endif // MATH_VORONOI_H

@@ -24,9 +24,7 @@ layout (binding = 2) uniform vdb_info_t {
 	ivec3 cluster_dim;
 } vdb_info;
 
-layout (binding = 3) buffer vdb_cluster_t {
-	vdb_voxel_t voxel[];
-} vdb_cluster;
+layout (binding = 3) uniform usampler3D vdb_brick[];
 
 #include "vdb.glsl"
 

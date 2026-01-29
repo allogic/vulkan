@@ -1,5 +1,5 @@
-#ifndef CELLULAR_H
-#define CELLULAR_H
+#ifndef NOISE_CELLULAR_H
+#define NOISE_CELLULAR_H
 
 #include "../math/urandom.glsl"
 
@@ -58,4 +58,4 @@ float noise_cellular_t1(vec3 position, float u, float v) {
 	return a.x / a.y;
 }
 
-#endif // CELLULAR_H
+#endif // NOISE_CELLULAR_H

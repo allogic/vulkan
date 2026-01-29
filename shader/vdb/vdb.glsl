@@ -10,51 +10,25 @@
 
 #define VDB_MAX_LOD       (0x06)
 #define VDB_BASE_RES      (0x40)
-#define VDB_CLUSTER_DIM_X (30)
-#define VDB_CLUSTER_DIM_Y (2)
-#define VDB_CLUSTER_DIM_Z (30)
-#define VDB_BRICK_COUNT   (1800)
+#define VDB_CLUSTER_DIM_X (0x0A)
+#define VDB_CLUSTER_DIM_Y (0x0A)
+#define VDB_CLUSTER_DIM_Z (0x0A)
+#define VDB_BRICK_COUNT   (0x3E8)
 #define VDB_BRICK_SIZE    (0x49249)
 
-#define VDB_VOXEL_IS_SOLID_MASK (0x80000000)
+#define VDB_VOXEL_IS_SOLID_BIT (0x80000000)
 
-#define VDB_MORTON_ENCODE(X, Y, Z) \
-	vdb_morton_table_x[X] |        \
-	vdb_morton_table_y[Y] |        \
-	vdb_morton_table_z[Z]
+#define VDB_BRICK_INDEX(X, Y, Z) \
+	(X + (Y * VDB_CLUSTER_DIM_X) + (Z * VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y))
 
-#define VDB_MORTON_DECODE_X(V)  \
-	((((V) >>  0) & 1u) << 0) | \
-	((((V) >>  3) & 1u) << 1) | \
-	((((V) >>  6) & 1u) << 2)
+#define VDB_VOXEL_IS_SOLID(LOD, BRICK_INDEX, VOXEL_POSITION) \
+	bool((uint(texelFetch(vdb_brick[BRICK_INDEX], VOXEL_POSITION, LOD).r) & VDB_VOXEL_IS_SOLID_BIT) == VDB_VOXEL_IS_SOLID_BIT);
 
-#define VDB_MORTON_DECODE_Y(V) \
-	((((V) >> 1) & 1u) << 0) | \
-	((((V) >> 4) & 1u) << 1) | \
-	((((V) >> 7) & 1u) << 2)
+#define VDB_GET_VOXEL(LOD, BRICK_INDEX, VOXEL_POSITION) \
+	uint(imageLoad(vdb_brick[BRICK_INDEX], VOXEL_POSITION).r);
 
-#define VDB_MORTON_DECODE_Z(V)  \
-	((((V) >>  2) & 1u) << 0) | \
-	((((V) >>  5) & 1u) << 1) | \
-	((((V) >>  8) & 1u) << 2)
-
-//#define VDB_BRICK_OFFSET(X, Y, Z) ((VDB_MORTON_ENCODE(X, Y, Z)) * VDB_BRICK_SIZE)
-#define VDB_BRICK_OFFSET(X, Y, Z) ((X + (Y * VDB_CLUSTER_DIM_X) + (Z * VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y)) * VDB_BRICK_SIZE)
-
-/*
-const int vdb_morton_table_x[VDB_CLUSTER_DIM_X] = int[VDB_CLUSTER_DIM_X](
-	0x0000, 0x0001, 0x0004, 0x0005,
-	0x0010, 0x0011, 0x0014, 0x0015
-);
-const int vdb_morton_table_y[VDB_CLUSTER_DIM_Y] = int[VDB_CLUSTER_DIM_Y](
-	0x0000, 0x0002, 0x0008, 0x000A,
-	0x0020, 0x0022, 0x0028, 0x002A
-);
-const int vdb_morton_table_z[VDB_CLUSTER_DIM_Z] = int[VDB_CLUSTER_DIM_Z](
-	0x0000, 0x0004, 0x0010, 0x0014,
-	0x0040, 0x0044, 0x0050, 0x0054
-);
-*/
+#define VDB_SET_VOXEL(LOD, BRICK_INDEX, VOXEL_POSITION, VOXEL) \
+	imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0));
 
 const int vdb_voxel_count_per_lod[VDB_MAX_LOD + 1] = int[VDB_MAX_LOD + 1](
 	1, 8, 64, 512, 4096, 32768, 262144
@@ -72,31 +46,6 @@ int vdb_voxel_size(int lod) {
 int vdb_total_voxel_count(int lod) {
 	return vdb_voxel_count_per_lod[lod];
 }
-int vdb_voxel_index(int lod, ivec3 voxel_position) {
-	int shift = VDB_MAX_LOD - lod;
-
-	return voxel_position.x + (voxel_position.y << shift) + (voxel_position.z << (shift << 1));
-}
-
-bool vdb_voxel_is_solid(int lod, int brick_offset, ivec3 voxel_position) {
-	int lod_offset = vdb_voxel_offset_per_lod[lod];
-	int voxel_index = vdb_voxel_index(lod, voxel_position);
-
-	return (vdb_cluster.voxel[brick_offset + lod_offset + voxel_index].value & VDB_VOXEL_IS_SOLID_MASK) != 0;
-}
-
-void vdb_voxel_set(int lod, int brick_offset, ivec3 voxel_position) {
-	int lod_offset = vdb_voxel_offset_per_lod[lod];
-	int voxel_index = vdb_voxel_index(lod, voxel_position);
-
-	vdb_cluster.voxel[brick_offset + lod_offset + voxel_index].value |= VDB_VOXEL_IS_SOLID_MASK;
-}
-void vdb_voxel_clr(int lod, int brick_offset, ivec3 voxel_position) {
-	int lod_offset = vdb_voxel_offset_per_lod[lod];
-	int voxel_index = vdb_voxel_index(lod, voxel_position);
-
-	vdb_cluster.voxel[brick_offset + lod_offset + voxel_index].value &= ~VDB_VOXEL_IS_SOLID_MASK;
-}
 
 vec3 vdb_safe_inverse(vec3 vector) {
 	return vec3(
@@ -105,6 +54,7 @@ vec3 vdb_safe_inverse(vec3 vector) {
 		(vector.z == 0.0) ? VDB_INFINITE : 1.0 / vector.z);
 }
 
+#ifndef EXCLUDE_HDDA_TRACER
 vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance, int max_iteration) {
 	vdb_hit_t hit;
 	vdb_lod_t lod_stack[VDB_MAX_LOD];
@@ -121,7 +71,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 	int voxels_per_axis = vdb_voxels_per_axis(lod);
 	int voxel_size = vdb_voxel_size(lod);
 	int stack_depth = 0;
-	int brick_offset = 0;
+	int brick_index = 0;
 
 	float t = 0.0;
 	float voxel_size_f = float(voxel_size);
@@ -145,7 +95,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 	vec3 cluster_min = vec3(0.0);
 	vec3 cluster_max = vec3(vec3(VDB_CLUSTER_DIM_X, VDB_CLUSTER_DIM_Y, VDB_CLUSTER_DIM_Z) * VDB_BASE_RES);
 
-	brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+	brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
 
 	while (t < max_distance && iter < max_iteration) {
 
@@ -167,7 +117,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 			voxel_size = vdb_voxel_size(lod);
 			voxel_size_f = float(voxel_size);
 
-			brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+			brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
 
 			stack_depth = 0;
 		}
@@ -189,7 +139,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 			voxel_size = vdb_voxel_size(lod);
 			voxel_size_f = float(voxel_size);
 
-			brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+			brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
 
 			stack_depth--;
 		}
@@ -212,7 +162,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 
 		if (in_brick && in_voxel) {
 
-			is_solid = vdb_voxel_is_solid(lod, brick_offset, voxel_position);
+			is_solid = VDB_VOXEL_IS_SOLID(lod, brick_index, voxel_position);
 
 			if (is_solid) {
 
@@ -244,7 +194,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 					voxel_size = vdb_voxel_size(lod);
 					voxel_size_f = float(voxel_size);
 
-					brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+					brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
 
 					continue;
 				}
@@ -306,5 +256,6 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 
 	return hit;
 }
+#endif // EXCLUDE_HDDA_TRACER
 
 #endif // VDB_H

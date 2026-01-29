@@ -1,5 +1,5 @@
-#ifndef PERLIN_H
-#define PERLIN_H
+#ifndef NOISE_PERLIN_H
+#define NOISE_PERLIN_H
 
 #include "../math/mod289.glsl"
 #include "../math/permute.glsl"
@@ -284,4 +284,4 @@ float noise_perlin(vec4 position) {
 	return 2.2 * n_xyzw;
 }
 
-#endif // PERLIN_H
+#endif // NOISE_PERLIN_H

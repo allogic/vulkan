@@ -1,5 +1,5 @@
-#ifndef SRANDOM_H
-#define SRANDOM_H
+#ifndef MATH_SRANDOM_H
+#define MATH_SRANDOM_H
 
 float srandom(float x) {
 	return -1.0 + 2.0 * fract(sin(x) * 43758.5453);
@@ -45,4 +45,4 @@ vec3 srandom3(vec3 p, float tile_length) {
 	return srandom3(p);
 }
 
-#endif // SRANDOM_H
+#endif // MATH_SRANDOM_H

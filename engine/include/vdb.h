@@ -3,10 +3,10 @@
 
 #define VDB_MAX_LOD (0x06)
 #define VDB_BASE_RES (0x40)
-#define VDB_CLUSTER_DIM_X (30)
-#define VDB_CLUSTER_DIM_Y (2)
-#define VDB_CLUSTER_DIM_Z (30)
-#define VDB_BRICK_COUNT (1800)
+#define VDB_CLUSTER_DIM_X (0x0A)
+#define VDB_CLUSTER_DIM_Y (0x0A)
+#define VDB_CLUSTER_DIM_Z (0x0A)
+#define VDB_BRICK_COUNT (0x3E8)
 #define VDB_BRICK_SIZE (0x49249)
 
 #define VDB_MAX_LAYER (0xF)
@@ -82,20 +82,23 @@ typedef struct vdb_layer_t {
   int32_t reserved0;
   int32_t reserved1;
 } vdb_layer_t;
-typedef struct vdb_voxel_t {
-  uint32_t value;
-} vdb_voxel_t;
 typedef struct vdb_info_t {
   ivector3_t cluster_dim;
   int32_t reserved0;
 } vdb_info_t;
 
 STATIC_ASSERT(sizeof(vdb_layer_t) % 4 == 0);
-STATIC_ASSERT(sizeof(vdb_voxel_t) % 4 == 0);
 STATIC_ASSERT(sizeof(vdb_info_t) % 4 == 0);
 
+typedef struct vdb_brick_t {
+  VkImage image;
+  VkImageView image_view;
+  VkDeviceMemory device_memory;
+  VkSampler sampler;
+} vdb_brick_t;
+
 typedef struct vdb_t {
-  buffer_t voxel_buffer;
+  vdb_brick_t brick[VDB_BRICK_COUNT];
   buffer_t info_buffer;
   buffer_t layer_buffer;
 } vdb_t;

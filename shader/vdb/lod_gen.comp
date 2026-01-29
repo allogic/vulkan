@@ -11,9 +11,7 @@ layout (binding = 0) uniform vdb_info_t {
 	ivec3 cluster_dim;
 } vdb_info;
 
-layout (binding = 1) buffer vdb_cluster_t {
-	vdb_voxel_t voxel[];
-} vdb_cluster;
+layout (binding = 1, r32ui) uniform uimage3D vdb_brick[];
 
 layout (push_constant) uniform vdb_lod_gen_push_constant_t {
 	ivec3 brick_position;
@@ -21,6 +19,7 @@ layout (push_constant) uniform vdb_lod_gen_push_constant_t {
 	int brick_lod;
 } vdb_lod_gen_push_constant;
 
+#define EXCLUDE_HDDA_TRACER
 #include "vdb.glsl"
 
 void main() {
@@ -33,13 +32,13 @@ void main() {
 
 	int curr_voxel_count = vdb_voxels_per_axis(curr_lod);
 
-	int brick_offset = VDB_BRICK_OFFSET(brick_position.x, brick_position.y, brick_position.z);
+	int brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
 
 	if (curr_voxel_position.x < curr_voxel_count &&
 		curr_voxel_position.y < curr_voxel_count &&
 		curr_voxel_position.z < curr_voxel_count) {
 
-		int solid = 0;
+		bool solid = false;
 
 		for (int z = 0; z < 2; z++) {
 			for (int y = 0; y < 2; y++) {
@@ -47,15 +46,23 @@ void main() {
 
 					ivec3 child_voxel_position = c0 + ivec3(x, y, z);
 
-					solid |= int(vdb_voxel_is_solid(child_lod, brick_offset, child_voxel_position));
+					uint child_voxel = VDB_GET_VOXEL(child_lod, brick_index, child_voxel_position);
+
+					if ((child_voxel & VDB_VOXEL_IS_SOLID_BIT) == VDB_VOXEL_IS_SOLID_BIT) {
+						solid = true;
+					}
 				}
 			}
 		}
 
-		if (solid == 0) {
-			vdb_voxel_clr(curr_lod, brick_offset, curr_voxel_position);
+		uint curr_voxel = VDB_GET_VOXEL(curr_lod, brick_index, curr_voxel_position);
+
+		if (solid) {
+			curr_voxel &= ~VDB_VOXEL_IS_SOLID_BIT;
 		} else {
-			vdb_voxel_set(curr_lod, brick_offset, curr_voxel_position);
+			curr_voxel |= VDB_VOXEL_IS_SOLID_BIT;
 		}
+
+		VDB_SET_VOXEL(curr_lod, brick_index, curr_voxel_position, curr_voxel);
 	}
 }

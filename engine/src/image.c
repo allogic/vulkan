@@ -110,23 +110,3 @@ VkSampler image_create_sampler(VkImage image, VkFilter filter) {
 
   return sampler;
 }
-
-/*
-image_t image_create_2d(void *buffer, uint32_t width, uint32_t height, uint32_t channels, VkFormat format, VkImageTiling tiling, VkFilter filter) {
-  buffer_t staging_buffer = buffer_create(width * height, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  image_t target_image = image_create(width, height, 1, channels, VK_IMAGE_TYPE_2D, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, format, tiling, filter);
-
-  memcpy(staging_buffer.mapped_memory, buffer, width * height);
-
-  VkCommandBuffer command_buffer = vkutils_begin_command_buffer();
-  // targetImage->LayoutTransition(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  buffer_copy_to_image(&staging_buffer, &target_image, command_buffer);
-  // targetImage->LayoutTransition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-  vkutils_end_command_buffer(command_buffer);
-
-  return target_image;
-}
-image_t image_create_2d_depth_stencil(uint32_t width, uint32_t height, uint32_t channels, VkFormat format, VkImageTiling tiling, VkFilter filter) {
-  return image_create(width, height, 1, channels, VK_IMAGE_TYPE_2D, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, format, tiling, filter);
-}
-*/

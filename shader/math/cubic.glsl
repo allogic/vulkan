@@ -1,5 +1,5 @@
-#ifndef CUBIC_H
-#define CUBIC_H
+#ifndef MATH_CUBIC_H
+#define MATH_CUBIC_H
 
 float cubic(float v) {
 	return v * v * (3.0 - 2.0 * v);
@@ -61,4 +61,4 @@ vec4 cubic(vec4 v, float slope0, float slope1) {
 	return a * v3 + b * v2 + c * v;
 }
 
-#endif // CUBIC_H
+#endif // MATH_CUBIC_H

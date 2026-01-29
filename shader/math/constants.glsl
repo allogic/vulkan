@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef MATH_CONSTANTS_H
+#define MATH_CONSTANTS_H
 
 #define FLT_MAX (3.402823466E+38)
 
@@ -19,4 +19,4 @@
 #define EPSILON_8 (1E-8)
 #define EPSILON_9 (1E-9)
 
-#endif // CONSTANTS_H
+#endif // MATH_CONSTANTS_H
