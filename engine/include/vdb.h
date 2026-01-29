@@ -1,9 +1,15 @@
 #ifndef VDB_H
 #define VDB_H
 
-#define VDB_MAX_LOD_LEVEL (0x6)
+#define VDB_MAX_LOD (0x06)
 #define VDB_BASE_RES (0x40)
-#define VDB_MAX_TERRAIN_MODIFIER (0x10)
+#define VDB_CLUSTER_DIM_X (0x14)
+#define VDB_CLUSTER_DIM_Y (0x05)
+#define VDB_CLUSTER_DIM_Z (0x14)
+#define VDB_BRICK_COUNT (0x7D0)
+#define VDB_BRICK_SIZE (0x49249)
+
+#define VDB_MAX_LAYER (0xF)
 
 #define VDB_NOISE_TYPE_CELLULAR (0x0)
 
@@ -64,7 +70,7 @@ STATIC_ASSERT(sizeof(gradient_noise_args_t) % 4 == 0);
 STATIC_ASSERT(sizeof(perlin_noise_args_t) % 4 == 0);
 STATIC_ASSERT(sizeof(simplex_noise_args_t) % 4 == 0);
 
-typedef struct terrain_layer_t {
+typedef struct vdb_layer_t {
   cellular_noise_args_t cellular_noise_args;
   curl_noise_args_t curl_noise_args;
   fbm_noise_args_t fbm_noise_args;
@@ -75,21 +81,23 @@ typedef struct terrain_layer_t {
   float scale;
   int32_t reserved0;
   int32_t reserved1;
-} terrain_layer_t;
-
-STATIC_ASSERT(sizeof(terrain_layer_t) % 4 == 0);
-
+} vdb_layer_t;
+typedef struct vdb_voxel_t {
+  uint32_t value;
+} vdb_voxel_t;
 typedef struct vdb_info_t {
-  ivector3_t dimension;
+  ivector3_t cluster_dim;
   int32_t reserved0;
 } vdb_info_t;
 
+STATIC_ASSERT(sizeof(vdb_layer_t) % 4 == 0);
+STATIC_ASSERT(sizeof(vdb_voxel_t) % 4 == 0);
 STATIC_ASSERT(sizeof(vdb_info_t) % 4 == 0);
 
 typedef struct vdb_t {
-  buffer_t brick_buffer;
+  buffer_t voxel_buffer;
   buffer_t info_buffer;
-  buffer_t terrain_layer_buffer;
+  buffer_t layer_buffer;
 } vdb_t;
 
 #ifdef __cplusplus
@@ -98,7 +106,7 @@ extern "C" {
 
 extern vdb_t g_vdb;
 
-void vdb_create(ivector3_t dimension);
+void vdb_create(void);
 void vdb_destroy(void);
 
 #ifdef __cplusplus

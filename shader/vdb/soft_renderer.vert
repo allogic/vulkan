@@ -6,7 +6,5 @@
 layout (location = 0) in vec3 vertex_position;
 
 void main() {
-	vec4 clip_position = vec4(vertex_position, 1.0);
-
-	gl_Position = clip_position;
+	gl_Position = vec4(vertex_position, 1.0);
 }

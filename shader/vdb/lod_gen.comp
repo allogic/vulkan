@@ -5,13 +5,15 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
+#include "fwd.glsl"
+
 layout (binding = 0) uniform vdb_info_t {
-	ivec3 dimension;
+	ivec3 cluster_dim;
 } vdb_info;
 
-layout (binding = 1) buffer vdb_brick_t {
-	uint mask_buffer[];
-} vdb_brick[];
+layout (binding = 1) buffer vdb_cluster_t {
+	vdb_voxel_t voxel[];
+} vdb_cluster;
 
 layout (push_constant) uniform vdb_lod_gen_push_constant_t {
 	ivec3 brick_position;
@@ -23,10 +25,8 @@ layout (push_constant) uniform vdb_lod_gen_push_constant_t {
 
 void main() {
 	ivec3 curr_voxel_position = ivec3(gl_GlobalInvocationID.xyz);
-
 	ivec3 c0 = curr_voxel_position * 2;
-
-	int brick_index = vdb_lod_gen_push_constant.brick_index;
+	ivec3 brick_position = vdb_lod_gen_push_constant.brick_position;
 
 	int curr_lod = vdb_lod_gen_push_constant.brick_lod;
 	int child_lod = vdb_lod_gen_push_constant.brick_lod - 1;
@@ -45,15 +45,15 @@ void main() {
 
 					ivec3 child_voxel_position = c0 + ivec3(x, y, z);
 
-					solid |= int(vdb_voxel_is_solid(brick_index, child_lod, child_voxel_position));
+					solid |= int(vdb_voxel_is_solid(child_lod, brick_position, child_voxel_position));
 				}
 			}
 		}
 
 		if (solid == 0) {
-			vdb_voxel_clr(brick_index, curr_lod, curr_voxel_position);
+			vdb_voxel_clr(curr_lod, brick_position, curr_voxel_position);
 		} else {
-			vdb_voxel_set(brick_index, curr_lod, curr_voxel_position);
+			vdb_voxel_set(curr_lod, brick_position, curr_voxel_position);
 		}
 	}
 }

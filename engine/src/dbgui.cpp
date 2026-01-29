@@ -23,7 +23,7 @@ void dbgui_create(void) {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
     .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
     .maxSets = 1,
-    .poolSizeCount = (uint32_t)ARRAY_COUNT(s_dbgui_descriptor_pool_sizes),
+    .poolSizeCount = ARRAY_COUNT(s_dbgui_descriptor_pool_sizes),
     .pPoolSizes = s_dbgui_descriptor_pool_sizes,
   };
 
@@ -90,24 +90,24 @@ static void dbgui_draw_terrain_layer(void) {
   ImGui::Begin("Terrain Layer");
 
   int32_t layer_index = 0;
-  int32_t layer_count = VDB_MAX_TERRAIN_MODIFIER;
+  int32_t layer_count = VDB_MAX_LAYER;
 
   while (layer_index < layer_count) {
 
-    terrain_layer_t *terrain_layer = &((terrain_layer_t *)g_vdb.terrain_layer_buffer.mapped_memory)[layer_index];
+    vdb_layer_t *layer = &((vdb_layer_t *)g_vdb.layer_buffer.mapped_memory)[layer_index];
 
-    if (terrain_layer) {
+    if (layer) {
 
-      if (ImGui::TreeNodeEx(terrain_layer, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding, "Layer %d", layer_index)) {
+      if (ImGui::TreeNodeEx(layer, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding, "Layer %d", layer_index)) {
 
         // TODO: select type..
 
-        switch (terrain_layer->noise_type) {
+        switch (layer->noise_type) {
           case VDB_NOISE_TYPE_CELLULAR: {
 
             // TODO: select type..
 
-            cellular_noise_args_t *args = &terrain_layer->cellular_noise_args;
+            cellular_noise_args_t *args = &layer->cellular_noise_args;
 
             if (ImGui::DragFloat4("Offset", (float *)&args->offset, 0.1F, 0.0F, 0.0F, "%.3F")) {
               g_renderer.rebuild_terrain = 1;
@@ -124,7 +124,7 @@ static void dbgui_draw_terrain_layer(void) {
               g_renderer.rebuild_lod = 1;
             }
 
-            if (ImGui::DragFloat("Scale", &terrain_layer->scale, 0.1F, 0.0F, 0.0F, "%.3F")) {
+            if (ImGui::DragFloat("Scale", &layer->scale, 0.1F, 0.0F, 0.0F, "%.3F")) {
               g_renderer.rebuild_terrain = 1;
               g_renderer.rebuild_lod = 1;
             }

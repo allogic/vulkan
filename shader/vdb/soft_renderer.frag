@@ -3,7 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#include "../math/aabb.glsl"
+#include "fwd.glsl"
 
 layout (location = 0) out vec4 output_color;
 
@@ -21,12 +21,12 @@ layout (binding = 1) uniform screen_info_t {
 } screen_info;
 
 layout (binding = 2) uniform vdb_info_t {
-	ivec3 dimension;
+	ivec3 cluster_dim;
 } vdb_info;
 
-layout (binding = 3) buffer vdb_brick_t {
-	uint mask_buffer[];
-} vdb_brick[];
+layout (binding = 3) buffer vdb_cluster_t {
+	vdb_voxel_t voxel[];
+} vdb_cluster;
 
 #include "vdb.glsl"
 
@@ -40,7 +40,7 @@ void main() {
 	vec3 ray_origin = camera_info.position;
 	vec3 ray_direction = normalize(world_position - ray_origin);
 
-	vdb_hit_t hit = vdb_hdda_raymarch(ray_origin, ray_direction, vdb_info.dimension, camera_info.max_ray_distance, 10000);
+	vdb_hit_t hit = vdb_hdda_trace_t0(ray_origin, ray_direction, camera_info.max_ray_distance, 10000);
 
 	if (!hit.intersect) {
 		discard;

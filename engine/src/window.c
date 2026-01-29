@@ -45,6 +45,9 @@ static char const *s_window_layer_extensions[] = {
 
 static char const *s_window_device_extensions[] = {
   "VK_KHR_swapchain",
+#ifdef BUILD_DEBUG
+  "VK_KHR_shader_non_semantic_info",
+#endif // BUILD_DEBUG
   "VK_EXT_descriptor_indexing",
 };
 
@@ -72,7 +75,7 @@ void window_create(int32_t width, int32_t height, char const *title) {
   renderpass_create_main();
 
   swapchain_create(2);
-  vdb_create((ivector3_t){10, 3, 10});
+  vdb_create();
   renderer_create();
 }
 void window_run(void) {
@@ -127,7 +130,7 @@ void window_run(void) {
       window_update_surface_capabilities();
 
       swapchain_create(2);
-      vdb_create((ivector3_t){10, 3, 10});
+      vdb_create();
       renderer_create();
     }
 
@@ -141,7 +144,7 @@ void window_run(void) {
       renderer_destroy();
       vdb_destroy();
 
-      vdb_create((ivector3_t){10, 3, 10});
+      vdb_create();
       renderer_create();
     }
 

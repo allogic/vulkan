@@ -79,18 +79,19 @@ struct terrain_mod_t {
 	int reserved1;
 };
 
+#include "fwd.glsl"
+
 layout (binding = 0) uniform vdb_info_t {
-	ivec3 dimension;
-	int reserved0;
+	ivec3 cluster_dim;
 } vdb_info;
 
-layout (binding = 1) uniform terrain_layer_t {
+layout (binding = 1) uniform vdb_layer_t {
 	terrain_mod_t modifier[];
-} terrain_layer;
+} vdb_layer;
 
-layout (binding = 2) buffer vdb_brick_t {
-	uint mask_buffer[];
-} vdb_brick[];
+layout (binding = 2) buffer vdb_cluster_t {
+	vdb_voxel_t voxel[];
+} vdb_cluster;
 
 layout (push_constant) uniform vdb_terrain_gen_push_constant_t {
 	ivec3 brick_position;
@@ -100,10 +101,10 @@ layout (push_constant) uniform vdb_terrain_gen_push_constant_t {
 
 #include "vdb.glsl"
 
-float vdb_terrain_from_layers(ivec3 position, float ground_level, float global_height) {
+float vdb_terrain_from_layers(ivec3 sample_position, float ground_level, float global_height) {
 	float density = 0.0;
 
-	terrain_mod_t mod0 = terrain_layer.modifier[0];
+	terrain_mod_t mod0 = vdb_layer.modifier[0];
 
 	/*
 	switch (mod0.noise_type) {
@@ -131,19 +132,19 @@ float vdb_terrain_from_layers(ivec3 position, float ground_level, float global_h
 	}
 	*/
 
-	//density += noise_curl(position * 0.05);
-	//density += noise_fbm(position * 0.05, 1.0, 1.0, 4);
-	//density += noise_perlin(position * 0.1) * 2.0;
-	//density += noise_voronoi(position * 0.1, 0.0, 0.0);
-	//density += noise_gradient(position * 0.01);
-	//density *= noise_simplex(position * 0.01) * 2.0;
-	density += noise_fbm(position * 0.02, 0.7, 1.0, 4);
-	//density += noise_fbm((position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
+	//density += noise_curl(sample_position * 0.05);
+	//density += noise_fbm(sample_position * 0.05, 1.0, 1.0, 4);
+	//density += noise_perlin(sample_position * 0.1) * 2.0;
+	//density += noise_voronoi(sample_position * 0.1, 0.0, 0.0);
+	//density += noise_gradient(sample_position * 0.01);
+	//density *= noise_simplex(sample_position * 0.01) * 2.0;
+	density += noise_fbm(sample_position * 0.02, 0.7, 1.0, 4);
+	//density += noise_fbm((sample_position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
 
 	density = soft_terrace(density, 2, 1.8);
 
 	float height_threshold = ground_level / global_height;
-	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, position.y / global_height);
+	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, sample_position.y / global_height);
 
 	//density += blend_factor;
 	density *= blend_factor;
@@ -152,16 +153,17 @@ float vdb_terrain_from_layers(ivec3 position, float ground_level, float global_h
 }
 
 void main() {
-	ivec3 brick_position = vdb_terrain_gen_push_constant.brick_position * VDB_BASE_RES;
+	ivec3 brick_position = vdb_terrain_gen_push_constant.brick_position;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
+	ivec3 sample_position = (brick_position * VDB_BASE_RES) + voxel_position;
 
-	float ground_level = vdb_info.dimension.y * VDB_BASE_RES / 2.0;
-	float global_height = vdb_info.dimension.y * VDB_BASE_RES;
-	float terrain_density = vdb_terrain_from_layers(brick_position + voxel_position, ground_level, global_height);
+	float ground_level = VDB_CLUSTER_DIM_Y * VDB_BASE_RES / 2.0;
+	float global_height = VDB_CLUSTER_DIM_Y * VDB_BASE_RES;
+	float terrain_density = vdb_terrain_from_layers(sample_position, ground_level, global_height);
 
 	if (terrain_density < 0.0) {
-		vdb_voxel_set(vdb_terrain_gen_push_constant.brick_index, 0, voxel_position);
+		vdb_voxel_set(0, brick_position, voxel_position);
 	} else {
-		vdb_voxel_clr(vdb_terrain_gen_push_constant.brick_index, 0, voxel_position);
+		vdb_voxel_clr(0, brick_position, voxel_position);
 	}
 }
