@@ -17,9 +17,9 @@ void vdb_create(ivector3_t dimension) {
   g_vdb.info_buffer = buffer_create_uniform(&vdb_info, sizeof(vdb_info_t));
   g_vdb.terrain_layer_buffer = buffer_create_uniform_coherent(0, sizeof(terrain_layer_t) * VDB_MAX_TERRAIN_MODIFIER);
 
-  for (int32_t x = 0; x < dimension.x; x++) {
+  for (int32_t z = 0; z < dimension.z; z++) {
     for (int32_t y = 0; y < dimension.y; y++) {
-      for (int32_t z = 0; z < dimension.z; z++) {
+      for (int32_t x = 0; x < dimension.x; x++) {
 
         ivector3_t brick_position = {x, y, z};
         ivector3_t brick_position_scaled = ivector3_muls(brick_position, VDB_BASE_RES);

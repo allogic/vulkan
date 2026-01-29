@@ -3,27 +3,57 @@
 
 #include "../math/constants.glsl"
 
-#define VDB_MAX_LOD_LEVEL (0x6)
-#define VDB_BASE_RES (0x40)
-#define VDB_BITS_PER_WORD (0x20)
+// TODO: reverse voxel LOD order!
+// TODO: double check HDDA optimizations!
 
-const int vdb_word_offset[7] = int[7](
-	0,
-	8192,
-	8192 + 1024,
-	8192 + 1024 + 128,
-	8192 + 1024 + 128 + 16,
-	8192 + 1024 + 128 + 16 + 2,
-	8192 + 1024 + 128 + 16 + 2 + 1
+#define VDB_MAX_LOD_LEVEL (0x06)
+#define VDB_BASE_RES      (0x40)
+#define VDB_CLUSTER_DIM_X (0x14)
+#define VDB_CLUSTER_DIM_Y (0x05)
+#define VDB_CLUSTER_DIM_Z (0x14)
+
+#define VDB_MORTON_ENCODE(X, Y, Z) \
+	vdb_morton_table_x[X] |        \
+	vdb_morton_table_y[Y] |        \
+	vdb_morton_table_z[Z]
+
+#define VDB_MORTON_DECODE_X(V)  \
+	((((V) >>  0) & 1u) << 0) | \
+	((((V) >>  3) & 1u) << 1) | \
+	((((V) >>  6) & 1u) << 2) | \
+	((((V) >>  9) & 1u) << 3) | \
+	((((V) >> 12) & 1u) << 4)
+
+#define VDB_MORTON_DECODE_Y(V) \
+	((((V) >> 1) & 1u) << 0) | \
+	((((V) >> 4) & 1u) << 1) | \
+	((((V) >> 7) & 1u) << 2)
+
+#define VDB_MORTON_DECODE_Z(V)  \
+	((((V) >>  2) & 1u) << 0) | \
+	((((V) >>  5) & 1u) << 1) | \
+	((((V) >>  8) & 1u) << 2) | \
+	((((V) >> 11) & 1u) << 3) | \
+	((((V) >> 14) & 1u) << 4);
+
+const int vdb_morton_table_x[VDB_CLUSTER_DIM_X] = int[VDB_CLUSTER_DIM_X](
+	0x0000, 0x0001, 0x0008, 0x0009, 0x0040,
+	0x0041, 0x0048, 0x0049, 0x0200, 0x0201,
+	0x0208, 0x0209, 0x0240, 0x0241, 0x0248,
+	0x0249, 0x1000, 0x1001, 0x1008, 0x1009
 );
-const int vdb_voxel_count[7] = int[7](
-	1 * 1 * 1,
-	2 * 2 * 2,
-	4 * 4 * 4,
-	8 * 8 * 8,
-	16 * 16 * 16,
-	32 * 32 * 32,
-	64 * 64 * 64
+const int vdb_morton_table_y[VDB_CLUSTER_DIM_Y] = int[VDB_CLUSTER_DIM_Y](
+	0x0000, 0x0002, 0x0010, 0x0012, 0x0080
+);
+const int vdb_morton_table_z[VDB_CLUSTER_DIM_Z] = int[VDB_CLUSTER_DIM_Z](
+	0x0000, 0x0004, 0x0020, 0x0024, 0x0100,
+	0x0104, 0x0120, 0x0124, 0x0800, 0x0804,
+	0x0820, 0x0824, 0x0900, 0x0904, 0x0920,
+	0x0924, 0x4000, 0x4004, 0x4020, 0x4024
+);
+
+const int vdb_voxel_count_per_lod[VDB_MAX_LOD_LEVEL + 1] = int[VDB_MAX_LOD_LEVEL + 1](
+	1, 8, 64, 512, 4096, 32768, 262144 // TODO: wrong order!
 );
 
 struct vdb_lod_t {
@@ -43,18 +73,14 @@ struct vdb_hit_t {
 	//float ao;
 };
 
-int vec_to_index(ivec3 position, ivec3 size) {
-	return (position.x) + (position.y * size.x) + (position.z * size.x * size.y);
-}
-
 int vdb_voxels_per_axis(int lod) {
 	return VDB_BASE_RES >> lod;
 }
-int vdb_total_voxel_count(int lod) {
-	return vdb_voxel_count[lod];
+int vdb_voxel_size(int lod) {
+  return 1 << lod;
 }
-int vdb_word_count(int lod) {
-	return (vdb_voxel_count[lod] + (VDB_BITS_PER_WORD - 1)) >> 5;
+int vdb_total_voxel_count(int lod) {
+	return vdb_voxel_count_per_lod[lod];
 }
 int vdb_voxel_index(int lod, ivec3 voxel_position) {
 	switch (lod) {
@@ -69,43 +95,25 @@ int vdb_voxel_index(int lod, ivec3 voxel_position) {
 
 	return -1;
 }
-int vdb_voxel_size(int lod) {
-	return 1 << lod;
-}
-int vdb_word_index(int voxel_index) {
-	return voxel_index >> 5;
-}
 
 bool vdb_voxel_is_solid(int brick_index, int lod, ivec3 voxel_position) {
-	int i = vdb_voxel_index(lod, voxel_position);
-	int word = vdb_word_offset[lod] + vdb_word_index(i);
-
-	return bool(vdb_brick[brick_index].mask_buffer[word] & (1u << (i & 31)));
+	//int i = vdb_voxel_index(lod, voxel_position);
+	//int word = vdb_word_offset[lod] + vdb_word_index(i);
+	//
+	//return bool(vdb_brick[brick_index].mask_buffer[word] & (1u << (i & 31)));
 }
 
 void vdb_voxel_set(int brick_index, int lod, ivec3 voxel_position) {
-	int i = vdb_voxel_index(lod, voxel_position);
-	int word = vdb_word_offset[lod] + vdb_word_index(i);
-
-	atomicOr(vdb_brick[brick_index].mask_buffer[word], (1u << (i & 31)));
+	//int i = vdb_voxel_index(lod, voxel_position);
+	//int word = vdb_word_offset[lod] + vdb_word_index(i);
+	//
+	//atomicOr(vdb_brick[brick_index].mask_buffer[word], (1u << (i & 31)));
 }
 void vdb_voxel_clr(int brick_index, int lod, ivec3 voxel_position) {
-	int i = vdb_voxel_index(lod, voxel_position);
-	int word = vdb_word_offset[lod] + vdb_word_index(i);
-
-	atomicAnd(vdb_brick[brick_index].mask_buffer[word], ~(1u << (i & 31)));
-}
-
-float vdb_voxel_ao(int brick_index, int lod, ivec3 p, ivec3 s1, ivec3 s2, ivec3 c) {
-	int o1 = int(vdb_voxel_is_solid(brick_index, lod, p + s1));
-	int o2 = int(vdb_voxel_is_solid(brick_index, lod, p + s2));
-	int oc = int(vdb_voxel_is_solid(brick_index, lod, p + c));
-
-	if (o1 == 1 && o2 == 1) {
-		return 0.0;
-	}
-
-	return 1.0 - float(o1 + o2 + oc) / 3.0;
+	//int i = vdb_voxel_index(lod, voxel_position);
+	//int word = vdb_word_offset[lod] + vdb_word_index(i);
+	//
+	//atomicAnd(vdb_brick[brick_index].mask_buffer[word], ~(1u << (i & 31)));
 }
 
 vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, ivec3 vdb_dimension, float max_distance, int max_iteration) {
@@ -124,6 +132,9 @@ vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, ivec3 vdb_dimen
 	int voxel_size = vdb_voxel_size(lod);
 	int brick_index = -1;
 	int stack_depth = 0;
+
+	float voxel_size_f = float(voxel_size);
+	float t = 0.0;
 
 	ivec3 step_direction = ivec3(sign(ray_direction));
 	ivec3 voxel_position = ivec3(0);
@@ -144,8 +155,6 @@ vdb_hit_t vdb_hdda_raymarch(vec3 ray_origin, vec3 ray_direction, ivec3 vdb_dimen
 	vec3 current_max = vec3(0.0);
 	vec3 cluster_min = vec3(0.0);
 	vec3 cluster_max = vec3(vdb_dimension * VDB_BASE_RES);
-
-	float t = 0.0;
 
 	while (t < max_distance && iter < max_iteration) {
 

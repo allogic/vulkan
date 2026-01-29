@@ -3,7 +3,6 @@
 
 #define VDB_MAX_LOD_LEVEL (0x6)
 #define VDB_BASE_RES (0x40)
-#define VDB_BITS_PER_WORD (0x20)
 #define VDB_MAX_TERRAIN_MODIFIER (0x10)
 
 #define VDB_NOISE_TYPE_CELLULAR (0x0)
@@ -87,15 +86,8 @@ typedef struct vdb_info_t {
 
 STATIC_ASSERT(sizeof(vdb_info_t) % 4 == 0);
 
-typedef struct vdb_brick_t {
-  ivector3_t position;
-  buffer_t mask_buffer;
-} vdb_brick_t;
-
 typedef struct vdb_t {
-  struct vdb_brick_t *brick;
-  int32_t brick_count;
-  ivector3_t dimension;
+  buffer_t brick_buffer;
   buffer_t info_buffer;
   buffer_t terrain_layer_buffer;
 } vdb_t;
