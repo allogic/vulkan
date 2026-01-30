@@ -22,13 +22,13 @@
 	(X + (Y * VDB_CLUSTER_DIM_X) + (Z * VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y))
 
 #define VDB_VOXEL_IS_SOLID(LOD, BRICK_INDEX, VOXEL_POSITION) \
-	bool((uint(texelFetch(vdb_brick[BRICK_INDEX], VOXEL_POSITION, LOD).r) & VDB_VOXEL_IS_SOLID_BIT) == VDB_VOXEL_IS_SOLID_BIT);
+	bool((uint(texelFetch(vdb_brick[BRICK_INDEX], VOXEL_POSITION, LOD).r) & VDB_VOXEL_IS_SOLID_BIT) == VDB_VOXEL_IS_SOLID_BIT)
 
 #define VDB_GET_VOXEL(LOD, BRICK_INDEX, VOXEL_POSITION) \
-	uint(imageLoad(vdb_brick[BRICK_INDEX], VOXEL_POSITION).r);
+	uint(imageLoad(vdb_brick[BRICK_INDEX], VOXEL_POSITION).r)
 
 #define VDB_SET_VOXEL(LOD, BRICK_INDEX, VOXEL_POSITION, VOXEL) \
-	imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0));
+	imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0))
 
 const int vdb_voxel_count_per_lod[VDB_MAX_LOD + 1] = int[VDB_MAX_LOD + 1](
 	1, 8, 64, 512, 4096, 32768, 262144

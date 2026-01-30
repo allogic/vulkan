@@ -7,7 +7,7 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
-static void dbgui_draw_terrain_layer(void);
+static void dbgui_draw_world_layer(void);
 
 static VkDescriptorPool s_dbgui_descriptor_pool = 0;
 
@@ -66,7 +66,7 @@ void dbgui_draw(void) {
 
   ImGui::NewFrame();
 
-  dbgui_draw_terrain_layer();
+  dbgui_draw_world_layer();
 
   ImGui::Render();
 
@@ -86,8 +86,8 @@ void dbgui_destroy(void) {
   vkDestroyDescriptorPool(g_window.device, s_dbgui_descriptor_pool, 0);
 }
 
-static void dbgui_draw_terrain_layer(void) {
-  ImGui::Begin("Terrain Layer");
+static void dbgui_draw_world_layer(void) {
+  ImGui::Begin("World Layer");
 
   int32_t layer_index = 0;
   int32_t layer_count = VDB_MAX_LAYER;
@@ -110,22 +110,22 @@ static void dbgui_draw_terrain_layer(void) {
             cellular_noise_args_t *args = &layer->cellular_noise_args;
 
             if (ImGui::DragFloat4("Offset", (float *)&args->offset, 0.1F, 0.0F, 0.0F, "%.3F")) {
-              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_world = 1;
               g_renderer.rebuild_lod = 1;
             }
 
             if (ImGui::DragFloat("U", &args->u, 0.1F, 0.0F, 0.0F, "%.3F")) {
-              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_world = 1;
               g_renderer.rebuild_lod = 1;
             }
 
             if (ImGui::DragFloat("V", &args->v, 0.1F, 0.0F, 0.0F, "%.3F")) {
-              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_world = 1;
               g_renderer.rebuild_lod = 1;
             }
 
             if (ImGui::DragFloat("Scale", &layer->scale, 0.1F, 0.0F, 0.0F, "%.3F")) {
-              g_renderer.rebuild_terrain = 1;
+              g_renderer.rebuild_world = 1;
               g_renderer.rebuild_lod = 1;
             }
 

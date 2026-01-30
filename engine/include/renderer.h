@@ -40,14 +40,14 @@ STATIC_ASSERT(sizeof(debug_line_vertex_t) % 4 == 0);
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
 
-typedef struct vdb_terrain_gen_push_constant_t {
+typedef struct vdb_world_gen_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
   int32_t brick_lod;
   int32_t reserved0;
   int32_t reserved1;
   int32_t reserved2;
-} vdb_terrain_gen_push_constant_t;
+} vdb_world_gen_push_constant_t;
 typedef struct vdb_lod_gen_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
@@ -57,13 +57,13 @@ typedef struct vdb_lod_gen_push_constant_t {
   int32_t reserved2;
 } vdb_lod_gen_push_constant_t;
 
-STATIC_ASSERT(sizeof(vdb_terrain_gen_push_constant_t) % 4 == 0);
+STATIC_ASSERT(sizeof(vdb_world_gen_push_constant_t) % 4 == 0);
 STATIC_ASSERT(sizeof(vdb_lod_gen_push_constant_t) % 4 == 0);
 
 typedef struct renderer_t {
   int8_t is_dirty;
   int8_t is_debug_enabled;
-  int8_t rebuild_terrain;
+  int8_t rebuild_world;
   int8_t rebuild_lod;
   int32_t image_index;
   int32_t debug_line_vertex_offset;
@@ -72,23 +72,23 @@ typedef struct renderer_t {
   VkSemaphore render_finished_semaphore[SWAPCHAIN_MAX_IMAGE_COUNT];
   VkSemaphore image_available_semaphore;
   VkFence frame_fence;
-  VkDescriptorPool vdb_terrain_gen_descriptor_pool;
+  VkDescriptorPool vdb_world_gen_descriptor_pool;
   VkDescriptorPool vdb_lod_gen_descriptor_pool;
   VkDescriptorPool vdb_soft_renderer_descriptor_pool;
   VkDescriptorPool debug_line_descriptor_pool;
-  VkDescriptorSetLayout vdb_terrain_gen_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_world_gen_descriptor_set_layout;
   VkDescriptorSetLayout vdb_lod_gen_descriptor_set_layout;
   VkDescriptorSetLayout vdb_soft_renderer_descriptor_set_layout;
   VkDescriptorSetLayout debug_line_descriptor_set_layout;
-  VkDescriptorSet vdb_terrain_gen_descriptor_set;
+  VkDescriptorSet vdb_world_gen_descriptor_set;
   VkDescriptorSet vdb_lod_gen_descriptor_set;
   VkDescriptorSet vdb_soft_renderer_descriptor_set;
   VkDescriptorSet debug_line_descriptor_set;
-  VkPipelineLayout vdb_terrain_gen_pipeline_layout;
+  VkPipelineLayout vdb_world_gen_pipeline_layout;
   VkPipelineLayout vdb_lod_gen_pipeline_layout;
   VkPipelineLayout vdb_soft_renderer_pipeline_layout;
   VkPipelineLayout debug_line_pipeline_layout;
-  VkPipeline vdb_terrain_gen_pipeline;
+  VkPipeline vdb_world_gen_pipeline;
   VkPipeline vdb_lod_gen_pipeline;
   VkPipeline vdb_soft_renderer_pipeline;
   VkPipeline debug_line_pipeline;
