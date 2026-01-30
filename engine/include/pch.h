@@ -39,7 +39,6 @@
 #include <dbgui.h>
 #include <fsutils.h>
 #include <heap.h>
-#include <image.h>
 #include <vdb.h>
 #include <player.h>
 #include <swapchain.h>

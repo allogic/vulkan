@@ -100,9 +100,7 @@ layout (push_constant) uniform vdb_world_gen_push_constant_t {
 	int brick_index;
 } vdb_world_gen_push_constant;
 
-float vdb_density_from_layers(ivec3 sample_position, float ground_level, float cluster_height) {
-	float density = 0.0;
-
+float vdb_density_from_layers(vec3 sample_position, float ground_level, float cluster_height) {
 	vdb_world_mod_t mod0 = vdb_layer.modifier[0];
 
 	/*
@@ -131,18 +129,23 @@ float vdb_density_from_layers(ivec3 sample_position, float ground_level, float c
 	}
 	*/
 
-	density += noise_gradient(sample_position * 0.01);
-	density *= noise_simplex(sample_position * 0.01) * 2.0;
-	density += noise_fbm(sample_position * 0.02, 0.7, 1.0, 4);
-	density += noise_fbm((sample_position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
+	float norm_y = sample_position.y / cluster_height;
 
-	density = soft_terrace(density, 2, 1.8);
+	float base = noise_gradient(sample_position * 0.008);
+	float detail_low  = noise_gradient(sample_position * 0.035);
+	float detail_mid  = noise_gradient(sample_position * 0.09  * (1.0 + norm_y * 4.0));
+	float detail_high = noise_gradient(sample_position * 0.22  * (1.0 + norm_y * 8.0));
 
-	float height_threshold = ground_level / cluster_height;
-	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, sample_position.y / cluster_height);
+	float density = base * 1.4; // + detail_low * 0.7 + detail_mid * 0.4 + detail_high * 0.25;
 
-	density += blend_factor;
-	density *= blend_factor;
+	// density += (norm_y - 0.45) * -1.2;
+	// density += sin(p.y * 0.08 + base * 4.0) * 0.35;
+
+	float blend = 1.0 - smoothstep(0.1, 0.3, norm_y);
+
+	density *= blend;
+
+	// density -= 0.3; // moves iso-surface down
 
 	return density;
 }
@@ -150,18 +153,19 @@ float vdb_density_from_layers(ivec3 sample_position, float ground_level, float c
 void main() {
 	ivec3 brick_position = vdb_world_gen_push_constant.brick_position;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
-	ivec3 sample_position = brick_position + voxel_position;
+	
+	vec3 sample_position = vec3((brick_position * VDB_BASE_RES) + voxel_position);
 
 	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES) / 2.0;
 	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES);
 
 	float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 
-	uint brick_index = vdb_world_gen_push_constant.brick_index;
+	uint brick_index = vdb_world_gen_push_constant.brick_index * VDB_MAX_LOD;
 
 	uint voxel = VDB_EMPTY_VOXEL;
 
-	if (density >= 0.0) {
+	if (density > 0.0) {
 		voxel = VDB_VOXEL_SET_SOLID(voxel);
 	}
 

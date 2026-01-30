@@ -1,6 +1,6 @@
 #include <pch.h>
 
-static vdb_brick_t vdb_create_brick(void);
+static vdb_brick_t vdb_create_brick(VkCommandBuffer command_buffer);
 static void vdb_destroy_brick(vdb_brick_t *brick);
 
 vdb_t g_vdb = {0};
@@ -14,22 +14,49 @@ void vdb_create(void) {
     },
   };
 
-  g_vdb.brick = (vdb_brick_t *)HEAP_ALLOC(sizeof(vdb_brick_t), 0, 0);
+  g_vdb.brick = (vdb_brick_t *)HEAP_ALLOC(sizeof(vdb_brick_t) * VDB_BRICK_COUNT, 0, 0);
 
   g_vdb.info_buffer = buffer_create_uniform(&vdb_info, sizeof(vdb_info_t));
   g_vdb.layer_buffer = buffer_create_uniform_coherent(0, sizeof(vdb_layer_t) * VDB_MAX_LAYER);
+
+  VkCommandBuffer command_buffer = vkutils_begin_command_buffer();
 
   int32_t brick_index = 0;
   int32_t brick_count = VDB_BRICK_COUNT;
 
   while (brick_index < brick_count) {
 
-    g_vdb.brick[brick_index] = vdb_create_brick();
+    g_vdb.brick[brick_index] = vdb_create_brick(command_buffer);
 
     brick_index++;
   }
+
+  vkutils_end_command_buffer(command_buffer);
+
+  VkSamplerCreateInfo sampler_create_info = {
+    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+    .magFilter = VK_FILTER_NEAREST,
+    .minFilter = VK_FILTER_NEAREST,
+    .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    .anisotropyEnable = 0,
+    .maxAnisotropy = 0.0F,
+    .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+    .unnormalizedCoordinates = 0,
+    .compareEnable = 0,
+    .compareOp = VK_COMPARE_OP_ALWAYS,
+    .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+    .mipLodBias = 0.0F,
+    .minLod = 0.0F,
+    .maxLod = VK_LOD_CLAMP_NONE,
+  };
+
+  VK_CHECK(vkCreateSampler(g_window.device, &sampler_create_info, 0, &g_vdb.brick_sampler));
 }
 void vdb_destroy(void) {
+  vkDestroySampler(g_window.device, g_vdb.brick_sampler, 0);
+
   int32_t brick_index = 0;
   int32_t brick_count = VDB_BRICK_COUNT;
 
@@ -59,7 +86,7 @@ ivector3_t vdb_brick_index_to_position(int32_t brick_index) {
   };
 }
 
-static vdb_brick_t vdb_create_brick(void) {
+static vdb_brick_t vdb_create_brick(VkCommandBuffer command_buffer) {
   vdb_brick_t brick = {0};
 
   VkImageCreateInfo image_create_info = {
@@ -86,10 +113,12 @@ static vdb_brick_t vdb_create_brick(void) {
 
   vkGetImageMemoryRequirements(g_window.device, brick.image, &memory_requirements);
 
+  uint32_t memory_type_index = vkutils_find_memory_type_index(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
   VkMemoryAllocateInfo memory_allocate_info = {
     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
     .allocationSize = memory_requirements.size,
-    .memoryTypeIndex = vkutils_find_memory_type_index(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+    .memoryTypeIndex = memory_type_index,
   };
 
   VK_CHECK(vkAllocateMemory(g_window.device, &memory_allocate_info, 0, &brick.device_memory));
@@ -116,27 +145,6 @@ static vdb_brick_t vdb_create_brick(void) {
 
     VK_CHECK(vkCreateImageView(g_window.device, &image_view_create_info, 0, &brick.image_view[lod_index]));
 
-    VkSamplerCreateInfo sampler_create_info = {
-      .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-      .magFilter = VK_FILTER_NEAREST,
-      .minFilter = VK_FILTER_NEAREST,
-      .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-      .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-      .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-      .anisotropyEnable = 1,
-      .maxAnisotropy = g_window.max_sampler_anisotropy,
-      .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-      .unnormalizedCoordinates = 0,
-      .compareEnable = 0,
-      .compareOp = VK_COMPARE_OP_ALWAYS,
-      .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-      .mipLodBias = 0.0F,
-      .minLod = 0.0F,
-      .maxLod = 0.0F,
-    };
-
-    VK_CHECK(vkCreateSampler(g_window.device, &sampler_create_info, 0, &brick.sampler[lod_index]));
-
     lod_index++;
   }
 
@@ -158,8 +166,6 @@ static vdb_brick_t vdb_create_brick(void) {
     .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
   };
 
-  VkCommandBuffer command_buffer = vkutils_begin_command_buffer();
-
   vkCmdPipelineBarrier(
     command_buffer,
     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -172,8 +178,6 @@ static vdb_brick_t vdb_create_brick(void) {
     1,
     &image_memory_barrier);
 
-  vkutils_end_command_buffer(command_buffer);
-
   return brick;
 }
 static void vdb_destroy_brick(vdb_brick_t *brick) {
@@ -183,7 +187,6 @@ static void vdb_destroy_brick(vdb_brick_t *brick) {
   while (lod_index < lod_count) {
 
     vkDestroyImageView(g_window.device, brick->image_view[lod_index], 0);
-    vkDestroySampler(g_window.device, brick->sampler[lod_index], 0);
 
     lod_index++;
   }

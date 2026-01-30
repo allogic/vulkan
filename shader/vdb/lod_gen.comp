@@ -40,10 +40,8 @@ void main() {
 		curr_voxel_position.y < curr_voxels_per_axis &&
 		curr_voxel_position.z < curr_voxels_per_axis) {
 
-		int brick_index = vdb_lod_gen_push_constant.brick_index * VDB_MAX_LOD;
-
-		int curr_brick_lod_index = curr_lod + brick_index;
-		int prev_brick_lod_index = prev_lod + brick_index;
+		int curr_brick_index = curr_lod + (vdb_lod_gen_push_constant.brick_index * VDB_MAX_LOD);
+		int prev_brick_index = prev_lod + (vdb_lod_gen_push_constant.brick_index * VDB_MAX_LOD);
 
 		uint curr_voxel = VDB_EMPTY_VOXEL;
 		uint prev_voxel = VDB_EMPTY_VOXEL;
@@ -54,7 +52,7 @@ void main() {
 			for (int y = 0; y < 2; y++) {
 				for (int x = 0; x < 2; x++) {
 
-					prev_voxel = VDB_GET_VOXEL(prev_brick_lod_index, prev_voxel_position + ivec3(x, y, z));
+					prev_voxel = VDB_GET_VOXEL(prev_brick_index, prev_voxel_position + ivec3(x, y, z));
 
 					if (VDB_VOXEL_IS_SOLID(prev_voxel)) {
 						is_solid = true;
@@ -67,6 +65,6 @@ void main() {
 			curr_voxel = VDB_VOXEL_SET_SOLID(curr_voxel);
 		}
 
-		VDB_SET_VOXEL(curr_brick_lod_index, curr_voxel_position, curr_voxel);
+		VDB_SET_VOXEL(curr_brick_index, curr_voxel_position, curr_voxel);
 	}
 }

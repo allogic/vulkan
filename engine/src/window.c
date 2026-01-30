@@ -124,13 +124,11 @@ void window_run(void) {
       VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
       renderer_destroy();
-      vdb_destroy();
       swapchain_destroy();
 
       window_update_surface_capabilities();
 
       swapchain_create(2);
-      vdb_create();
       renderer_create();
     }
 
@@ -142,9 +140,7 @@ void window_run(void) {
       VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
       renderer_destroy();
-      vdb_destroy();
 
-      vdb_create();
       renderer_create();
     }
 
@@ -168,6 +164,16 @@ void window_run(void) {
       (vector3_t){0.0F, 0.0F, 0.0F},
       (vector3_t){0.0F, 0.0F, 1.0F},
       (vector4_t){0.0F, 0.0F, 1.0F, 1.0F});
+
+    renderer_draw_debug_box(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){(float)(VDB_BASE_RES), (float)(VDB_BASE_RES), (float)(VDB_BASE_RES)},
+      (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
+
+    renderer_draw_debug_box(
+      (vector3_t){0.0F, 0.0F, 0.0F},
+      (vector3_t){(float)(VDB_BASE_RES * VDB_CLUSTER_DIM_X), (float)(VDB_BASE_RES * VDB_CLUSTER_DIM_Y), (float)(VDB_BASE_RES * VDB_CLUSTER_DIM_Z)},
+      (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
     player_update(&player);
 

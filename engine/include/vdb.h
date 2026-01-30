@@ -3,11 +3,10 @@
 
 #define VDB_MAX_LOD (0x06)
 #define VDB_BASE_RES (0x40)
-#define VDB_CLUSTER_DIM_X (0x01)
-#define VDB_CLUSTER_DIM_Y (0x01)
-#define VDB_CLUSTER_DIM_Z (0x01)
-#define VDB_BRICK_COUNT (0x01)
-#define VDB_BRICK_SIZE (0x49249)
+#define VDB_CLUSTER_DIM_X (20)
+#define VDB_CLUSTER_DIM_Y (5)
+#define VDB_CLUSTER_DIM_Z (20)
+#define VDB_BRICK_COUNT (2000)
 
 #define VDB_MAX_LAYER (0xF)
 
@@ -94,11 +93,11 @@ typedef struct vdb_brick_t {
   VkImage image;
   VkDeviceMemory device_memory;
   VkImageView image_view[VDB_MAX_LOD];
-  VkSampler sampler[VDB_MAX_LOD];
 } vdb_brick_t;
 
 typedef struct vdb_t {
   vdb_brick_t *brick;
+  VkSampler brick_sampler;
   buffer_t info_buffer;
   buffer_t layer_buffer;
 } vdb_t;

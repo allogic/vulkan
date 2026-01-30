@@ -18,10 +18,12 @@ buffer_t buffer_create(uint64_t buffer_size, VkBufferUsageFlags usage_flags, VkM
 
   vkGetBufferMemoryRequirements(g_window.device, buffer.handle, &buffer.memory_requirements);
 
+  uint32_t memory_type_index = vkutils_find_memory_type_index(buffer.memory_requirements.memoryTypeBits, buffer.memory_properties);
+
   VkMemoryAllocateInfo memory_allocate_info = {
     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
     .allocationSize = buffer.memory_requirements.size,
-    .memoryTypeIndex = vkutils_find_memory_type_index(buffer.memory_requirements.memoryTypeBits, buffer.memory_properties),
+    .memoryTypeIndex = memory_type_index,
   };
 
   VK_CHECK(vkAllocateMemory(g_window.device, &memory_allocate_info, 0, &buffer.device_memory));

@@ -62,7 +62,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 	bool is_solid = false;
 
 	int iter = 0;
-	int lod = 0; // VDB_MAX_LOD;
+	int lod = VDB_MAX_LOD;
 	int voxels_per_axis = VDB_VOXELS_PER_AXIS(lod);
 	int voxel_size = VDB_VOXEL_SIZE(lod);
 	int stack_depth = 0;
