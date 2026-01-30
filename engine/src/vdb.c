@@ -5,6 +5,18 @@ static void vdb_destroy_brick(vdb_brick_t *brick);
 
 vdb_t g_vdb = {0};
 
+int32_t g_vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE] = {
+  256, // 256 >> 0
+  128, // 256 >> 1
+  64,  // 256 >> 2
+  32,  // 256 >> 3
+  16,  // 256 >> 4
+  8,   // 256 >> 5
+  4,   // 256 >> 6
+  2,   // 256 >> 7
+  1,   // 256 >> 8
+};
+
 void vdb_create(void) {
   vdb_info_t vdb_info = {
     .cluster_dim = {
@@ -97,7 +109,7 @@ static vdb_brick_t vdb_create_brick(VkCommandBuffer command_buffer) {
       .height = VDB_BASE_RES,
       .depth = VDB_BASE_RES,
     },
-    .mipLevels = VDB_MAX_LOD,
+    .mipLevels = VDB_LOD_COUNT_PLUS_ONE,
     .arrayLayers = 1,
     .format = VK_FORMAT_R32_UINT,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -125,7 +137,7 @@ static vdb_brick_t vdb_create_brick(VkCommandBuffer command_buffer) {
   VK_CHECK(vkBindImageMemory(g_window.device, brick.image, brick.device_memory, 0));
 
   int32_t lod_index = 0;
-  int32_t lod_count = VDB_MAX_LOD;
+  int32_t lod_count = VDB_LOD_COUNT_PLUS_ONE;
 
   while (lod_index < lod_count) {
 
@@ -158,7 +170,7 @@ static vdb_brick_t vdb_create_brick(VkCommandBuffer command_buffer) {
     .subresourceRange = {
       .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
       .baseMipLevel = 0,
-      .levelCount = VDB_MAX_LOD,
+      .levelCount = VDB_LOD_COUNT_PLUS_ONE,
       .baseArrayLayer = 0,
       .layerCount = 1,
     },
@@ -182,7 +194,7 @@ static vdb_brick_t vdb_create_brick(VkCommandBuffer command_buffer) {
 }
 static void vdb_destroy_brick(vdb_brick_t *brick) {
   int32_t lod_index = 0;
-  int32_t lod_count = VDB_MAX_LOD;
+  int32_t lod_count = VDB_LOD_COUNT_PLUS_ONE;
 
   while (lod_index < lod_count) {
 

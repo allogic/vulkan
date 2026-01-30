@@ -1,14 +1,18 @@
 #ifndef VDB_H
 #define VDB_H
 
-#define VDB_MAX_LOD (0x06)
-#define VDB_BASE_RES (0x40)
-#define VDB_CLUSTER_DIM_X (20)
+#define VDB_LOD_COUNT (8)
+#define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
+#define VDB_BASE_RES (256)
+#define VDB_CLUSTER_DIM_X (5)
 #define VDB_CLUSTER_DIM_Y (5)
-#define VDB_CLUSTER_DIM_Z (20)
-#define VDB_BRICK_COUNT (2000)
+#define VDB_CLUSTER_DIM_Z (5)
+#define VDB_BRICK_COUNT (VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y * VDB_CLUSTER_DIM_Z)
 
-#define VDB_MAX_LAYER (0xF)
+#define VDB_VOXELS_PER_AXIS(LOD) \
+  (g_vdb_axis_voxels_per_lod[LOD])
+
+#define VDB_MAX_LAYER (16)
 
 #define VDB_NOISE_TYPE_CELLULAR (0x0)
 
@@ -92,7 +96,7 @@ STATIC_ASSERT(sizeof(vdb_info_t) % 4 == 0);
 typedef struct vdb_brick_t {
   VkImage image;
   VkDeviceMemory device_memory;
-  VkImageView image_view[VDB_MAX_LOD];
+  VkImageView image_view[VDB_LOD_COUNT_PLUS_ONE];
 } vdb_brick_t;
 
 typedef struct vdb_t {
@@ -107,6 +111,8 @@ extern "C" {
 #endif // __cplusplus
 
 extern vdb_t g_vdb;
+
+extern int32_t g_vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE];
 
 void vdb_create(void);
 void vdb_destroy(void);

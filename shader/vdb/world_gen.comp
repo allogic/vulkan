@@ -161,7 +161,7 @@ void main() {
 
 	float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 
-	uint brick_index = vdb_world_gen_push_constant.brick_index * VDB_MAX_LOD;
+	uint brick_index = vdb_world_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE;
 
 	uint voxel = VDB_EMPTY_VOXEL;
 

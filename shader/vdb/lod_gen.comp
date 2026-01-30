@@ -40,8 +40,8 @@ void main() {
 		curr_voxel_position.y < curr_voxels_per_axis &&
 		curr_voxel_position.z < curr_voxels_per_axis) {
 
-		int curr_brick_index = curr_lod + (vdb_lod_gen_push_constant.brick_index * VDB_MAX_LOD);
-		int prev_brick_index = prev_lod + (vdb_lod_gen_push_constant.brick_index * VDB_MAX_LOD);
+		int curr_brick_index = curr_lod + (vdb_lod_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE);
+		int prev_brick_index = prev_lod + (vdb_lod_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE);
 
 		uint curr_voxel = VDB_EMPTY_VOXEL;
 		uint prev_voxel = VDB_EMPTY_VOXEL;

@@ -52,7 +52,7 @@ vec3 vdb_safe_inverse(vec3 vector) {
 vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance, int max_iteration) {
 	vdb_hit_t hit;
 
-	vdb_lod_t lod_stack[VDB_MAX_LOD];
+	vdb_lod_t lod_stack[VDB_LOD_COUNT_PLUS_ONE];
 	vdb_lod_t lod_curr;
 
 	hit.intersect = false;
@@ -62,7 +62,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 	bool is_solid = false;
 
 	int iter = 0;
-	int lod = VDB_MAX_LOD;
+	int lod = VDB_LOD_COUNT;
 	int voxels_per_axis = VDB_VOXELS_PER_AXIS(lod);
 	int voxel_size = VDB_VOXEL_SIZE(lod);
 	int stack_depth = 0;
@@ -108,7 +108,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 			brick_position.y != prev_brick_position.y ||
 			brick_position.z != prev_brick_position.z) {
 		
-			lod = VDB_MAX_LOD;
+			lod = VDB_LOD_COUNT;
 
 			voxels_per_axis = VDB_VOXELS_PER_AXIS(lod);
 			voxel_size = VDB_VOXEL_SIZE(lod);
@@ -167,7 +167,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 
 				if (lod > 0) {
 
-					if (stack_depth < VDB_MAX_LOD) {
+					if (stack_depth < VDB_LOD_COUNT_PLUS_ONE) {
 
 						current_min = vec3(
 							brick_origin.x + float(voxel_position.x) * voxel_size_f,
