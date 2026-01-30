@@ -43,10 +43,6 @@ typedef uint32_t debug_line_index_t;
 typedef struct vdb_world_gen_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
-  int32_t brick_lod;
-  int32_t reserved0;
-  int32_t reserved1;
-  int32_t reserved2;
 } vdb_world_gen_push_constant_t;
 typedef struct vdb_lod_gen_push_constant_t {
   ivector3_t brick_position;

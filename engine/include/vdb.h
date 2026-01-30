@@ -3,10 +3,10 @@
 
 #define VDB_MAX_LOD (0x06)
 #define VDB_BASE_RES (0x40)
-#define VDB_CLUSTER_DIM_X (0x0A)
-#define VDB_CLUSTER_DIM_Y (0x0A)
-#define VDB_CLUSTER_DIM_Z (0x0A)
-#define VDB_BRICK_COUNT (0x3E8)
+#define VDB_CLUSTER_DIM_X (0x01)
+#define VDB_CLUSTER_DIM_Y (0x01)
+#define VDB_CLUSTER_DIM_Z (0x01)
+#define VDB_BRICK_COUNT (0x01)
 #define VDB_BRICK_SIZE (0x49249)
 
 #define VDB_MAX_LAYER (0xF)
@@ -92,13 +92,13 @@ STATIC_ASSERT(sizeof(vdb_info_t) % 4 == 0);
 
 typedef struct vdb_brick_t {
   VkImage image;
-  VkImageView image_view;
   VkDeviceMemory device_memory;
-  VkSampler sampler;
+  VkImageView image_view[VDB_MAX_LOD];
+  VkSampler sampler[VDB_MAX_LOD];
 } vdb_brick_t;
 
 typedef struct vdb_t {
-  vdb_brick_t brick[VDB_BRICK_COUNT];
+  vdb_brick_t *brick;
   buffer_t info_buffer;
   buffer_t layer_buffer;
 } vdb_t;
@@ -111,6 +111,9 @@ extern vdb_t g_vdb;
 
 void vdb_create(void);
 void vdb_destroy(void);
+
+int32_t vdb_brick_position_to_index(ivector3_t brick_position);
+ivector3_t vdb_brick_index_to_position(int32_t brick_index);
 
 #ifdef __cplusplus
 }

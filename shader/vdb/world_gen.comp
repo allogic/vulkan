@@ -12,12 +12,18 @@
 #include "../noise/perlin.glsl"
 #include "../noise/simplex.glsl"
 
+#include "../vdb/common.glsl"
+
+#define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
+	(uint(imageLoad(vdb_brick[BRICK_INDEX], VOXEL_POSITION).r))
+
+#define VDB_SET_VOXEL(BRICK_INDEX, VOXEL_POSITION, VOXEL) \
+	(imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0)))
+
 #define NOISE_TYPE_CELLULAR (0x0)
 
 #define CELLULAR_TYPE_0 (0x0)
 #define CELLULAR_TYPE_1 (0x1)
-
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 struct cellular_noise_args_t {
 	vec4 offset;
@@ -79,28 +85,22 @@ struct vdb_world_mod_t {
 	int reserved1;
 };
 
-#include "fwd.glsl"
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout (binding = 0) uniform vdb_info_t {
 	ivec3 cluster_dim;
 } vdb_info;
-
 layout (binding = 1) uniform vdb_layer_t {
 	vdb_world_mod_t modifier[];
 } vdb_layer;
-
 layout (binding = 2, r32ui) uniform uimage3D vdb_brick[];
 
 layout (push_constant) uniform vdb_world_gen_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
-	int brick_lod;
 } vdb_world_gen_push_constant;
 
-#define EXCLUDE_HDDA_TRACER
-#include "vdb.glsl"
-
-float vdb_world_from_layers(ivec3 sample_position, float ground_level, float global_height) {
+float vdb_density_from_layers(ivec3 sample_position, float ground_level, float cluster_height) {
 	float density = 0.0;
 
 	vdb_world_mod_t mod0 = vdb_layer.modifier[0];
@@ -114,13 +114,13 @@ float vdb_world_from_layers(ivec3 sample_position, float ground_level, float glo
 			switch (args.type) {
 				case CELLULAR_TYPE_0: {
 
-					density = noise_cellular_t0(position.xz + args.offset.xz, args.u, args.v) * mod0.scale;
+					density = noise_cellular_t0(sample_position.xz + args.offset.xz, args.u, args.v) * mod0.scale;
 
 					break;
 				}
 				case CELLULAR_TYPE_1: {
 
-					density = noise_cellular_t1(position.xyz + args.offset.xyz, args.u, args.v) * mod0.scale;
+					density = noise_cellular_t1(sample_position.xyz + args.offset.xyz, args.u, args.v) * mod0.scale;
 
 					break;
 				}
@@ -131,21 +131,17 @@ float vdb_world_from_layers(ivec3 sample_position, float ground_level, float glo
 	}
 	*/
 
-	//density += noise_curl(sample_position * 0.05);
-	//density += noise_fbm(sample_position * 0.05, 1.0, 1.0, 4);
-	//density += noise_perlin(sample_position * 0.1) * 2.0;
-	//density += noise_voronoi(sample_position * 0.1, 0.0, 0.0);
-	//density += noise_gradient(sample_position * 0.01);
-	//density *= noise_simplex(sample_position * 0.01) * 2.0;
-	//density += noise_fbm(sample_position * 0.02, 0.7, 1.0, 4);
-	//density += noise_fbm((sample_position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
+	density += noise_gradient(sample_position * 0.01);
+	density *= noise_simplex(sample_position * 0.01) * 2.0;
+	density += noise_fbm(sample_position * 0.02, 0.7, 1.0, 4);
+	density += noise_fbm((sample_position + vec3(44324.0223, 213.055, -9895.432)) * 0.04, 0.7, 1.0, 4) * 2.0;
 
 	density = soft_terrace(density, 2, 1.8);
 
-	float height_threshold = ground_level / global_height;
-	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, sample_position.y / global_height);
+	float height_threshold = ground_level / cluster_height;
+	float blend_factor = smoothstep(height_threshold + 0.2, height_threshold - 0.2, sample_position.y / cluster_height);
 
-	//density += blend_factor;
+	density += blend_factor;
 	density *= blend_factor;
 
 	return density;
@@ -154,21 +150,20 @@ float vdb_world_from_layers(ivec3 sample_position, float ground_level, float glo
 void main() {
 	ivec3 brick_position = vdb_world_gen_push_constant.brick_position;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
-	ivec3 sample_position = (brick_position * VDB_BASE_RES) + voxel_position;
+	ivec3 sample_position = brick_position + voxel_position;
 
-	float ground_level = VDB_CLUSTER_DIM_Y * VDB_BASE_RES / 2.0;
-	float global_height = VDB_CLUSTER_DIM_Y * VDB_BASE_RES;
-	float world_density = vdb_world_from_layers(sample_position, ground_level, global_height);
+	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES) / 2.0;
+	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES);
 
-	int brick_index = VDB_BRICK_INDEX(brick_position.x, brick_position.y, brick_position.z);
+	float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 
-	uint voxel = VDB_GET_VOXEL(0, brick_index, voxel_position);
+	uint brick_index = vdb_world_gen_push_constant.brick_index;
 
-	if (world_density > 0.0) {
-		voxel &= ~VDB_VOXEL_IS_SOLID_BIT;
-	} else {
-		voxel |= VDB_VOXEL_IS_SOLID_BIT;
+	uint voxel = VDB_EMPTY_VOXEL;
+
+	if (density >= 0.0) {
+		voxel = VDB_VOXEL_SET_SOLID(voxel);
 	}
 
-	VDB_SET_VOXEL(0, brick_index, voxel_position, voxel);
+	VDB_SET_VOXEL(brick_index, voxel_position, voxel);
 }
