@@ -20,24 +20,43 @@
 #define VDB_SET_VOXEL(BRICK_INDEX, VOXEL_POSITION, VOXEL) \
 	(imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0)))
 
-#define NOISE_TYPE_CELLULAR (0x0)
+#define VDB_MAX_LAYER (16)
 
-#define CELLULAR_TYPE_0 (0x0)
-#define CELLULAR_TYPE_1 (0x1)
+#define VDB_SURFACE_THRESHOLD (0.5)
+
+#define VDB_NOISE_TYPE_CELLULAR (0x0)
+#define VDB_NOISE_TYPE_CURL (0x1)
+
+#define VDB_CELLULAR_TYPE_0 (0x0)
+#define VDB_CELLULAR_TYPE_1 (0x1)
+
+#define VDB_CELLULAR_AXIS_XY (0x0)
+#define VDB_CELLULAR_AXIS_XZ (0x1)
+#define VDB_CELLULAR_AXIS_YX (0x2)
+#define VDB_CELLULAR_AXIS_YZ (0x3)
+
+#define VDB_CURL_TYPE_0 (0x0)
+#define VDB_CURL_TYPE_1 (0x1)
+#define VDB_CURL_TYPE_2 (0x2)
+
+#define VDB_CURL_AXIS_XY (0x0)
+#define VDB_CURL_AXIS_XZ (0x1)
+#define VDB_CURL_AXIS_YX (0x2)
+#define VDB_CURL_AXIS_YZ (0x3)
 
 struct cellular_noise_args_t {
 	vec4 offset;
 	int type;
 	float u;
 	float v;
-	int reserved0;
+	int axis;
 };
 struct curl_noise_args_t {
 	vec4 offset;
 	int type;
+	int axis;
 	int reserved0;
 	int reserved1;
-	int reserved2;
 };
 struct fbm_noise_args_t {
 	vec4 offset;
@@ -81,8 +100,8 @@ struct vdb_world_mod_t {
 	simplex_noise_args_t simplex_noise_args;
 	int noise_type;
 	float scale;
+	float weight;
 	int reserved0;
-	int reserved1;
 };
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
@@ -91,7 +110,7 @@ layout (binding = 0) uniform vdb_info_t {
 	ivec3 cluster_dim;
 } vdb_info;
 layout (binding = 1) uniform vdb_layer_t {
-	vdb_world_mod_t modifier[];
+	vdb_world_mod_t modifier[VDB_MAX_LAYER];
 } vdb_layer;
 layout (binding = 2, r32ui) uniform uimage3D vdb_brick[];
 
@@ -100,52 +119,102 @@ layout (push_constant) uniform vdb_world_gen_push_constant_t {
 	int brick_index;
 } vdb_world_gen_push_constant;
 
-float vdb_density_from_layers(vec3 sample_position, float ground_level, float cluster_height) {
-	vdb_world_mod_t mod0 = vdb_layer.modifier[0];
+float vdb_default_density(vec3 sample_position, float ground_level, float cluster_height) {
+	float density = 0.0;
 
-	/*
-	switch (mod0.noise_type) {
-		case NOISE_TYPE_CELLULAR: {
-
-			cellular_noise_args_t args = mod0.cellular_noise_args;
-
-			switch (args.type) {
-				case CELLULAR_TYPE_0: {
-
-					density = noise_cellular_t0(sample_position.xz + args.offset.xz, args.u, args.v) * mod0.scale;
-
-					break;
-				}
-				case CELLULAR_TYPE_1: {
-
-					density = noise_cellular_t1(sample_position.xyz + args.offset.xyz, args.u, args.v) * mod0.scale;
-
-					break;
-				}
-			}
-
-			break;
-		}
-	}
-	*/
+	density += noise_cellular_t1((sample_position + vec3(131.0, 11.0, 141.0)) * 0.115, 2.9, 0.3) * 2.44;
+	density += noise_curl_t1((sample_position + vec3(887.0, 358.0, 262.0)) * 0.006).x * 14.13;
+	density += noise_curl_t1((sample_position + vec3(32.0, 288.0, 204.0)) * 0.045).x * 2.04;
 
 	float norm_y = sample_position.y / cluster_height;
+	float height_thresh = ground_level / cluster_height;
 
-	float base = noise_gradient(sample_position * 0.008);
-	float detail_low  = noise_gradient(sample_position * 0.035);
-	float detail_mid  = noise_gradient(sample_position * 0.09  * (1.0 + norm_y * 4.0));
-	float detail_high = noise_gradient(sample_position * 0.22  * (1.0 + norm_y * 8.0));
-
-	float density = base * 1.4; // + detail_low * 0.7 + detail_mid * 0.4 + detail_high * 0.25;
-
-	// density += (norm_y - 0.45) * -1.2;
-	// density += sin(p.y * 0.08 + base * 4.0) * 0.35;
-
-	float blend = 1.0 - smoothstep(0.1, 0.3, norm_y);
+	float blend = 1.0 - smoothstep(height_thresh - 0.4, height_thresh + 0.2, norm_y);
 
 	density *= blend;
 
-	// density -= 0.3; // moves iso-surface down
+	//density = soft_terrace(density, 5, 10.0);
+
+	return density;
+}
+
+float vdb_density_from_layers(vec3 sample_position, float ground_level, float cluster_height) {
+	float density = 0.0;
+
+	for (int i = 0; i < VDB_MAX_LAYER; i++) {
+
+		vdb_world_mod_t modifier = vdb_layer.modifier[i];
+
+		switch (modifier.noise_type) {
+			case VDB_NOISE_TYPE_CELLULAR: {
+
+				cellular_noise_args_t args = modifier.cellular_noise_args;
+
+				switch (args.type) {
+					case VDB_CELLULAR_TYPE_0: {
+
+						switch (args.axis) {
+							case VDB_CELLULAR_AXIS_XY: density += noise_cellular_t0((sample_position.xy + args.offset.xy) * modifier.scale, args.u, args.v) * modifier.weight; break;
+							case VDB_CELLULAR_AXIS_XZ: density += noise_cellular_t0((sample_position.xz + args.offset.xz) * modifier.scale, args.u, args.v) * modifier.weight; break;
+							case VDB_CELLULAR_AXIS_YX: density += noise_cellular_t0((sample_position.yx + args.offset.yx) * modifier.scale, args.u, args.v) * modifier.weight; break;
+							case VDB_CELLULAR_AXIS_YZ: density += noise_cellular_t0((sample_position.yz + args.offset.yz) * modifier.scale, args.u, args.v) * modifier.weight; break;
+						}
+
+						break;
+					}
+					case VDB_CELLULAR_TYPE_1: {
+
+						density += noise_cellular_t1((sample_position + args.offset.xyz) * modifier.scale, args.u, args.v) * modifier.weight;
+
+						break;
+					}
+				}
+
+				break;
+			}
+			case VDB_NOISE_TYPE_CURL: {
+
+				curl_noise_args_t args = modifier.curl_noise_args;
+
+				// TODO: support vec3.. (using x axis for now)
+				switch (args.type) {
+					case VDB_CURL_TYPE_0: {
+
+						switch (args.type) {
+							case VDB_CURL_AXIS_XY: density += noise_curl_t0((sample_position.xy + args.offset.xy) * modifier.scale).x * modifier.weight; break;
+							case VDB_CURL_AXIS_XZ: density += noise_curl_t0((sample_position.xz + args.offset.xz) * modifier.scale).x * modifier.weight; break;
+							case VDB_CURL_AXIS_YX: density += noise_curl_t0((sample_position.yx + args.offset.yx) * modifier.scale).x * modifier.weight; break;
+							case VDB_CURL_AXIS_YZ: density += noise_curl_t0((sample_position.yz + args.offset.yz) * modifier.scale).x * modifier.weight; break;
+						}
+					
+						break;
+					}
+					case VDB_CURL_TYPE_1: {
+					
+						density += noise_curl_t1((sample_position + args.offset.xyz) * modifier.scale).x * modifier.weight;
+					
+						break;
+					}
+					case VDB_CURL_TYPE_2: {
+
+						// TODO: support w axis.. (using 0 for now)
+						density += noise_curl_t2((vec4(sample_position, 0.0) + args.offset.xyzw) * modifier.scale).x * modifier.weight;
+					
+						break;
+					}
+				}
+
+				break;
+			}
+		}
+	}
+
+	float norm_y = sample_position.y / cluster_height;
+	float height_thresh = ground_level / cluster_height;
+
+	float blend = 1.0 - smoothstep(height_thresh - 0.2, height_thresh + 0.2, norm_y);
+
+	density *= blend;
 
 	return density;
 }
@@ -159,13 +228,14 @@ void main() {
 	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES) / 2.0;
 	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES);
 
-	float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
+	//float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
+	float density = vdb_default_density(sample_position, ground_level, cluster_height);
 
 	uint brick_index = vdb_world_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE;
 
 	uint voxel = VDB_EMPTY_VOXEL;
 
-	if (density > 0.0) {
+	if (density > VDB_SURFACE_THRESHOLD) {
 		voxel = VDB_VOXEL_SET_SOLID(voxel);
 	}
 

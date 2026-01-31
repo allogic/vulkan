@@ -4,9 +4,9 @@
 #define VDB_LOD_COUNT (8)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
 #define VDB_BASE_RES (256)
-#define VDB_CLUSTER_DIM_X (5)
-#define VDB_CLUSTER_DIM_Y (5)
-#define VDB_CLUSTER_DIM_Z (5)
+#define VDB_CLUSTER_DIM_X (3)
+#define VDB_CLUSTER_DIM_Y (3)
+#define VDB_CLUSTER_DIM_Z (3)
 #define VDB_BRICK_COUNT (VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y * VDB_CLUSTER_DIM_Z)
 
 #define VDB_VOXELS_PER_AXIS(LOD) \
@@ -15,23 +15,38 @@
 #define VDB_MAX_LAYER (16)
 
 #define VDB_NOISE_TYPE_CELLULAR (0x0)
+#define VDB_NOISE_TYPE_CURL (0x1)
 
 #define VDB_CELLULAR_TYPE_0 (0x0)
 #define VDB_CELLULAR_TYPE_1 (0x1)
+
+#define VDB_CELLULAR_AXIS_XY (0x0)
+#define VDB_CELLULAR_AXIS_XZ (0x1)
+#define VDB_CELLULAR_AXIS_YX (0x2)
+#define VDB_CELLULAR_AXIS_YZ (0x3)
+
+#define VDB_CURL_TYPE_0 (0x0)
+#define VDB_CURL_TYPE_1 (0x1)
+#define VDB_CURL_TYPE_2 (0x2)
+
+#define VDB_CURL_AXIS_XY (0x0)
+#define VDB_CURL_AXIS_XZ (0x1)
+#define VDB_CURL_AXIS_YX (0x2)
+#define VDB_CURL_AXIS_YZ (0x3)
 
 typedef struct cellular_noise_args_t {
   vector4_t offset;
   int32_t type;
   float u;
   float v;
-  int32_t reserved0;
+  int32_t axis;
 } cellular_noise_args_t;
 typedef struct curl_noise_args_t {
   vector4_t offset;
   int32_t type;
+  int32_t axis;
   int32_t reserved0;
   int32_t reserved1;
-  int32_t reserved2;
 } curl_noise_args_t;
 typedef struct fbm_noise_args_t {
   vector4_t offset;
@@ -82,8 +97,8 @@ typedef struct vdb_layer_t {
   simplex_noise_args_t simplex_noise_args;
   int32_t noise_type;
   float scale;
+  float weight;
   int32_t reserved0;
-  int32_t reserved1;
 } vdb_layer_t;
 typedef struct vdb_info_t {
   ivector3_t cluster_dim;

@@ -49,7 +49,7 @@ vec3 vdb_safe_inverse(vec3 vector) {
 		(vector.z == 0.0) ? VDB_INFINITE : 1.0 / vector.z);
 }
 
-vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance, int max_iteration) {
+vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance, int max_iteration, int min_lod) {
 	vdb_hit_t hit;
 
 	vdb_lod_t lod_stack[VDB_LOD_COUNT_PLUS_ONE];
@@ -165,7 +165,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 
 			if (is_solid) {
 
-				if (lod > 0) {
+				if (lod > min_lod) {
 
 					if (stack_depth < VDB_LOD_COUNT_PLUS_ONE) {
 
@@ -266,7 +266,7 @@ void main() {
 	vec3 ray_origin = camera_info.position;
 	vec3 ray_direction = normalize(world_position - ray_origin);
 
-	vdb_hit_t hit = vdb_hdda_trace(ray_origin, ray_direction, camera_info.max_ray_distance, 10000);
+	vdb_hit_t hit = vdb_hdda_trace(ray_origin, ray_direction, camera_info.max_ray_distance, 10000, 0);
 
 	if (!hit.intersect) {
 		discard;

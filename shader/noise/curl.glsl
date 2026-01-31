@@ -3,7 +3,7 @@
 
 #include "simplex.glsl"
 
-vec2 noise_curl(vec2 position) {
+vec2 noise_curl_t0(vec2 position) {
 	const float e = 0.1;
 
 	vec2 dx = vec2(e, 0.0);
@@ -22,7 +22,7 @@ vec2 noise_curl(vec2 position) {
 	return normalize(vec2(x, y) * divisor);
 }
 
-vec3 noise_curl(vec3 position) {
+vec3 noise_curl_t1(vec3 position) {
 	const float e = 0.1;
 
 	vec3 dx = vec3(e, 0.0, 0.0);
@@ -45,7 +45,7 @@ vec3 noise_curl(vec3 position) {
 	return normalize(vec3(x, y, z) * divisor);
 }
 
-vec3 noise_curl(vec4 position) {
+vec3 noise_curl_t2(vec4 position) {
 	const float e = 0.1;
 
 	vec4 dx = vec4(e, 0.0, 0.0, 1.0);
