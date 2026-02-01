@@ -10,14 +10,16 @@ static void renderer_create_descriptor_sets(void);
 static void renderer_create_buffers(void);
 static void renderer_create_pipeline_layouts(void);
 
-static void renderer_create_vdb_world_gen_pipeline(char const *compute_shader_file_path);
-static void renderer_create_vdb_lod_gen_pipeline(char const *compute_shader_file_path);
-static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path);
+static void renderer_create_vdb_world_generator_pipeline(char const *compute_shader_file_path);
+static void renderer_create_vdb_lod_generator_pipeline(char const *compute_shader_file_path);
+static void renderer_create_vdb_soft_tracer_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path);
+static void renderer_create_vdb_mesh_renderer_pipeline(char const *task_shader_file_path, char const *mesh_shader_file_path, char const *fragment_shader_file_path);
 static void renderer_create_debug_line_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path);
 
-static void renderer_update_vdb_world_gen_descriptor_sets(void);
-static void renderer_update_vdb_lod_gen_descriptor_sets(void);
-static void renderer_update_vdb_soft_renderer_descriptor_sets(void);
+static void renderer_update_vdb_world_generator_descriptor_sets(void);
+static void renderer_update_vdb_lod_generator_descriptor_sets(void);
+static void renderer_update_vdb_soft_tracer_descriptor_sets(void);
+static void renderer_update_vdb_mesh_renderer_descriptor_sets(void);
 static void renderer_update_debug_line_descriptor_sets(void);
 
 static void renderer_update_uniform_buffers(transform_t *transform, camera_t *camera);
@@ -38,7 +40,7 @@ static void renderer_destroy_pipelines(void);
 
 renderer_t g_renderer = {0};
 
-static VkVertexInputBindingDescription const s_vdb_soft_renderer_vertex_input_binding_descriptions[] = {
+static VkVertexInputBindingDescription const s_vdb_soft_tracer_vertex_input_binding_descriptions[] = {
   {
     .binding = 0,
     .stride = sizeof(full_screen_vertex_t),
@@ -53,7 +55,7 @@ static VkVertexInputBindingDescription const s_debug_line_vertex_input_binding_d
   },
 };
 
-static VkVertexInputAttributeDescription const s_vdb_soft_renderer_vertex_input_attribute_descriptions[] = {
+static VkVertexInputAttributeDescription const s_vdb_soft_tracer_vertex_input_attribute_descriptions[] = {
   {
     .location = 0,
     .binding = 0,
@@ -76,18 +78,25 @@ static VkVertexInputAttributeDescription const s_debug_line_vertex_input_attribu
   },
 };
 
-static VkPushConstantRange const s_vdb_world_gen_push_constant_ranges[] = {
+static VkPushConstantRange const s_vdb_world_generator_push_constant_ranges[] = {
   {
     .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
     .offset = 0,
-    .size = sizeof(vdb_world_gen_push_constant_t),
+    .size = sizeof(vdb_world_generator_push_constant_t),
   },
 };
-static VkPushConstantRange const s_vdb_lod_gen_push_constant_ranges[] = {
+static VkPushConstantRange const s_vdb_lod_generator_push_constant_ranges[] = {
   {
     .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
     .offset = 0,
-    .size = sizeof(vdb_lod_gen_push_constant_t),
+    .size = sizeof(vdb_lod_generator_push_constant_t),
+  },
+};
+static VkPushConstantRange const s_vdb_mesh_renderer_push_constant_ranges[] = {
+  {
+    .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
+    .offset = 0,
+    .size = sizeof(vdb_mesh_renderer_push_constant_t),
   },
 };
 
@@ -104,14 +113,16 @@ void renderer_create(void) {
   renderer_create_buffers();
   renderer_create_pipeline_layouts();
 
-  renderer_create_vdb_world_gen_pipeline(ROOT_DIR "/shader/vdb/world_gen.comp.spv");
-  renderer_create_vdb_lod_gen_pipeline(ROOT_DIR "/shader/vdb/lod_gen.comp.spv");
-  renderer_create_vdb_soft_renderer_pipeline(ROOT_DIR "/shader/vdb/soft_renderer.vert.spv", ROOT_DIR "/shader/vdb/soft_renderer.frag.spv");
+  renderer_create_vdb_world_generator_pipeline(ROOT_DIR "/shader/vdb/world_generator.comp.spv");
+  renderer_create_vdb_lod_generator_pipeline(ROOT_DIR "/shader/vdb/lod_generator.comp.spv");
+  renderer_create_vdb_soft_tracer_pipeline(ROOT_DIR "/shader/vdb/soft_tracer.vert.spv", ROOT_DIR "/shader/vdb/soft_tracer.frag.spv");
+  renderer_create_vdb_mesh_renderer_pipeline(ROOT_DIR "/shader/vdb/mesh_renderer.task.spv", ROOT_DIR "/shader/vdb/mesh_renderer.mesh.spv", ROOT_DIR "/shader/vdb/mesh_renderer.frag.spv");
   renderer_create_debug_line_pipeline(ROOT_DIR "/shader/debug/line.vert.spv", ROOT_DIR "/shader/debug/line.frag.spv");
 
-  renderer_update_vdb_world_gen_descriptor_sets();
-  renderer_update_vdb_lod_gen_descriptor_sets();
-  renderer_update_vdb_soft_renderer_descriptor_sets();
+  renderer_update_vdb_world_generator_descriptor_sets();
+  renderer_update_vdb_lod_generator_descriptor_sets();
+  renderer_update_vdb_soft_tracer_descriptor_sets();
+  renderer_update_vdb_mesh_renderer_descriptor_sets();
   renderer_update_debug_line_descriptor_sets();
 
   dbgui_create();
@@ -403,7 +414,7 @@ static void renderer_create_descriptor_pools(void) {
       .maxSets = 1,
     };
 
-    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_world_gen_descriptor_pool));
+    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_world_generator_descriptor_pool));
   }
 
   {
@@ -425,7 +436,7 @@ static void renderer_create_descriptor_pools(void) {
       .maxSets = 1,
     };
 
-    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_lod_gen_descriptor_pool));
+    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_lod_generator_descriptor_pool));
   }
 
   {
@@ -447,7 +458,25 @@ static void renderer_create_descriptor_pools(void) {
       .maxSets = 1,
     };
 
-    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_soft_renderer_descriptor_pool));
+    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_soft_tracer_descriptor_pool));
+  }
+
+  {
+    VkDescriptorPoolSize descriptor_pool_sizes[] = {
+      {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+      },
+    };
+
+    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      .pPoolSizes = descriptor_pool_sizes,
+      .poolSizeCount = ARRAY_COUNT(descriptor_pool_sizes),
+      .maxSets = 1,
+    };
+
+    VK_CHECK(vkCreateDescriptorPool(g_window.device, &descriptor_pool_create_info, 0, &g_renderer.vdb_mesh_renderer_descriptor_pool));
   }
 
   {
@@ -501,7 +530,7 @@ static void renderer_create_descriptor_set_layouts(void) {
       .pNext = 0,
     };
 
-    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_world_gen_descriptor_set_layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_world_generator_descriptor_set_layout));
   }
 
   {
@@ -529,7 +558,7 @@ static void renderer_create_descriptor_set_layouts(void) {
       .pNext = 0,
     };
 
-    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_lod_gen_descriptor_set_layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_lod_generator_descriptor_set_layout));
   }
 
   {
@@ -571,7 +600,28 @@ static void renderer_create_descriptor_set_layouts(void) {
       .pNext = 0,
     };
 
-    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_soft_renderer_descriptor_set_layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_soft_tracer_descriptor_set_layout));
+  }
+
+  {
+    VkDescriptorSetLayoutBinding descriptor_set_layout_bindings[] = {
+      {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
+        .pImmutableSamplers = 0,
+      },
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .pBindings = descriptor_set_layout_bindings,
+      .bindingCount = ARRAY_COUNT(descriptor_set_layout_bindings),
+      .pNext = 0,
+    };
+
+    VK_CHECK(vkCreateDescriptorSetLayout(g_window.device, &descriptor_set_layout_create_info, 0, &g_renderer.vdb_mesh_renderer_descriptor_set_layout));
   }
 
   {
@@ -600,33 +650,44 @@ static void renderer_create_descriptor_sets(void) {
     VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
       .descriptorSetCount = 1,
-      .descriptorPool = g_renderer.vdb_world_gen_descriptor_pool,
-      .pSetLayouts = &g_renderer.vdb_world_gen_descriptor_set_layout,
+      .descriptorPool = g_renderer.vdb_world_generator_descriptor_pool,
+      .pSetLayouts = &g_renderer.vdb_world_generator_descriptor_set_layout,
     };
 
-    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_world_gen_descriptor_set));
+    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_world_generator_descriptor_set));
   }
 
   {
     VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
       .descriptorSetCount = 1,
-      .descriptorPool = g_renderer.vdb_lod_gen_descriptor_pool,
-      .pSetLayouts = &g_renderer.vdb_lod_gen_descriptor_set_layout,
+      .descriptorPool = g_renderer.vdb_lod_generator_descriptor_pool,
+      .pSetLayouts = &g_renderer.vdb_lod_generator_descriptor_set_layout,
     };
 
-    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_lod_gen_descriptor_set));
+    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_lod_generator_descriptor_set));
   }
 
   {
     VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
       .descriptorSetCount = 1,
-      .descriptorPool = g_renderer.vdb_soft_renderer_descriptor_pool,
-      .pSetLayouts = &g_renderer.vdb_soft_renderer_descriptor_set_layout,
+      .descriptorPool = g_renderer.vdb_soft_tracer_descriptor_pool,
+      .pSetLayouts = &g_renderer.vdb_soft_tracer_descriptor_set_layout,
     };
 
-    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_soft_renderer_descriptor_set));
+    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_soft_tracer_descriptor_set));
+  }
+
+  {
+    VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      .descriptorSetCount = 1,
+      .descriptorPool = g_renderer.vdb_mesh_renderer_descriptor_pool,
+      .pSetLayouts = &g_renderer.vdb_mesh_renderer_descriptor_set_layout,
+    };
+
+    VK_CHECK(vkAllocateDescriptorSets(g_window.device, &descriptor_set_allocate_info, &g_renderer.vdb_mesh_renderer_descriptor_set));
   }
 
   {
@@ -671,36 +732,48 @@ static void renderer_create_pipeline_layouts(void) {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = 1,
-      .pSetLayouts = &g_renderer.vdb_world_gen_descriptor_set_layout,
-      .pPushConstantRanges = s_vdb_world_gen_push_constant_ranges,
-      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_world_gen_push_constant_ranges),
+      .pSetLayouts = &g_renderer.vdb_world_generator_descriptor_set_layout,
+      .pPushConstantRanges = s_vdb_world_generator_push_constant_ranges,
+      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_world_generator_push_constant_ranges),
     };
 
-    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_world_gen_pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_world_generator_pipeline_layout));
   }
 
   {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = 1,
-      .pSetLayouts = &g_renderer.vdb_lod_gen_descriptor_set_layout,
-      .pPushConstantRanges = s_vdb_lod_gen_push_constant_ranges,
-      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_lod_gen_push_constant_ranges),
+      .pSetLayouts = &g_renderer.vdb_lod_generator_descriptor_set_layout,
+      .pPushConstantRanges = s_vdb_lod_generator_push_constant_ranges,
+      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_lod_generator_push_constant_ranges),
     };
 
-    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_lod_gen_pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_lod_generator_pipeline_layout));
   }
 
   {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = 1,
-      .pSetLayouts = &g_renderer.vdb_soft_renderer_descriptor_set_layout,
+      .pSetLayouts = &g_renderer.vdb_soft_tracer_descriptor_set_layout,
       .pPushConstantRanges = 0,
       .pushConstantRangeCount = 0,
     };
 
-    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_soft_renderer_pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_soft_tracer_pipeline_layout));
+  }
+
+  {
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+      .setLayoutCount = 1,
+      .pSetLayouts = &g_renderer.vdb_mesh_renderer_descriptor_set_layout,
+      .pPushConstantRanges = s_vdb_mesh_renderer_push_constant_ranges,
+      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_mesh_renderer_push_constant_ranges),
+    };
+
+    VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_mesh_renderer_pipeline_layout));
   }
 
   {
@@ -716,7 +789,7 @@ static void renderer_create_pipeline_layouts(void) {
   }
 }
 
-static void renderer_create_vdb_world_gen_pipeline(char const *compute_shader_file_path) {
+static void renderer_create_vdb_world_generator_pipeline(char const *compute_shader_file_path) {
   VkShaderModule compute_module = 0;
 
   {
@@ -745,15 +818,15 @@ static void renderer_create_vdb_world_gen_pipeline(char const *compute_shader_fi
 
   VkComputePipelineCreateInfo compute_pipeline_create_info = {
     .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    .layout = g_renderer.vdb_world_gen_pipeline_layout,
+    .layout = g_renderer.vdb_world_generator_pipeline_layout,
     .stage = compute_shader_stage_create_info,
   };
 
-  VK_CHECK(vkCreateComputePipelines(g_window.device, 0, 1, &compute_pipeline_create_info, 0, &g_renderer.vdb_world_gen_pipeline));
+  VK_CHECK(vkCreateComputePipelines(g_window.device, 0, 1, &compute_pipeline_create_info, 0, &g_renderer.vdb_world_generator_pipeline));
 
   vkDestroyShaderModule(g_window.device, compute_module, 0);
 }
-static void renderer_create_vdb_lod_gen_pipeline(char const *compute_shader_file_path) {
+static void renderer_create_vdb_lod_generator_pipeline(char const *compute_shader_file_path) {
   VkShaderModule compute_module = 0;
 
   {
@@ -782,15 +855,15 @@ static void renderer_create_vdb_lod_gen_pipeline(char const *compute_shader_file
 
   VkComputePipelineCreateInfo compute_pipeline_create_info = {
     .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    .layout = g_renderer.vdb_lod_gen_pipeline_layout,
+    .layout = g_renderer.vdb_lod_generator_pipeline_layout,
     .stage = compute_shader_stage_create_info,
   };
 
-  VK_CHECK(vkCreateComputePipelines(g_window.device, 0, 1, &compute_pipeline_create_info, 0, &g_renderer.vdb_lod_gen_pipeline));
+  VK_CHECK(vkCreateComputePipelines(g_window.device, 0, 1, &compute_pipeline_create_info, 0, &g_renderer.vdb_lod_generator_pipeline));
 
   vkDestroyShaderModule(g_window.device, compute_module, 0);
 }
-static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path) {
+static void renderer_create_vdb_soft_tracer_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path) {
   VkShaderModule vertex_module = 0;
   VkShaderModule fragment_module = 0;
 
@@ -834,7 +907,6 @@ static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader
     .module = vertex_module,
     .pName = "main",
   };
-
   VkPipelineShaderStageCreateInfo fragment_shader_stage_create_info = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
     .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -849,10 +921,10 @@ static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader
 
   VkPipelineVertexInputStateCreateInfo vertex_input_create_info = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    .pVertexBindingDescriptions = s_vdb_soft_renderer_vertex_input_binding_descriptions,
-    .vertexBindingDescriptionCount = ARRAY_COUNT(s_vdb_soft_renderer_vertex_input_binding_descriptions),
-    .pVertexAttributeDescriptions = s_vdb_soft_renderer_vertex_input_attribute_descriptions,
-    .vertexAttributeDescriptionCount = ARRAY_COUNT(s_vdb_soft_renderer_vertex_input_attribute_descriptions),
+    .pVertexBindingDescriptions = s_vdb_soft_tracer_vertex_input_binding_descriptions,
+    .vertexBindingDescriptionCount = ARRAY_COUNT(s_vdb_soft_tracer_vertex_input_binding_descriptions),
+    .pVertexAttributeDescriptions = s_vdb_soft_tracer_vertex_input_attribute_descriptions,
+    .vertexAttributeDescriptionCount = ARRAY_COUNT(s_vdb_soft_tracer_vertex_input_attribute_descriptions),
   };
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info = {
@@ -913,7 +985,7 @@ static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader
 
   VkPipelineColorBlendAttachmentState color_blend_attachment = {
     .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-    .blendEnable = 1,
+    .blendEnable = 0,
     .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
     .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
     .colorBlendOp = VK_BLEND_OP_ADD,
@@ -968,15 +1040,215 @@ static void renderer_create_vdb_soft_renderer_pipeline(char const *vertex_shader
     .pDepthStencilState = &depth_stencil_state_create_info,
     .pColorBlendState = &color_blend_create_info,
     .pDynamicState = &dynamic_state_create_info,
-    .layout = g_renderer.vdb_soft_renderer_pipeline_layout,
+    .layout = g_renderer.vdb_soft_tracer_pipeline_layout,
     .renderPass = g_renderpass_main,
     .subpass = 0,
     .basePipelineHandle = 0,
   };
 
-  VK_CHECK(vkCreateGraphicsPipelines(g_window.device, 0, 1, &graphics_pipeline_create_info, 0, &g_renderer.vdb_soft_renderer_pipeline));
+  VK_CHECK(vkCreateGraphicsPipelines(g_window.device, 0, 1, &graphics_pipeline_create_info, 0, &g_renderer.vdb_soft_tracer_pipeline));
 
   vkDestroyShaderModule(g_window.device, vertex_module, 0);
+  vkDestroyShaderModule(g_window.device, fragment_module, 0);
+}
+static void renderer_create_vdb_mesh_renderer_pipeline(char const *task_shader_file_path, char const *mesh_shader_file_path, char const *fragment_shader_file_path) {
+  VkShaderModule task_module = 0;
+  VkShaderModule mesh_module = 0;
+  VkShaderModule fragment_module = 0;
+
+  {
+    uint8_t *shader_bytes = 0;
+    uint64_t shader_size = 0;
+
+    fsutils_load_binary(&shader_bytes, &shader_size, task_shader_file_path);
+
+    VkShaderModuleCreateInfo shader_module_create_info = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .pCode = (uint32_t const *)shader_bytes,
+      .codeSize = shader_size,
+    };
+
+    VK_CHECK(vkCreateShaderModule(g_window.device, &shader_module_create_info, 0, &task_module));
+
+    HEAP_FREE(shader_bytes);
+  }
+
+  {
+    uint8_t *shader_bytes = 0;
+    uint64_t shader_size = 0;
+
+    fsutils_load_binary(&shader_bytes, &shader_size, mesh_shader_file_path);
+
+    VkShaderModuleCreateInfo shader_module_create_info = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .pCode = (uint32_t const *)shader_bytes,
+      .codeSize = shader_size,
+    };
+
+    VK_CHECK(vkCreateShaderModule(g_window.device, &shader_module_create_info, 0, &mesh_module));
+
+    HEAP_FREE(shader_bytes);
+  }
+
+  {
+    uint8_t *shader_bytes = 0;
+    uint64_t shader_size = 0;
+
+    fsutils_load_binary(&shader_bytes, &shader_size, fragment_shader_file_path);
+
+    VkShaderModuleCreateInfo shader_module_create_info = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .pCode = (uint32_t const *)shader_bytes,
+      .codeSize = shader_size,
+    };
+
+    VK_CHECK(vkCreateShaderModule(g_window.device, &shader_module_create_info, 0, &fragment_module));
+
+    HEAP_FREE(shader_bytes);
+  }
+
+  VkPipelineShaderStageCreateInfo task_shader_stage_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_TASK_BIT_EXT,
+    .module = task_module,
+    .pName = "main",
+  };
+  VkPipelineShaderStageCreateInfo mesh_shader_stage_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_MESH_BIT_EXT,
+    .module = mesh_module,
+    .pName = "main",
+  };
+  VkPipelineShaderStageCreateInfo fragment_shader_stage_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+    .module = fragment_module,
+    .pName = "main",
+  };
+
+  VkPipelineShaderStageCreateInfo shader_stages[] = {
+    task_shader_stage_create_info,
+    mesh_shader_stage_create_info,
+    fragment_shader_stage_create_info,
+  };
+
+  VkViewport viewport = {
+    .x = 0.0F,
+    .y = 0.0F,
+    .width = (float)g_window.window_width,
+    .height = (float)g_window.window_height,
+    .minDepth = 0.0F,
+    .maxDepth = 1.0F,
+  };
+
+  VkRect2D scissor = {
+    .offset.x = 0,
+    .offset.y = 0,
+    .extent = {
+      .width = g_window.window_width,
+      .height = g_window.window_height,
+    },
+  };
+
+  VkPipelineViewportStateCreateInfo viewport_state_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    .viewportCount = 1,
+    .pViewports = &viewport,
+    .scissorCount = 1,
+    .pScissors = &scissor,
+  };
+
+  VkPipelineRasterizationStateCreateInfo rasterizer_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    .depthClampEnable = 0,
+    .rasterizerDiscardEnable = 0,
+    .polygonMode = VK_POLYGON_MODE_FILL,
+    .lineWidth = 1.0F,
+    .cullMode = VK_CULL_MODE_NONE,
+    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+    .depthBiasEnable = 0,
+    .depthBiasConstantFactor = 0.0F,
+    .depthBiasClamp = 0.0F,
+    .depthBiasSlopeFactor = 0.0F,
+  };
+
+  VkPipelineMultisampleStateCreateInfo multisampling_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+    .sampleShadingEnable = 0,
+    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    .minSampleShading = 1.0F,
+    .pSampleMask = 0,
+    .alphaToCoverageEnable = 0,
+    .alphaToOneEnable = 0,
+  };
+
+  VkPipelineColorBlendAttachmentState color_blend_attachment = {
+    .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    .blendEnable = 0,
+    .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+    .colorBlendOp = VK_BLEND_OP_ADD,
+    .srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+    .alphaBlendOp = VK_BLEND_OP_ADD,
+  };
+
+  VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+    .depthTestEnable = 0,
+    .depthWriteEnable = 1,
+    .depthCompareOp = VK_COMPARE_OP_GREATER,
+    .depthBoundsTestEnable = 0,
+    .stencilTestEnable = 0,
+  };
+
+  VkPipelineColorBlendStateCreateInfo color_blend_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    .logicOpEnable = 0,
+    .logicOp = VK_LOGIC_OP_COPY,
+    .attachmentCount = 1,
+    .pAttachments = &color_blend_attachment,
+    .blendConstants = {
+      0.0F,
+      0.0F,
+      0.0F,
+      0.0F,
+    },
+  };
+
+  VkDynamicState dynamic_states[] = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
+  };
+
+  VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+    .pDynamicStates = dynamic_states,
+    .dynamicStateCount = ARRAY_COUNT(dynamic_states),
+  };
+
+  VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {
+    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    .pStages = shader_stages,
+    .stageCount = ARRAY_COUNT(shader_stages),
+    .pVertexInputState = 0,
+    .pInputAssemblyState = 0,
+    .pViewportState = &viewport_state_create_info,
+    .pRasterizationState = &rasterizer_create_info,
+    .pMultisampleState = &multisampling_create_info,
+    .pDepthStencilState = &depth_stencil_state_create_info,
+    .pColorBlendState = &color_blend_create_info,
+    .pDynamicState = &dynamic_state_create_info,
+    .layout = g_renderer.vdb_mesh_renderer_pipeline_layout,
+    .renderPass = g_renderpass_main,
+    .subpass = 0,
+    .basePipelineHandle = 0,
+  };
+
+  VK_CHECK(vkCreateGraphicsPipelines(g_window.device, 0, 1, &graphics_pipeline_create_info, 0, &g_renderer.vdb_mesh_renderer_pipeline));
+
+  vkDestroyShaderModule(g_window.device, task_module, 0);
+  vkDestroyShaderModule(g_window.device, mesh_module, 0);
   vkDestroyShaderModule(g_window.device, fragment_module, 0);
 }
 static void renderer_create_debug_line_pipeline(char const *vertex_shader_file_path, char const *fragment_shader_file_path) {
@@ -1169,7 +1441,7 @@ static void renderer_create_debug_line_pipeline(char const *vertex_shader_file_p
   vkDestroyShaderModule(g_window.device, fragment_module, 0);
 }
 
-static void renderer_update_vdb_world_gen_descriptor_sets(void) {
+static void renderer_update_vdb_world_generator_descriptor_sets(void) {
   VkDescriptorBufferInfo vdb_info_descriptor_buffer_info[] = {
     {
       .offset = 0,
@@ -1212,7 +1484,7 @@ static void renderer_update_vdb_world_gen_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_world_gen_descriptor_set,
+      .dstSet = g_renderer.vdb_world_generator_descriptor_set,
       .dstBinding = 0,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1224,7 +1496,7 @@ static void renderer_update_vdb_world_gen_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_world_gen_descriptor_set,
+      .dstSet = g_renderer.vdb_world_generator_descriptor_set,
       .dstBinding = 1,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1236,7 +1508,7 @@ static void renderer_update_vdb_world_gen_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_world_gen_descriptor_set,
+      .dstSet = g_renderer.vdb_world_generator_descriptor_set,
       .dstBinding = 2,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -1251,7 +1523,7 @@ static void renderer_update_vdb_world_gen_descriptor_sets(void) {
 
   HEAP_FREE(vdb_brick_descriptor_image_info);
 }
-static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
+static void renderer_update_vdb_lod_generator_descriptor_sets(void) {
   VkDescriptorBufferInfo vdb_info_descriptor_buffer_info[] = {
     {
       .offset = 0,
@@ -1287,7 +1559,7 @@ static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_world_gen_descriptor_set,
+      .dstSet = g_renderer.vdb_world_generator_descriptor_set,
       .dstBinding = 0,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1299,7 +1571,7 @@ static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_lod_gen_descriptor_set,
+      .dstSet = g_renderer.vdb_lod_generator_descriptor_set,
       .dstBinding = 1,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -1314,7 +1586,7 @@ static void renderer_update_vdb_lod_gen_descriptor_sets(void) {
 
   HEAP_FREE(vdb_brick_descriptor_image_info);
 }
-static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
+static void renderer_update_vdb_soft_tracer_descriptor_sets(void) {
   VkDescriptorBufferInfo camera_info_descriptor_buffer_info[] = {
     {
       .offset = 0,
@@ -1364,7 +1636,7 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_soft_renderer_descriptor_set,
+      .dstSet = g_renderer.vdb_soft_tracer_descriptor_set,
       .dstBinding = 0,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1376,7 +1648,7 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_soft_renderer_descriptor_set,
+      .dstSet = g_renderer.vdb_soft_tracer_descriptor_set,
       .dstBinding = 1,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1388,7 +1660,7 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_soft_renderer_descriptor_set,
+      .dstSet = g_renderer.vdb_soft_tracer_descriptor_set,
       .dstBinding = 2,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1400,7 +1672,7 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
     {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext = 0,
-      .dstSet = g_renderer.vdb_soft_renderer_descriptor_set,
+      .dstSet = g_renderer.vdb_soft_tracer_descriptor_set,
       .dstBinding = 3,
       .dstArrayElement = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1414,6 +1686,32 @@ static void renderer_update_vdb_soft_renderer_descriptor_sets(void) {
   vkUpdateDescriptorSets(g_window.device, ARRAY_COUNT(write_descriptor_set), write_descriptor_set, 0, 0);
 
   HEAP_FREE(vdb_brick_descriptor_image_info);
+}
+static void renderer_update_vdb_mesh_renderer_descriptor_sets(void) {
+  VkDescriptorBufferInfo camera_info_descriptor_buffer_info[] = {
+    {
+      .offset = 0,
+      .buffer = g_renderer.camera_info_buffer.handle,
+      .range = VK_WHOLE_SIZE,
+    },
+  };
+
+  VkWriteDescriptorSet write_descriptor_set[] = {
+    {
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext = 0,
+      .dstSet = g_renderer.vdb_mesh_renderer_descriptor_set,
+      .dstBinding = 0,
+      .dstArrayElement = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = ARRAY_COUNT(camera_info_descriptor_buffer_info),
+      .pImageInfo = 0,
+      .pBufferInfo = camera_info_descriptor_buffer_info,
+      .pTexelBufferView = 0,
+    },
+  };
+
+  vkUpdateDescriptorSets(g_window.device, ARRAY_COUNT(write_descriptor_set), write_descriptor_set, 0, 0);
 }
 static void renderer_update_debug_line_descriptor_sets(void) {
   VkDescriptorBufferInfo camera_info_descriptor_buffer_info[] = {
@@ -1482,8 +1780,8 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
 }
 
 static void renderer_compute_world(void) {
-  vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_world_gen_pipeline);
-  vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_world_gen_pipeline_layout, 0, 1, &g_renderer.vdb_world_gen_descriptor_set, 0, 0);
+  vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_world_generator_pipeline);
+  vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_world_generator_pipeline_layout, 0, 1, &g_renderer.vdb_world_generator_descriptor_set, 0, 0);
 
   int32_t voxel_size = VDB_BASE_RES;
   int32_t group_count = MAKE_GROUP_COUNT(voxel_size, 8);
@@ -1492,12 +1790,12 @@ static void renderer_compute_world(void) {
 
   while (brick_index < brick_count) {
 
-    vdb_world_gen_push_constant_t vdb_world_gen_push_constant = {
+    vdb_world_generator_push_constant_t vdb_world_generator_push_constant = {
       .brick_position = vdb_brick_index_to_position(brick_index),
       .brick_index = brick_index,
     };
 
-    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_world_gen_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_world_gen_push_constant_t), &vdb_world_gen_push_constant);
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_world_generator_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_world_generator_push_constant_t), &vdb_world_generator_push_constant);
     vkCmdDispatch(g_renderer.command_buffer, group_count, group_count, group_count);
 
     VkImageMemoryBarrier image_memory_barrier = {
@@ -1534,8 +1832,8 @@ static void renderer_compute_world(void) {
   }
 }
 static void renderer_compute_lod(int8_t lod) {
-  vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_lod_gen_pipeline);
-  vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_lod_gen_pipeline_layout, 0, 1, &g_renderer.vdb_lod_gen_descriptor_set, 0, 0);
+  vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_lod_generator_pipeline);
+  vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_renderer.vdb_lod_generator_pipeline_layout, 0, 1, &g_renderer.vdb_lod_generator_descriptor_set, 0, 0);
 
   int32_t voxel_size = VDB_VOXELS_PER_AXIS(lod);
   int32_t group_count = MAKE_GROUP_COUNT(voxel_size, 8);
@@ -1544,13 +1842,13 @@ static void renderer_compute_lod(int8_t lod) {
 
   while (brick_index < brick_count) {
 
-    vdb_lod_gen_push_constant_t vdb_lod_gen_push_constant = {
+    vdb_lod_generator_push_constant_t vdb_lod_generator_push_constant = {
       .brick_position = vdb_brick_index_to_position(brick_index),
       .brick_index = brick_index,
       .brick_lod = lod,
     };
 
-    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_lod_gen_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_lod_gen_push_constant_t), &vdb_lod_gen_push_constant);
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_lod_generator_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vdb_lod_generator_push_constant_t), &vdb_lod_generator_push_constant);
     vkCmdDispatch(g_renderer.command_buffer, group_count, group_count, group_count);
 
     VkImageMemoryBarrier image_memory_barrier = {
@@ -1672,11 +1970,21 @@ static void renderer_record_graphics_commands(void) {
     VkBuffer vertex_buffers[] = {g_renderer.full_screen_vertex_buffer.handle};
     uint64_t vertex_offsets[] = {0};
 
-    vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_soft_renderer_pipeline);
+    vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_soft_tracer_pipeline);
     vkCmdBindVertexBuffers(g_renderer.command_buffer, 0, ARRAY_COUNT(vertex_buffers), vertex_buffers, vertex_offsets);
     vkCmdBindIndexBuffer(g_renderer.command_buffer, g_renderer.full_screen_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_soft_renderer_pipeline_layout, 0, 1, &g_renderer.vdb_soft_renderer_descriptor_set, 0, 0);
+    vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_soft_tracer_pipeline_layout, 0, 1, &g_renderer.vdb_soft_tracer_descriptor_set, 0, 0);
     vkCmdDrawIndexed(g_renderer.command_buffer, 6, 1, 0, 0, 0);
+  }
+
+  {
+    int32_t num_workgroups_x = 8;
+    int32_t num_workgroups_y = 8;
+    int32_t num_workgroups_z = 1;
+
+    vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_mesh_renderer_pipeline);
+    vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_mesh_renderer_pipeline_layout, 0, 1, &g_renderer.vdb_mesh_renderer_descriptor_set, 0, 0);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, num_workgroups_x, num_workgroups_y, num_workgroups_z);
   }
 
   {
@@ -1719,15 +2027,17 @@ static void renderer_destroy_sync_objects(void) {
   vkDestroyFence(g_window.device, g_renderer.frame_fence, 0);
 }
 static void renderer_destroy_descriptor_pools(void) {
-  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_world_gen_descriptor_pool, 0);
-  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_lod_gen_descriptor_pool, 0);
-  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_soft_renderer_descriptor_pool, 0);
+  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_world_generator_descriptor_pool, 0);
+  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_lod_generator_descriptor_pool, 0);
+  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_soft_tracer_descriptor_pool, 0);
+  vkDestroyDescriptorPool(g_window.device, g_renderer.vdb_mesh_renderer_descriptor_pool, 0);
   vkDestroyDescriptorPool(g_window.device, g_renderer.debug_line_descriptor_pool, 0);
 }
 static void renderer_destroy_descriptor_set_layouts(void) {
-  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_world_gen_descriptor_set_layout, 0);
-  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_lod_gen_descriptor_set_layout, 0);
-  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_soft_renderer_descriptor_set_layout, 0);
+  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_world_generator_descriptor_set_layout, 0);
+  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_lod_generator_descriptor_set_layout, 0);
+  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_soft_tracer_descriptor_set_layout, 0);
+  vkDestroyDescriptorSetLayout(g_window.device, g_renderer.vdb_mesh_renderer_descriptor_set_layout, 0);
   vkDestroyDescriptorSetLayout(g_window.device, g_renderer.debug_line_descriptor_set_layout, 0);
 }
 static void renderer_destroy_buffers(void) {
@@ -1742,14 +2052,16 @@ static void renderer_destroy_buffers(void) {
   buffer_destroy(&g_renderer.full_screen_index_buffer);
 }
 static void renderer_destroy_pipeline_layouts(void) {
-  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_world_gen_pipeline_layout, 0);
-  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_lod_gen_pipeline_layout, 0);
-  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_soft_renderer_pipeline_layout, 0);
+  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_world_generator_pipeline_layout, 0);
+  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_lod_generator_pipeline_layout, 0);
+  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_soft_tracer_pipeline_layout, 0);
+  vkDestroyPipelineLayout(g_window.device, g_renderer.vdb_mesh_renderer_pipeline_layout, 0);
   vkDestroyPipelineLayout(g_window.device, g_renderer.debug_line_pipeline_layout, 0);
 }
 static void renderer_destroy_pipelines(void) {
-  vkDestroyPipeline(g_window.device, g_renderer.vdb_world_gen_pipeline, 0);
-  vkDestroyPipeline(g_window.device, g_renderer.vdb_lod_gen_pipeline, 0);
-  vkDestroyPipeline(g_window.device, g_renderer.vdb_soft_renderer_pipeline, 0);
+  vkDestroyPipeline(g_window.device, g_renderer.vdb_world_generator_pipeline, 0);
+  vkDestroyPipeline(g_window.device, g_renderer.vdb_lod_generator_pipeline, 0);
+  vkDestroyPipeline(g_window.device, g_renderer.vdb_soft_tracer_pipeline, 0);
+  vkDestroyPipeline(g_window.device, g_renderer.vdb_mesh_renderer_pipeline, 0);
   vkDestroyPipeline(g_window.device, g_renderer.debug_line_pipeline, 0);
 }

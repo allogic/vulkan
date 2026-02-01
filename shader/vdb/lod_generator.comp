@@ -18,19 +18,19 @@ layout (binding = 0) uniform vdb_info_t {
 } vdb_info;
 layout (binding = 1, r32ui) uniform uimage3D vdb_brick[];
 
-layout (push_constant) uniform vdb_lod_gen_push_constant_t {
+layout (push_constant) uniform vdb_lod_generator_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
 	int brick_lod;
-} vdb_lod_gen_push_constant;
+} vdb_lod_generator_push_constant;
 
 void main() {
-	ivec3 brick_position = vdb_lod_gen_push_constant.brick_position;
+	ivec3 brick_position = vdb_lod_generator_push_constant.brick_position;
 
 	ivec3 curr_voxel_position = ivec3(gl_GlobalInvocationID.xyz);
 	ivec3 prev_voxel_position = curr_voxel_position * 2;
 
-	int curr_lod = vdb_lod_gen_push_constant.brick_lod;
+	int curr_lod = vdb_lod_generator_push_constant.brick_lod;
 	int prev_lod = curr_lod - 1;
 
 	int curr_voxels_per_axis = VDB_VOXELS_PER_AXIS(curr_lod);
@@ -40,8 +40,8 @@ void main() {
 		curr_voxel_position.y < curr_voxels_per_axis &&
 		curr_voxel_position.z < curr_voxels_per_axis) {
 
-		int curr_brick_index = curr_lod + (vdb_lod_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE);
-		int prev_brick_index = prev_lod + (vdb_lod_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE);
+		int curr_brick_index = curr_lod + (vdb_lod_generator_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE);
+		int prev_brick_index = prev_lod + (vdb_lod_generator_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE);
 
 		uint curr_voxel = VDB_EMPTY_VOXEL;
 		uint prev_voxel = VDB_EMPTY_VOXEL;

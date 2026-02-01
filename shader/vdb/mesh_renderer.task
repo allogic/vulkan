@@ -1,0 +1,70 @@
+#version 460 core
+
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_mesh_shader : require
+
+#include "../vdb/common.glsl"
+
+#define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
+	(uint(texelFetch(vdb_brick[BRICK_INDEX], VOXEL_POSITION, 0).r))
+
+layout (local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+
+layout (binding = 0) uniform camera_info_t {
+	vec3 position;
+	float max_ray_distance;
+	mat4 view;
+	mat4 projection;
+	mat4 view_projection;
+	mat4 view_projection_inv;
+} camera_info;
+
+layout (push_constant) uniform vdb_mesh_renderer_push_constant_t {
+	float cull_center_x;
+	float cull_center_y;
+	float cull_radius;
+	float meshlet_density;
+} vdb_mesh_renderer_push_constant;
+
+taskPayloadSharedEXT shared_data_t shared_data;
+
+void main() {
+	vec2 size = 2.0 / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
+	vec2 offset = gl_GlobalInvocationID.xy * size;
+
+	vec2 position = vec2(vdb_mesh_renderer_push_constant.cull_center_x, vdb_mesh_renderer_push_constant.cull_center_y);
+
+	vec2 p0 = position + offset;
+	vec2 p1 = p0 + vec2(size.x, 0.0f);
+	vec2 p2 = p0 + size;
+	vec2 p3 = p0 + vec2(0.0f, size.y);
+
+	float radius_sq = vdb_mesh_renderer_push_constant.cull_radius * vdb_mesh_renderer_push_constant.cull_radius;
+
+	bool is_valid = (length(p0) < radius_sq) &&
+					(length(p1) < radius_sq) &&
+					(length(p2) < radius_sq) &&
+					(length(p3) < radius_sq);
+
+	uvec4 valid_votes = subgroupBallot(is_valid); // contribute a single bit by this task shader invocation
+
+	if (is_valid) {
+
+		uint index = subgroupBallotExclusiveBitCount(valid_votes); // get the next free index into the offsets array
+
+		shared_data.offsets[index] = offset;
+	}
+
+	if (gl_LocalInvocationIndex == 0) {
+
+		// for just one task shader invocation we can emit mesh shaders
+		shared_data.position = position;
+		shared_data.size = size;
+
+		uint valid_count = subgroupBallotBitCount(valid_votes); // get the actual number of task shader invocations that are determined to display something
+
+		EmitMeshTasksEXT(valid_count, 1, 1);
+	}
+}

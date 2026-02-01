@@ -60,4 +60,10 @@ const int vdb_voxel_count_per_lod[VDB_LOD_COUNT_PLUS_ONE] = int[VDB_LOD_COUNT_PL
 	1         // 1x1x1
 );
 
+struct shared_data_t {
+  vec2 position;
+  vec2 offsets[2 * 2];
+  vec2 size;
+};
+
 #endif // VDB_COMMON_H

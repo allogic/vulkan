@@ -1,0 +1,44 @@
+#version 460 core
+
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_mesh_shader : require
+
+#include "../vdb/common.glsl"
+
+layout (local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+layout (triangles, max_vertices = 4 * 2 * 2, max_primitives = 2 * 2 * 2) out;
+
+taskPayloadSharedEXT shared_data_t shared_data;
+
+layout (location = 0) out vec4 output_color[];
+
+void main() {
+	if (gl_LocalInvocationIndex == 0) {
+		SetMeshOutputsEXT(4 * 2 * 2, 2 * 2 * 2);
+	}
+
+	vec2 global_offset = shared_data.offsets[gl_WorkGroupID.x];
+	vec2 local_size = shared_data.size / gl_WorkGroupSize.xy;
+	vec2 local_offset = gl_LocalInvocationID.xy * local_size;
+
+	vec2 v0 = shared_data.position + global_offset + local_offset;
+	vec2 v1 = v0 + vec2(local_size.x, 0.0);
+	vec2 v2 = v0 + local_size;
+	vec2 v3 = v0 + vec2(0.0, local_size.y);
+
+	uint vertex_base_index = 4 * gl_LocalInvocationIndex;
+	gl_MeshVerticesEXT[vertex_base_index + 0].gl_Position = vec4(v0, 0.0, 1.0);
+	gl_MeshVerticesEXT[vertex_base_index + 1].gl_Position = vec4(v1, 0.0, 1.0);
+	gl_MeshVerticesEXT[vertex_base_index + 2].gl_Position = vec4(v2, 0.0, 1.0);
+	gl_MeshVerticesEXT[vertex_base_index + 3].gl_Position = vec4(v3, 0.0, 1.0);
+
+	uint primitive_base_index = 2 * gl_LocalInvocationIndex;
+	gl_PrimitiveTriangleIndicesEXT[primitive_base_index + 0] = uvec3(vertex_base_index + 0, vertex_base_index + 1, vertex_base_index + 2);
+	gl_PrimitiveTriangleIndicesEXT[primitive_base_index + 1] = uvec3(vertex_base_index + 2, vertex_base_index + 3, vertex_base_index + 0);
+
+	output_color[vertex_base_index + 0] = vec4(1.0, 0.0, 0.0, 1.0);
+	output_color[vertex_base_index + 1] = vec4(0.0, 1.0, 0.0, 1.0);
+	output_color[vertex_base_index + 2] = vec4(0.0, 0.0, 1.0, 1.0);
+	output_color[vertex_base_index + 3] = vec4(1.0, 1.0, 0.0, 1.0);
+}

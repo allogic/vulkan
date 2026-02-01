@@ -27,15 +27,19 @@ static void window_destroy_command_pool(void);
 
 window_t g_window = {0};
 
+PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessenger = 0;
+PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessenger = 0;
+PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasks = 0;
+
 static char const *s_window_class = "VULKAN_ENGINE_WND_CLASS";
 
 #ifdef BUILD_DEBUG
-static char const *s_window_validation_layers[] = {
+static char const *s_window_enabled_layer[] = {
   "VK_LAYER_KHRONOS_validation",
 };
 #endif // BUILD_DEBUG
 
-static char const *s_window_layer_extensions[] = {
+static char const *s_window_instance_extension[] = {
   "VK_KHR_surface",
   "VK_KHR_win32_surface",
 #ifdef BUILD_DEBUG
@@ -43,12 +47,17 @@ static char const *s_window_layer_extensions[] = {
 #endif // BUILD_DEBUG
 };
 
-static char const *s_window_device_extensions[] = {
+static char const *s_window_device_extension[] = {
   "VK_KHR_swapchain",
+  "VK_KHR_spirv_1_4",
+  "VK_KHR_shader_float_controls",
+  "VK_KHR_fragment_shading_rate",
+  "VK_KHR_create_renderpass2",
 #ifdef BUILD_DEBUG
   "VK_KHR_shader_non_semantic_info",
 #endif // BUILD_DEBUG
   "VK_EXT_descriptor_indexing",
+  "VK_EXT_mesh_shader",
 };
 
 void window_create(int32_t width, int32_t height, char const *title) {
@@ -482,7 +491,7 @@ static void window_create_instance(void) {
     .applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
     .pEngineName = "VULKAN_ENGINE",
     .engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
-    .apiVersion = VK_API_VERSION_1_1,
+    .apiVersion = VK_API_VERSION_1_3,
   };
 
 #ifdef BUILD_DEBUG
@@ -497,23 +506,25 @@ static void window_create_instance(void) {
   VkInstanceCreateInfo instance_create_info = {
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pApplicationInfo = &application_info,
-    .ppEnabledExtensionNames = s_window_layer_extensions,
-    .enabledExtensionCount = ARRAY_COUNT(s_window_layer_extensions),
+    .ppEnabledExtensionNames = s_window_instance_extension,
+    .enabledExtensionCount = ARRAY_COUNT(s_window_instance_extension),
 #ifdef BUILD_DEBUG
     .pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_utils_messenger_create_info,
-    .ppEnabledLayerNames = s_window_validation_layers,
-    .enabledLayerCount = ARRAY_COUNT(s_window_validation_layers),
+    .ppEnabledLayerNames = s_window_enabled_layer,
+    .enabledLayerCount = ARRAY_COUNT(s_window_enabled_layer),
 #endif // BUILD_DEBUG
   };
 
   VK_CHECK(vkCreateInstance(&instance_create_info, 0, &g_window.instance));
 
 #ifdef BUILD_DEBUG
-  g_window.create_debug_utils_messenger_proc = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(g_window.instance, "vkCreateDebugUtilsMessengerEXT");
-  g_window.destroy_debug_utils_messenger_proc = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(g_window.instance, "vkDestroyDebugUtilsMessengerEXT");
+  vkCreateDebugUtilsMessenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(g_window.instance, "vkCreateDebugUtilsMessengerEXT");
+  vkDestroyDebugUtilsMessenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(g_window.instance, "vkDestroyDebugUtilsMessengerEXT");
 
-  VK_CHECK(g_window.create_debug_utils_messenger_proc(g_window.instance, &debug_utils_messenger_create_info, 0, &g_window.debug_utils_messenger));
+  VK_CHECK(vkCreateDebugUtilsMessenger(g_window.instance, &debug_utils_messenger_create_info, 0, &g_window.debug_utils_messenger));
 #endif // BUILD_DEBUG
+
+  vkCmdDrawMeshTasks = (PFN_vkCmdDrawMeshTasksEXT)vkGetInstanceProcAddr(g_window.instance, "vkCmdDrawMeshTasksEXT");
 }
 static void window_create_surface(void) {
   VkWin32SurfaceCreateInfoKHR win32_surface_create_info = {
@@ -525,6 +536,45 @@ static void window_create_surface(void) {
   VK_CHECK(vkCreateWin32SurfaceKHR(g_window.instance, &win32_surface_create_info, 0, &g_window.surface));
 }
 static void window_create_device(void) {
+  VkPhysicalDeviceMaintenance4Features physical_device_maintenance4_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES,
+    .pNext = 0,
+  };
+
+  VkPhysicalDeviceFragmentShadingRateFeaturesKHR physical_device_fragment_shading_rate_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR,
+    .pNext = &physical_device_maintenance4_features,
+  };
+
+  VkPhysicalDeviceMultiviewFeatures physical_device_multiview_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
+    .pNext = &physical_device_fragment_shading_rate_features,
+  };
+
+  VkPhysicalDeviceMeshShaderFeaturesEXT physical_device_mesh_shader_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+    .pNext = &physical_device_multiview_features,
+  };
+
+  VkPhysicalDeviceDescriptorIndexingFeatures physical_device_descriptor_indexing_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+    .pNext = &physical_device_mesh_shader_features,
+  };
+
+  VkPhysicalDeviceFeatures2 physical_device_features_2 = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+    .pNext = &physical_device_descriptor_indexing_features,
+  };
+
+  vkGetPhysicalDeviceFeatures2(g_window.physical_device, &physical_device_features_2);
+
+#ifdef BUILD_DEBUG
+  printf("Required Device Features\n");
+  printf("  taskShader : %d\n", physical_device_mesh_shader_features.taskShader);
+  printf("  meshShader : %d\n", physical_device_mesh_shader_features.meshShader);
+  printf("  runtimeDescriptorArray : %d\n", physical_device_descriptor_indexing_features.runtimeDescriptorArray);
+#endif // BUILD_DEBUG
+
   float queue_priority = 1.0F;
 
   VkDeviceQueueCreateInfo device_queue_create_infos[2] = {
@@ -542,33 +592,17 @@ static void window_create_device(void) {
     },
   };
 
-  VkPhysicalDeviceDescriptorIndexingFeatures physical_device_descriptor_indexing_features = {
-    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
-    .pNext = 0,
-  };
-
-  VkPhysicalDeviceFeatures2 physical_device_features_2 = {
-    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-    .pNext = &physical_device_descriptor_indexing_features,
-  };
-
-  vkGetPhysicalDeviceFeatures2(g_window.physical_device, &physical_device_features_2);
-
-  if (physical_device_descriptor_indexing_features.runtimeDescriptorArray == 0) {
-    // TODO: fallback to alternative techniques..
-  }
-
   VkDeviceCreateInfo device_create_info = {
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+    .pNext = &physical_device_features_2,
     .pQueueCreateInfos = device_queue_create_infos,
     .queueCreateInfoCount = ARRAY_COUNT(device_queue_create_infos),
     .pEnabledFeatures = 0,
-    .ppEnabledExtensionNames = s_window_device_extensions,
-    .enabledExtensionCount = ARRAY_COUNT(s_window_device_extensions),
-    .pNext = &physical_device_features_2,
+    .ppEnabledExtensionNames = s_window_device_extension,
+    .enabledExtensionCount = ARRAY_COUNT(s_window_device_extension),
 #ifdef BUILD_DEBUG
-    .ppEnabledLayerNames = s_window_validation_layers,
-    .enabledLayerCount = ARRAY_COUNT(s_window_validation_layers),
+    .ppEnabledLayerNames = s_window_enabled_layer,
+    .enabledLayerCount = ARRAY_COUNT(s_window_enabled_layer),
 #endif // BUILD_DEBUG
   };
 
@@ -682,7 +716,7 @@ static void window_check_physical_device_extensions(void) {
 #endif // BUILD_DEBUG
 
   int32_t device_extension_index = 0;
-  int32_t device_extension_count = ARRAY_COUNT(s_window_device_extensions);
+  int32_t device_extension_count = ARRAY_COUNT(s_window_device_extension);
 
   while (device_extension_index < device_extension_count) {
 
@@ -692,10 +726,10 @@ static void window_check_physical_device_extensions(void) {
 
     while (available_device_extension_index < available_device_extension_count) {
 
-      if (strcmp(s_window_device_extensions[device_extension_index], available_extension_properties[available_device_extension_index].extensionName) == 0) {
+      if (strcmp(s_window_device_extension[device_extension_index], available_extension_properties[available_device_extension_index].extensionName) == 0) {
 
 #ifdef BUILD_DEBUG
-        printf("  Found %s\n", s_window_device_extensions[device_extension_index]);
+        printf("  Found %s\n", s_window_device_extension[device_extension_index]);
 #endif // BUILD_DEBUG
 
         device_extensions_available = 1;
@@ -709,7 +743,7 @@ static void window_check_physical_device_extensions(void) {
     if (device_extensions_available == 0) {
 
 #ifdef BUILD_DEBUG
-      printf("  Missing %s\n", s_window_device_extensions[device_extension_index]);
+      printf("  Missing %s\n", s_window_device_extension[device_extension_index]);
 #endif // BUILD_DEBUG
 
       break;
@@ -740,7 +774,7 @@ static void window_destroy_native(void) {
 }
 static void window_destroy_instance(void) {
 #ifdef BUILD_DEBUG
-  g_window.destroy_debug_utils_messenger_proc(g_window.instance, g_window.debug_utils_messenger, 0);
+  vkDestroyDebugUtilsMessenger(g_window.instance, g_window.debug_utils_messenger, 0);
 #endif // BUILD_DEBUG
 
   vkDestroyInstance(g_window.instance, 0);

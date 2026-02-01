@@ -40,21 +40,28 @@ STATIC_ASSERT(sizeof(debug_line_vertex_t) % 4 == 0);
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
 
-typedef struct vdb_world_gen_push_constant_t {
+typedef struct vdb_world_generator_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
-} vdb_world_gen_push_constant_t;
-typedef struct vdb_lod_gen_push_constant_t {
+} vdb_world_generator_push_constant_t;
+typedef struct vdb_lod_generator_push_constant_t {
   ivector3_t brick_position;
   int32_t brick_index;
   int32_t brick_lod;
   int32_t reserved0;
   int32_t reserved1;
   int32_t reserved2;
-} vdb_lod_gen_push_constant_t;
+} vdb_lod_generator_push_constant_t;
+typedef struct vdb_mesh_renderer_push_constant_t {
+  float cull_center_x;
+  float cull_center_y;
+  float cull_radius;
+  float meshlet_density;
+} vdb_mesh_renderer_push_constant_t;
 
-STATIC_ASSERT(sizeof(vdb_world_gen_push_constant_t) % 4 == 0);
-STATIC_ASSERT(sizeof(vdb_lod_gen_push_constant_t) % 4 == 0);
+STATIC_ASSERT(sizeof(vdb_world_generator_push_constant_t) % 4 == 0);
+STATIC_ASSERT(sizeof(vdb_lod_generator_push_constant_t) % 4 == 0);
+STATIC_ASSERT(sizeof(vdb_mesh_renderer_push_constant_t) % 4 == 0);
 
 typedef struct renderer_t {
   int8_t is_dirty;
@@ -68,25 +75,30 @@ typedef struct renderer_t {
   VkSemaphore render_finished_semaphore[SWAPCHAIN_MAX_IMAGE_COUNT];
   VkSemaphore image_available_semaphore;
   VkFence frame_fence;
-  VkDescriptorPool vdb_world_gen_descriptor_pool;
-  VkDescriptorPool vdb_lod_gen_descriptor_pool;
-  VkDescriptorPool vdb_soft_renderer_descriptor_pool;
+  VkDescriptorPool vdb_world_generator_descriptor_pool;
+  VkDescriptorPool vdb_lod_generator_descriptor_pool;
+  VkDescriptorPool vdb_soft_tracer_descriptor_pool;
+  VkDescriptorPool vdb_mesh_renderer_descriptor_pool;
   VkDescriptorPool debug_line_descriptor_pool;
-  VkDescriptorSetLayout vdb_world_gen_descriptor_set_layout;
-  VkDescriptorSetLayout vdb_lod_gen_descriptor_set_layout;
-  VkDescriptorSetLayout vdb_soft_renderer_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_world_generator_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_lod_generator_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_soft_tracer_descriptor_set_layout;
+  VkDescriptorSetLayout vdb_mesh_renderer_descriptor_set_layout;
   VkDescriptorSetLayout debug_line_descriptor_set_layout;
-  VkDescriptorSet vdb_world_gen_descriptor_set;
-  VkDescriptorSet vdb_lod_gen_descriptor_set;
-  VkDescriptorSet vdb_soft_renderer_descriptor_set;
+  VkDescriptorSet vdb_world_generator_descriptor_set;
+  VkDescriptorSet vdb_lod_generator_descriptor_set;
+  VkDescriptorSet vdb_soft_tracer_descriptor_set;
+  VkDescriptorSet vdb_mesh_renderer_descriptor_set;
   VkDescriptorSet debug_line_descriptor_set;
-  VkPipelineLayout vdb_world_gen_pipeline_layout;
-  VkPipelineLayout vdb_lod_gen_pipeline_layout;
-  VkPipelineLayout vdb_soft_renderer_pipeline_layout;
+  VkPipelineLayout vdb_world_generator_pipeline_layout;
+  VkPipelineLayout vdb_lod_generator_pipeline_layout;
+  VkPipelineLayout vdb_soft_tracer_pipeline_layout;
+  VkPipelineLayout vdb_mesh_renderer_pipeline_layout;
   VkPipelineLayout debug_line_pipeline_layout;
-  VkPipeline vdb_world_gen_pipeline;
-  VkPipeline vdb_lod_gen_pipeline;
-  VkPipeline vdb_soft_renderer_pipeline;
+  VkPipeline vdb_world_generator_pipeline;
+  VkPipeline vdb_lod_generator_pipeline;
+  VkPipeline vdb_soft_tracer_pipeline;
+  VkPipeline vdb_mesh_renderer_pipeline;
   VkPipeline debug_line_pipeline;
   buffer_t time_info_buffer;
   buffer_t screen_info_buffer;

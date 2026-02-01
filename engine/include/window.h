@@ -159,8 +159,6 @@ typedef struct window_t {
   key_state_t mouse_key_states[MOUSE_KEY_COUNT];
   VkInstance instance;
 #ifdef BUILD_DEBUG
-  PFN_vkCreateDebugUtilsMessengerEXT create_debug_utils_messenger_proc;
-  PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger_proc;
   VkDebugUtilsMessengerEXT debug_utils_messenger;
 #endif // BUILD_DEBUG
   VkSurfaceKHR surface;
@@ -181,6 +179,10 @@ extern "C" {
 #endif // __cplusplus
 
 extern window_t g_window;
+
+extern PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessenger;
+extern PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessenger;
+extern PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasks;
 
 void window_create(int32_t width, int32_t height, char const *title);
 void window_run(void);

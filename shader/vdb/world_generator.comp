@@ -114,10 +114,10 @@ layout (binding = 1) uniform vdb_layer_t {
 } vdb_layer;
 layout (binding = 2, r32ui) uniform uimage3D vdb_brick[];
 
-layout (push_constant) uniform vdb_world_gen_push_constant_t {
+layout (push_constant) uniform vdb_world_generator_push_constant_t {
 	ivec3 brick_position;
 	int brick_index;
-} vdb_world_gen_push_constant;
+} vdb_world_generator_push_constant;
 
 float vdb_default_density(vec3 sample_position, float ground_level, float cluster_height) {
 	float density = 0.0;
@@ -220,7 +220,7 @@ float vdb_density_from_layers(vec3 sample_position, float ground_level, float cl
 }
 
 void main() {
-	ivec3 brick_position = vdb_world_gen_push_constant.brick_position;
+	ivec3 brick_position = vdb_world_generator_push_constant.brick_position;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
 	
 	vec3 sample_position = vec3((brick_position * VDB_BASE_RES) + voxel_position);
@@ -231,7 +231,7 @@ void main() {
 	//float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 	float density = vdb_default_density(sample_position, ground_level, cluster_height);
 
-	uint brick_index = vdb_world_gen_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE;
+	uint brick_index = vdb_world_generator_push_constant.brick_index * VDB_LOD_COUNT_PLUS_ONE;
 
 	uint voxel = VDB_EMPTY_VOXEL;
 
