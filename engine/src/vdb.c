@@ -18,7 +18,7 @@ int32_t g_vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE] = {
 };
 
 void vdb_create(void) {
-  vdb_info_t vdb_info = {
+  vdb_cluster_info_t vdb_cluster_info = {
     .cluster_dim = {
       .x = VDB_CLUSTER_DIM_X,
       .y = VDB_CLUSTER_DIM_Y,
@@ -28,8 +28,9 @@ void vdb_create(void) {
 
   g_vdb.brick = (vdb_brick_t *)HEAP_ALLOC(sizeof(vdb_brick_t) * VDB_BRICK_COUNT, 0, 0);
 
-  g_vdb.info_buffer = buffer_create_uniform(&vdb_info, sizeof(vdb_info_t));
-  g_vdb.layer_buffer = buffer_create_uniform_coherent(0, sizeof(vdb_layer_t) * VDB_MAX_LAYER);
+  g_vdb.terrain_layer_buffer = buffer_create_uniform_coherent(0, sizeof(vdb_terrain_layer_t) * VDB_MAX_LAYER);
+  g_vdb.cluster_info_buffer = buffer_create_uniform(&vdb_cluster_info, sizeof(vdb_cluster_info_t));
+  g_vdb.occlusion_info_buffer = buffer_create_uniform_coherent(0, sizeof(vdb_occlusion_info_t));
 
   VkCommandBuffer command_buffer = vkutils_begin_command_buffer();
 
@@ -79,8 +80,9 @@ void vdb_destroy(void) {
     brick_index++;
   }
 
-  buffer_destroy(&g_vdb.info_buffer);
-  buffer_destroy(&g_vdb.layer_buffer);
+  buffer_destroy(&g_vdb.terrain_layer_buffer);
+  buffer_destroy(&g_vdb.cluster_info_buffer);
+  buffer_destroy(&g_vdb.occlusion_info_buffer);
 
   HEAP_FREE(g_vdb.brick);
 }

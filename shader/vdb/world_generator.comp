@@ -106,12 +106,12 @@ struct vdb_world_mod_t {
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout (binding = 0) uniform vdb_info_t {
+layout (binding = 0) uniform vdb_cluster_info_t {
 	ivec3 cluster_dim;
-} vdb_info;
-layout (binding = 1) uniform vdb_layer_t {
+} vdb_cluster_info;
+layout (binding = 1) uniform vdb_terrain_layer_t {
 	vdb_world_mod_t modifier[VDB_MAX_LAYER];
-} vdb_layer;
+} vdb_terrain_layer;
 layout (binding = 2, r32ui) uniform uimage3D vdb_brick[];
 
 layout (push_constant) uniform vdb_world_generator_push_constant_t {
@@ -143,7 +143,7 @@ float vdb_density_from_layers(vec3 sample_position, float ground_level, float cl
 
 	for (int i = 0; i < VDB_MAX_LAYER; i++) {
 
-		vdb_world_mod_t modifier = vdb_layer.modifier[i];
+		vdb_world_mod_t modifier = vdb_terrain_layer.modifier[i];
 
 		switch (modifier.noise_type) {
 			case VDB_NOISE_TYPE_CELLULAR: {

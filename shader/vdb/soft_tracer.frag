@@ -37,9 +37,9 @@ layout (binding = 0) uniform camera_info_t {
 layout (binding = 1) uniform screen_info_t {
 	vec2 resolution;
 } screen_info;
-layout (binding = 2) uniform vdb_info_t {
+layout (binding = 2) uniform vdb_cluster_info_t {
 	ivec3 cluster_dim;
-} vdb_info;
+} vdb_cluster_info;
 layout (binding = 3) uniform usampler3D vdb_brick[];
 
 vec3 vdb_safe_inverse(vec3 vector) {

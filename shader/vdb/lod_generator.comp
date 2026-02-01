@@ -13,9 +13,9 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout (binding = 0) uniform vdb_info_t {
+layout (binding = 0) uniform vdb_cluster_info_t {
 	ivec3 cluster_dim;
-} vdb_info;
+} vdb_cluster_info;
 layout (binding = 1, r32ui) uniform uimage3D vdb_brick[];
 
 layout (push_constant) uniform vdb_lod_generator_push_constant_t {

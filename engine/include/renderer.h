@@ -20,9 +20,9 @@ typedef struct camera_info_t {
   matrix4_t view_projection_inv;
 } camera_info_t;
 
-STATIC_ASSERT(sizeof(time_info_t) % 4 == 0);
-STATIC_ASSERT(sizeof(screen_info_t) % 4 == 0);
-STATIC_ASSERT(sizeof(camera_info_t) % 4 == 0);
+STATIC_ASSERT(ALIGNOF(time_info_t) == 4);
+STATIC_ASSERT(ALIGNOF(screen_info_t) == 4);
+STATIC_ASSERT(ALIGNOF(camera_info_t) == 4);
 
 typedef struct full_screen_vertex_t {
   vector3_t position;
@@ -34,8 +34,8 @@ typedef struct debug_line_vertex_t {
   vector4_t color;
 } debug_line_vertex_t;
 
-STATIC_ASSERT(sizeof(full_screen_vertex_t) % 4 == 0);
-STATIC_ASSERT(sizeof(debug_line_vertex_t) % 4 == 0);
+STATIC_ASSERT(ALIGNOF(full_screen_vertex_t) == 4);
+STATIC_ASSERT(ALIGNOF(debug_line_vertex_t) == 4);
 
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
@@ -52,16 +52,9 @@ typedef struct vdb_lod_generator_push_constant_t {
   int32_t reserved1;
   int32_t reserved2;
 } vdb_lod_generator_push_constant_t;
-typedef struct vdb_mesh_renderer_push_constant_t {
-  float cull_center_x;
-  float cull_center_y;
-  float cull_radius;
-  float meshlet_density;
-} vdb_mesh_renderer_push_constant_t;
 
-STATIC_ASSERT(sizeof(vdb_world_generator_push_constant_t) % 4 == 0);
-STATIC_ASSERT(sizeof(vdb_lod_generator_push_constant_t) % 4 == 0);
-STATIC_ASSERT(sizeof(vdb_mesh_renderer_push_constant_t) % 4 == 0);
+STATIC_ASSERT(ALIGNOF(vdb_world_generator_push_constant_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_lod_generator_push_constant_t) == 4);
 
 typedef struct renderer_t {
   int8_t is_dirty;
@@ -107,6 +100,8 @@ typedef struct renderer_t {
   buffer_t debug_line_index_buffer;
   buffer_t full_screen_vertex_buffer;
   buffer_t full_screen_index_buffer;
+  vdb_world_generator_push_constant_t vdb_world_generator_push_constant;
+  vdb_lod_generator_push_constant_t vdb_lod_generator_push_constant;
 } renderer_t;
 
 #ifdef __cplusplus

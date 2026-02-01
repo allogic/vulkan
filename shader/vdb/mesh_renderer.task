@@ -20,13 +20,12 @@ layout (binding = 0) uniform camera_info_t {
 	mat4 view_projection;
 	mat4 view_projection_inv;
 } camera_info;
-
-layout (push_constant) uniform vdb_mesh_renderer_push_constant_t {
+layout (binding = 1) uniform vdb_occlusion_info_t {
 	float cull_center_x;
 	float cull_center_y;
 	float cull_radius;
 	float meshlet_density;
-} vdb_mesh_renderer_push_constant;
+} vdb_occlusion_info;
 
 taskPayloadSharedEXT shared_data_t shared_data;
 
@@ -34,14 +33,14 @@ void main() {
 	vec2 size = 2.0 / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
 	vec2 offset = gl_GlobalInvocationID.xy * size;
 
-	vec2 position = vec2(vdb_mesh_renderer_push_constant.cull_center_x, vdb_mesh_renderer_push_constant.cull_center_y);
+	vec2 position = vec2(vdb_occlusion_info.cull_center_x, vdb_occlusion_info.cull_center_y);
 
 	vec2 p0 = position + offset;
 	vec2 p1 = p0 + vec2(size.x, 0.0f);
 	vec2 p2 = p0 + size;
 	vec2 p3 = p0 + vec2(0.0f, size.y);
 
-	float radius_sq = vdb_mesh_renderer_push_constant.cull_radius * vdb_mesh_renderer_push_constant.cull_radius;
+	float radius_sq = vdb_occlusion_info.cull_radius * vdb_occlusion_info.cull_radius;
 
 	bool is_valid = (length(p0) < radius_sq) &&
 					(length(p1) < radius_sq) &&

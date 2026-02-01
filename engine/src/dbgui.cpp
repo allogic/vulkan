@@ -7,10 +7,11 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
-static void dbgui_draw_world_layer(void);
+static void dbgui_draw_vdb_world_generator(void);
+static void dbgui_draw_vdb_mesh_renderer(void);
 
-static void dbgui_draw_cellular_noise(vdb_layer_t *layer);
-static void dbgui_draw_curl_noise(vdb_layer_t *layer);
+static void dbgui_draw_cellular_noise(vdb_terrain_layer_t *layer);
+static void dbgui_draw_curl_noise(vdb_terrain_layer_t *layer);
 
 static VkDescriptorPool s_dbgui_descriptor_pool = 0;
 
@@ -69,7 +70,8 @@ void dbgui_draw(void) {
 
   ImGui::NewFrame();
 
-  dbgui_draw_world_layer();
+  dbgui_draw_vdb_world_generator();
+  dbgui_draw_vdb_mesh_renderer();
 
   ImGui::Render();
 
@@ -89,7 +91,7 @@ void dbgui_destroy(void) {
   vkDestroyDescriptorPool(g_window.device, s_dbgui_descriptor_pool, 0);
 }
 
-static void dbgui_draw_world_layer(void) {
+static void dbgui_draw_vdb_world_generator(void) {
   ImGui::Begin("World Layer");
 
   int32_t layer_index = 0;
@@ -97,7 +99,7 @@ static void dbgui_draw_world_layer(void) {
 
   while (layer_index < layer_count) {
 
-    vdb_layer_t *layer = &((vdb_layer_t *)g_vdb.layer_buffer.mapped_memory)[layer_index];
+    vdb_terrain_layer_t *layer = &((vdb_terrain_layer_t *)g_vdb.terrain_layer_buffer.mapped_memory)[layer_index];
 
     if (layer) {
 
@@ -158,8 +160,20 @@ static void dbgui_draw_world_layer(void) {
 
   ImGui::End();
 }
+static void dbgui_draw_vdb_mesh_renderer(void) {
+  ImGui::Begin("Terrain Mesher");
 
-static void dbgui_draw_cellular_noise(vdb_layer_t *layer) {
+  vdb_occlusion_info_t *occlusion_info = (vdb_occlusion_info_t *)g_vdb.occlusion_info_buffer.mapped_memory;
+
+  ImGui::DragFloat("Cull Center X", &occlusion_info->cull_center_x, 0.1F, 0.0F, 0.0F, "%.3F");
+  ImGui::DragFloat("Cull Center Y", &occlusion_info->cull_center_y, 0.1F, 0.0F, 0.0F, "%.3F");
+  ImGui::DragFloat("Cull Radius", &occlusion_info->cull_radius, 0.1F, 0.0F, 0.0F, "%.3F");
+  ImGui::DragFloat("Meshlet Density", &occlusion_info->meshlet_density, 0.1F, 0.0F, 0.0F, "%.3F");
+
+  ImGui::End();
+}
+
+static void dbgui_draw_cellular_noise(vdb_terrain_layer_t *layer) {
   cellular_noise_args_t *args = &layer->cellular_noise_args;
 
   static char const *types[] = {
@@ -258,7 +272,7 @@ static void dbgui_draw_cellular_noise(vdb_layer_t *layer) {
     g_renderer.rebuild_lod = 1;
   }
 }
-static void dbgui_draw_curl_noise(vdb_layer_t *layer) {
+static void dbgui_draw_curl_noise(vdb_terrain_layer_t *layer) {
   curl_noise_args_t *args = &layer->curl_noise_args;
 
   static char const *types[] = {

@@ -26,4 +26,16 @@
 #  define VK_CHECK(EXPRESSION) (EXPRESSION)
 #endif // BUILD_DEBUG
 
+#ifdef COMPILER_MSVC
+#  define ALIGNAS(N) __declspec(align(N))
+#else
+#  define ALIGNAS(N) _Alignas(N)
+#endif // COMPILER_SELECTION
+
+#ifdef COMPILER_MSVC
+#  define ALIGNOF(T) __alignof(T)
+#else
+#  define ALIGNOF(T) _Alignof(T)
+#endif // COMPILER_SELECTION
+
 #endif // MACROS_H

@@ -81,14 +81,14 @@ typedef struct simplex_noise_args_t {
   int32_t reserved2;
 } simplex_noise_args_t;
 
-STATIC_ASSERT(sizeof(cellular_noise_args_t) % 4 == 0);
-STATIC_ASSERT(sizeof(curl_noise_args_t) % 4 == 0);
-STATIC_ASSERT(sizeof(fbm_noise_args_t) % 4 == 0);
-STATIC_ASSERT(sizeof(gradient_noise_args_t) % 4 == 0);
-STATIC_ASSERT(sizeof(perlin_noise_args_t) % 4 == 0);
-STATIC_ASSERT(sizeof(simplex_noise_args_t) % 4 == 0);
+STATIC_ASSERT(ALIGNOF(cellular_noise_args_t) == 4);
+STATIC_ASSERT(ALIGNOF(curl_noise_args_t) == 4);
+STATIC_ASSERT(ALIGNOF(fbm_noise_args_t) == 4);
+STATIC_ASSERT(ALIGNOF(gradient_noise_args_t) == 4);
+STATIC_ASSERT(ALIGNOF(perlin_noise_args_t) == 4);
+STATIC_ASSERT(ALIGNOF(simplex_noise_args_t) == 4);
 
-typedef struct vdb_layer_t {
+typedef struct vdb_terrain_layer_t {
   cellular_noise_args_t cellular_noise_args;
   curl_noise_args_t curl_noise_args;
   fbm_noise_args_t fbm_noise_args;
@@ -99,14 +99,21 @@ typedef struct vdb_layer_t {
   float scale;
   float weight;
   int32_t reserved0;
-} vdb_layer_t;
-typedef struct vdb_info_t {
+} vdb_terrain_layer_t;
+typedef struct vdb_cluster_info_t {
   ivector3_t cluster_dim;
   int32_t reserved0;
-} vdb_info_t;
+} vdb_cluster_info_t;
+typedef struct vdb_occlusion_info_t {
+  float cull_center_x;
+  float cull_center_y;
+  float cull_radius;
+  float meshlet_density;
+} vdb_occlusion_info_t;
 
-STATIC_ASSERT(sizeof(vdb_layer_t) % 4 == 0);
-STATIC_ASSERT(sizeof(vdb_info_t) % 4 == 0);
+STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_cluster_info_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_occlusion_info_t) == 4);
 
 typedef struct vdb_brick_t {
   VkImage image;
@@ -117,8 +124,9 @@ typedef struct vdb_brick_t {
 typedef struct vdb_t {
   vdb_brick_t *brick;
   VkSampler brick_sampler;
-  buffer_t info_buffer;
-  buffer_t layer_buffer;
+  buffer_t terrain_layer_buffer;
+  buffer_t cluster_info_buffer;
+  buffer_t occlusion_info_buffer;
 } vdb_t;
 
 #ifdef __cplusplus
