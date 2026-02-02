@@ -1,0 +1,100 @@
+#version 460 core
+
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_mesh_shader : require
+
+#include "../vdb/common.glsl"
+
+#define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
+	(uint(texelFetch(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION, 0).r))
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout (binding = 0) uniform camera_info_t {
+	vec3 position;
+	float max_ray_distance;
+	mat4 view;
+	mat4 projection;
+	mat4 view_projection;
+	mat4 view_projection_inv;
+	vec4 frustum_plane[6];
+} camera_info;
+layout (binding = 1) uniform vdb_occlusion_info_t {
+	float cull_center_x;
+	float cull_center_y;
+	float cull_radius;
+	float meshlet_density;
+} vdb_occlusion_info;
+layout (binding = 3) readonly buffer vdb_brick_info_buffer_t {
+    vdb_brick_info_t brick_info[];
+} vdb_brick_info_buffer;
+
+//taskPayloadSharedEXT shared_data_t shared_data; // TODO
+
+bool aabb_in_frustum(vec3 minp, vec3 maxp) {
+
+	for (int i = 0; i < 6; i++) {
+
+		vec3 position = vec3(
+			camera_info.frustum_plane[i].x > 0.0 ? maxp.x : minp.x,
+			camera_info.frustum_plane[i].y > 0.0 ? maxp.y : minp.y,
+			camera_info.frustum_plane[i].z > 0.0 ? maxp.z : minp.z
+		);
+
+		if (dot(camera_info.frustum_plane[i], vec4(position, 1.0)) < 0.0) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void main() {
+	uint brick_index = gl_GlobalInvocationID.x;
+	
+	vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
+
+	if (!aabb_in_frustum(brick_info.aabb_min, brick_info.aabb_max)) {
+		return;
+	}
+
+	EmitMeshTasksEXT(brick_info.meshlet_count, 1, 1);
+
+	/*
+	vec2 position = vec2(vdb_occlusion_info.cull_center_x, vdb_occlusion_info.cull_center_y);
+
+	vec2 p0 = position + offset;
+	vec2 p1 = p0 + vec2(size.x, 0.0f);
+	vec2 p2 = p0 + size;
+	vec2 p3 = p0 + vec2(0.0f, size.y);
+
+	float radius_sq = vdb_occlusion_info.cull_radius * vdb_occlusion_info.cull_radius;
+
+	bool is_valid = (length(p0) < radius_sq) &&
+					(length(p1) < radius_sq) &&
+					(length(p2) < radius_sq) &&
+					(length(p3) < radius_sq);
+
+	uvec4 valid_votes = subgroupBallot(is_valid); // contribute a single bit by this task shader invocation
+
+	if (is_valid) {
+
+		uint index = subgroupBallotExclusiveBitCount(valid_votes); // get the next free index into the offsets array
+
+		shared_data.offsets[index] = offset;
+	}
+
+	if (gl_LocalInvocationIndex == 0) {
+
+		// for just one task shader invocation we can emit mesh shaders
+		shared_data.position = position;
+		shared_data.size = size;
+
+		uint valid_count = subgroupBallotBitCount(valid_votes); // get the actual number of task shader invocations that are determined to display something
+
+		//EmitMeshTasksEXT(1, 1, 1);
+	}
+	*/
+}

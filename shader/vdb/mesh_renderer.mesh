@@ -1,0 +1,162 @@
+#version 460 core
+
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_mesh_shader : require
+
+#include "../vdb/common.glsl"
+
+#define MAX_VERTICES (64)
+#define MAX_PRIMITIVES (32)
+
+#define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
+	(uint(texelFetch(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION, 0).r))
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (triangles, max_vertices = MAX_VERTICES, max_primitives = MAX_PRIMITIVES) out;
+
+taskPayloadSharedEXT shared_data_t shared_data;
+
+layout (location = 0) out vec4 output_color[];
+
+layout (binding = 0) uniform camera_info_t {
+	vec3 position;
+	float max_ray_distance;
+	mat4 view;
+	mat4 projection;
+	mat4 view_projection;
+	mat4 view_projection_inv;
+	vec4 frustum_plane[6];
+} camera_info;
+layout (binding = 2) uniform usampler3D vdb_brick_data[];
+
+struct mask_cell_t {
+	bool solid;
+	uint material;
+};
+
+shared mask_cell_t mask[VDB_BRICK_SIZE][VDB_BRICK_SIZE];
+shared bool used[VDB_BRICK_SIZE][VDB_BRICK_SIZE];
+
+void build_mask_z(uint z) {
+	for (uint y = 0; y < VDB_BRICK_SIZE; ++y) {
+		for (uint x = 0; x < VDB_BRICK_SIZE; ++x) {
+
+			uint v0 = VDB_GET_VOXEL(0, ivec3(x,y,z));
+			uint v1 = (z + 1 < VDB_BRICK_SIZE)
+				? VDB_GET_VOXEL(0, ivec3(x,y,z+1))
+				: VDB_EMPTY_VOXEL;
+
+			bool visible = VDB_VOXEL_IS_SOLID(v0) && !VDB_VOXEL_IS_SOLID(v1);
+
+			mask[y][x].solid = visible;
+			mask[y][x].material = VDB_VOXEL_GET_MATERIAL(v0);
+		}
+	}
+}
+
+void clear_used() {
+	for (uint y = 0; y < VDB_BRICK_SIZE; y++) {
+		for (uint x = 0; x < VDB_BRICK_SIZE; x++) {
+			used[y][x] = false;
+		}
+	}
+}
+
+void greedy_emit_z(uint z, inout uint vert_count, inout uint prim_count) {
+	for (uint y = 0; y < VDB_BRICK_SIZE; y++) {
+		for (uint x = 0; x < VDB_BRICK_SIZE; x++) {
+
+			if (!mask[y][x].solid || used[y][x]) {
+				continue;
+			}
+
+			uint mat = mask[y][x].material;
+
+			uint w = 1;
+			uint h = 1;
+
+			while (x + w < VDB_BRICK_SIZE && mask[y][x+w].solid && !used[y][x+w] && mask[y][x+w].material == mat) {
+				w++;
+			}
+
+			bool done = false;
+
+			while (y + h < VDB_BRICK_SIZE && !done) {
+
+				for (uint i = 0; i < w; ++i) {
+
+					if (!mask[y+h][x+i].solid || used[y+h][x+i] || mask[y+h][x+i].material != mat) {
+
+						done = true;
+
+						break;
+					}
+				}
+
+				if (!done) {
+					h++;
+				}
+			}
+
+			for (uint dy = 0; dy < h; dy++) {
+				for (uint dx = 0; dx < w; dx++) {
+					used[y+dy][x+dx] = true;
+				}
+			}
+
+			if (vert_count + 4 > MAX_VERTICES) {
+				return;
+			}
+
+			vec3 p0 = vec3(x,     y,     z + 1.0);
+			vec3 p1 = vec3(x + w, y,     z + 1.0);
+			vec3 p2 = vec3(x + w, y + h, z + 1.0);
+			vec3 p3 = vec3(x,     y + h, z + 1.0);
+
+			uint v = vert_count;
+
+			gl_MeshVerticesEXT[v + 0].gl_Position = camera_info.view_projection * vec4(p0, 1.0);
+			gl_MeshVerticesEXT[v + 1].gl_Position = camera_info.view_projection * vec4(p1, 1.0);
+			gl_MeshVerticesEXT[v + 2].gl_Position = camera_info.view_projection * vec4(p2, 1.0);
+			gl_MeshVerticesEXT[v + 3].gl_Position = camera_info.view_projection * vec4(p3, 1.0);
+
+			output_color[v + 0] = vec4(1.0, 1.0, 1.0, 1.0);
+			output_color[v + 1] = vec4(1.0, 1.0, 1.0, 1.0);
+			output_color[v + 2] = vec4(1.0, 1.0, 1.0, 1.0);
+			output_color[v + 3] = vec4(1.0, 1.0, 1.0, 1.0);
+
+			// out_normal[v + 0] = out_normal[v+1] =
+			// out_normal[v + 2] = out_normal[v+3] = vec3(0,0,1);
+
+			// out_material[v + 0] =
+			// out_material[v + 1] =
+			// out_material[v + 2] =
+			// out_material[v + 3] = mat;
+
+			gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(v + 0, v + 1, v + 2);
+			gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(v + 2, v + 3, v + 0);
+
+			vert_count += 4;
+			prim_count += 2;
+		}
+	}
+}
+
+void main() {
+	uint vert_count = 0;
+	uint prim_count = 0;
+
+	for (uint z = 0; z < VDB_BRICK_SIZE; z++) {
+
+		build_mask_z(z);
+		clear_used();
+		greedy_emit_z(z, vert_count, prim_count);
+
+		if (vert_count >= MAX_VERTICES) {
+			break;
+		}
+	}
+
+	SetMeshOutputsEXT(vert_count, prim_count);
+}
