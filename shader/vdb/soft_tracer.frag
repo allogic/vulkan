@@ -6,7 +6,7 @@
 #include "../vdb/common.glsl"
 
 #define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
-	(uint(texelFetch(vdb_brick[BRICK_INDEX], VOXEL_POSITION, 0).r))
+	(uint(texelFetch(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION, 0).r))
 
 struct vdb_lod_t {
 	int lod;
@@ -33,6 +33,7 @@ layout (binding = 0) uniform camera_info_t {
 	mat4 projection;
 	mat4 view_projection;
 	mat4 view_projection_inv;
+	vec4 frustum_plane[6];
 } camera_info;
 layout (binding = 1) uniform screen_info_t {
 	vec2 resolution;
@@ -40,7 +41,7 @@ layout (binding = 1) uniform screen_info_t {
 layout (binding = 2) uniform vdb_cluster_info_t {
 	ivec3 cluster_dim;
 } vdb_cluster_info;
-layout (binding = 3) uniform usampler3D vdb_brick[];
+layout (binding = 3) uniform usampler3D vdb_brick_data[];
 
 vec3 vdb_safe_inverse(vec3 vector) {
 	return vec3(
@@ -78,26 +79,26 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 
 	ivec3 step_direction = ivec3(sign(ray_direction));
 	ivec3 voxel_position = ivec3(0);
-	ivec3 brick_position = ivec3(floor(ray_origin / VDB_BASE_RES));
+	ivec3 brick_position = ivec3(floor(ray_origin / VDB_BRICK_SIZE));
 	ivec3 prev_brick_position = brick_position;
 
 	vec3 position = ray_origin;
 	vec3 prev_position = ray_origin;
 	vec3 next_boundary = vec3(0.0);
 	vec3 t_max = vec3(0.0);
-	vec3 brick_origin = brick_position * VDB_BASE_RES;
+	vec3 brick_origin = brick_position * VDB_BRICK_SIZE;
 	vec3 ray_direction_inv = vdb_safe_inverse(ray_direction);
 	vec3 current_min = vec3(0.0);
 	vec3 current_max = vec3(0.0);
 	vec3 cluster_min = vec3(0.0);
-	vec3 cluster_max = vec3(vec3(VDB_CLUSTER_DIM_X, VDB_CLUSTER_DIM_Y, VDB_CLUSTER_DIM_Z) * VDB_BASE_RES);
+	vec3 cluster_max = vec3(vec3(VDB_CLUSTER_DIM_X, VDB_CLUSTER_DIM_Y, VDB_CLUSTER_DIM_Z) * VDB_BRICK_SIZE);
 
 	brick_index = VDB_BRICK_INDEX(lod, brick_position.x, brick_position.y, brick_position.z);
 
 	while (t < max_distance && iter < max_iteration) {
 
 		prev_brick_position = brick_position;
-		brick_position = ivec3(floor(position / VDB_BASE_RES));
+		brick_position = ivec3(floor(position / VDB_BRICK_SIZE));
 
 		vec3 position_clamped = clamp(position, cluster_min, cluster_max - 0.001);
 		if (position_clamped != position) {
@@ -141,7 +142,7 @@ vdb_hit_t vdb_hdda_trace(vec3 ray_origin, vec3 ray_direction, float max_distance
 			stack_depth--;
 		}
 
-		brick_origin = brick_position * VDB_BASE_RES;
+		brick_origin = brick_position * VDB_BRICK_SIZE;
 
 		voxel_position = ivec3(floor((position - brick_origin) / voxel_size_f));
 

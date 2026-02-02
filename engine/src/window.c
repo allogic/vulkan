@@ -176,12 +176,12 @@ void window_run(void) {
 
     renderer_draw_debug_box(
       (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){(float)(VDB_BASE_RES), (float)(VDB_BASE_RES), (float)(VDB_BASE_RES)},
+      (vector3_t){(float)(VDB_BRICK_SIZE), (float)(VDB_BRICK_SIZE), (float)(VDB_BRICK_SIZE)},
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
     renderer_draw_debug_box(
       (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){(float)(VDB_BASE_RES * VDB_CLUSTER_DIM_X), (float)(VDB_BASE_RES * VDB_CLUSTER_DIM_Y), (float)(VDB_BASE_RES * VDB_CLUSTER_DIM_Z)},
+      (vector3_t){(float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_X), (float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_Y), (float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_Z)},
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
     player_update(&player);

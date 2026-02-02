@@ -95,7 +95,7 @@ static void dbgui_draw_vdb_world_generator(void) {
   ImGui::Begin("World Layer");
 
   int32_t layer_index = 0;
-  int32_t layer_count = VDB_MAX_LAYER;
+  int32_t layer_count = VDB_TERRAIN_LAYER_COUNT;
 
   while (layer_index < layer_count) {
 

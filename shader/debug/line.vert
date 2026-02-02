@@ -15,6 +15,7 @@ layout (binding = 0) uniform camera_info_t {
 	mat4 projection;
 	mat4 view_projection;
 	mat4 view_projection_inv;
+	vec4 frustum_plane[6];
 } camera_info;
 
 void main() {

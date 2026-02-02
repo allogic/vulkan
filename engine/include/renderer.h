@@ -1,6 +1,8 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
+// TODO: remove push constants!
+
 #define RENDERER_DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
 #define RENDERER_DEBUG_LINE_INDEX_COUNT (0xFFFFF)
 
@@ -18,6 +20,7 @@ typedef struct camera_info_t {
   matrix4_t projection;
   matrix4_t view_projection;
   matrix4_t view_projection_inv;
+  vector4_t frustum_plane[6];
 } camera_info_t;
 
 STATIC_ASSERT(ALIGNOF(time_info_t) == 4);

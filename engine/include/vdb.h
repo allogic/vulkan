@@ -1,18 +1,18 @@
 #ifndef VDB_H
 #define VDB_H
 
-#define VDB_LOD_COUNT (8)
+#define VDB_LOD_COUNT (5)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
-#define VDB_BASE_RES (256)
-#define VDB_CLUSTER_DIM_X (3)
-#define VDB_CLUSTER_DIM_Y (3)
-#define VDB_CLUSTER_DIM_Z (3)
+#define VDB_BRICK_SIZE (32)
+#define VDB_CLUSTER_DIM_X (16)
+#define VDB_CLUSTER_DIM_Y (8)
+#define VDB_CLUSTER_DIM_Z (16)
 #define VDB_BRICK_COUNT (VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y * VDB_CLUSTER_DIM_Z)
 
 #define VDB_VOXELS_PER_AXIS(LOD) \
   (g_vdb_axis_voxels_per_lod[LOD])
 
-#define VDB_MAX_LAYER (16)
+#define VDB_TERRAIN_LAYER_COUNT (16)
 
 #define VDB_NOISE_TYPE_CELLULAR (0x0)
 #define VDB_NOISE_TYPE_CURL (0x1)
@@ -110,23 +110,31 @@ typedef struct vdb_occlusion_info_t {
   float cull_radius;
   float meshlet_density;
 } vdb_occlusion_info_t;
+typedef struct vdb_brick_info_t {
+  vector3_t aabb_min;
+  int32_t reserved0;
+  vector3_t aabb_max;
+  int32_t reserved1;
+  int32_t lod;
+  int32_t meshlet_offset;
+  int32_t meshlet_count;
+  int32_t reserved2;
+} vdb_brick_info_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_cluster_info_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_occlusion_info_t) == 4);
-
-typedef struct vdb_brick_t {
-  VkImage image;
-  VkDeviceMemory device_memory;
-  VkImageView image_view[VDB_LOD_COUNT_PLUS_ONE];
-} vdb_brick_t;
+STATIC_ASSERT(ALIGNOF(vdb_brick_info_t) == 4);
 
 typedef struct vdb_t {
-  vdb_brick_t *brick;
+  VkImage *brick_image;
+  VkDeviceMemory *brick_device_memory;
+  VkImageView *brick_image_view;
   VkSampler brick_sampler;
   buffer_t terrain_layer_buffer;
   buffer_t cluster_info_buffer;
   buffer_t occlusion_info_buffer;
+  buffer_t brick_info_buffer;
 } vdb_t;
 
 #ifdef __cplusplus

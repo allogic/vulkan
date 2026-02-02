@@ -6,17 +6,17 @@
 #include "../vdb/common.glsl"
 
 #define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
-	(uint(imageLoad(vdb_brick[BRICK_INDEX], VOXEL_POSITION).r))
+	(uint(imageLoad(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION).r))
 
 #define VDB_SET_VOXEL(BRICK_INDEX, VOXEL_POSITION, VOXEL) \
-	(imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0)))
+	(imageStore(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0)))
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout (binding = 0) uniform vdb_cluster_info_t {
 	ivec3 cluster_dim;
 } vdb_cluster_info;
-layout (binding = 1, r32ui) uniform uimage3D vdb_brick[];
+layout (binding = 1, r32ui) uniform uimage3D vdb_brick_data[];
 
 layout (push_constant) uniform vdb_lod_generator_push_constant_t {
 	ivec3 brick_position;

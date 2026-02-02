@@ -15,10 +15,10 @@
 #include "../vdb/common.glsl"
 
 #define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
-	(uint(imageLoad(vdb_brick[BRICK_INDEX], VOXEL_POSITION).r))
+	(uint(imageLoad(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION).r))
 
 #define VDB_SET_VOXEL(BRICK_INDEX, VOXEL_POSITION, VOXEL) \
-	(imageStore(vdb_brick[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0)))
+	(imageStore(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION, uvec4(VOXEL, 0, 0, 0)))
 
 #define VDB_MAX_LAYER (16)
 
@@ -112,7 +112,7 @@ layout (binding = 0) uniform vdb_cluster_info_t {
 layout (binding = 1) uniform vdb_terrain_layer_t {
 	vdb_world_mod_t modifier[VDB_MAX_LAYER];
 } vdb_terrain_layer;
-layout (binding = 2, r32ui) uniform uimage3D vdb_brick[];
+layout (binding = 2, r32ui) uniform uimage3D vdb_brick_data[];
 
 layout (push_constant) uniform vdb_world_generator_push_constant_t {
 	ivec3 brick_position;
@@ -223,10 +223,10 @@ void main() {
 	ivec3 brick_position = vdb_world_generator_push_constant.brick_position;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
 	
-	vec3 sample_position = vec3((brick_position * VDB_BASE_RES) + voxel_position);
+	vec3 sample_position = vec3((brick_position * VDB_BRICK_SIZE) + voxel_position);
 
-	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES) / 2.0;
-	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_BASE_RES);
+	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_BRICK_SIZE) / 2.0;
+	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_BRICK_SIZE);
 
 	//float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 	float density = vdb_default_density(sample_position, ground_level, cluster_height);
