@@ -17,7 +17,7 @@ int32_t g_vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE] = {
   // 256, // 256 >> 0
   // 128, // 256 >> 1
   // 64,  // 256 >> 2
-  32, // 256 >> 3
+  // 32, // 256 >> 3
   16, // 256 >> 4
   8,  // 256 >> 5
   4,  // 256 >> 6
@@ -181,7 +181,7 @@ static void vdb_create_occlusion_info_buffer(void) {
   g_vdb.occlusion_info_buffer = buffer_create_uniform_coherent(0, sizeof(vdb_occlusion_info_t)); // TODO: remove coherency..
 }
 static void vdb_create_brick_info_buffer(void) {
-  vdb_brick_info_t *brick_info = (vdb_brick_info_t *)HEAP_ALLOC(sizeof(vdb_brick_info_t) * VDB_BRICK_COUNT, 0, 0);
+  vdb_brick_info_t *brick_info = (vdb_brick_info_t *)HEAP_ALLOC(sizeof(vdb_brick_info_t) * VDB_BRICK_COUNT, 1, 0);
 
   int32_t brick_index = 0;
   int32_t brick_count = VDB_BRICK_COUNT;
@@ -201,16 +201,15 @@ static void vdb_create_brick_info_buffer(void) {
       aabb_min.z + VDB_BRICK_SIZE,
     };
 
+    brick_info[brick_index].brick_position = brick_position;
+    brick_info[brick_index].lod = 0;
     brick_info[brick_index].aabb_min = aabb_min;
     brick_info[brick_index].aabb_max = aabb_max;
-    brick_info[brick_index].lod = 0;
-    brick_info[brick_index].meshlet_offset = 0;
-    brick_info[brick_index].meshlet_count = 1;
 
     brick_index++;
   }
 
-  g_vdb.brick_info_buffer = buffer_create_storage(brick_info, sizeof(vdb_brick_info_t));
+  g_vdb.brick_info_buffer = buffer_create_storage(brick_info, sizeof(vdb_brick_info_t) * VDB_BRICK_COUNT);
 
   HEAP_FREE(brick_info);
 }

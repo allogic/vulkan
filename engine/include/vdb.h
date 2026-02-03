@@ -1,9 +1,9 @@
 #ifndef VDB_H
 #define VDB_H
 
-#define VDB_LOD_COUNT (5)
+#define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
-#define VDB_BRICK_SIZE (32)
+#define VDB_BRICK_SIZE (16)
 #define VDB_CLUSTER_DIM_X (16)
 #define VDB_CLUSTER_DIM_Y (8)
 #define VDB_CLUSTER_DIM_Z (16)
@@ -111,14 +111,12 @@ typedef struct vdb_occlusion_info_t {
   float meshlet_density;
 } vdb_occlusion_info_t;
 typedef struct vdb_brick_info_t {
+  ivector3_t brick_position;
+  int32_t lod;
   vector3_t aabb_min;
   int32_t reserved0;
   vector3_t aabb_max;
   int32_t reserved1;
-  int32_t lod;
-  int32_t meshlet_offset;
-  int32_t meshlet_count;
-  int32_t reserved2;
 } vdb_brick_info_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);

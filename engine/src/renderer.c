@@ -631,7 +631,7 @@ static void renderer_create_descriptor_set_layouts(void) {
         .binding = 3,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
+        .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT,
         .pImmutableSamplers = 0,
       },
     };
@@ -1184,7 +1184,7 @@ static void renderer_create_vdb_mesh_renderer_pipeline(char const *task_shader_f
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
     .depthClampEnable = 0,
     .rasterizerDiscardEnable = 0,
-    .polygonMode = VK_POLYGON_MODE_FILL,
+    .polygonMode = VK_POLYGON_MODE_LINE,
     .lineWidth = 1.0F,
     .cullMode = VK_CULL_MODE_BACK_BIT,
     .frontFace = VK_FRONT_FACE_CLOCKWISE,
@@ -2079,6 +2079,8 @@ static void renderer_record_graphics_commands(void) {
   vkCmdSetScissor(g_renderer.command_buffer, 0, 1, &scissor);
 
   {
+    // TODO
+    /*
     VkBuffer vertex_buffers[] = {g_renderer.full_screen_vertex_buffer.handle};
     uint64_t vertex_offsets[] = {0};
 
@@ -2087,16 +2089,15 @@ static void renderer_record_graphics_commands(void) {
     vkCmdBindIndexBuffer(g_renderer.command_buffer, g_renderer.full_screen_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_soft_tracer_pipeline_layout, 0, 1, &g_renderer.vdb_soft_tracer_descriptor_set, 0, 0);
     vkCmdDrawIndexed(g_renderer.command_buffer, 6, 1, 0, 0, 0);
+        */
   }
 
   {
-    int32_t group_count_x = MAKE_GROUP_COUNT(VDB_CLUSTER_DIM_X, 4);
-    int32_t group_count_y = MAKE_GROUP_COUNT(VDB_CLUSTER_DIM_Y, 4);
-    int32_t group_count_z = MAKE_GROUP_COUNT(VDB_CLUSTER_DIM_Z, 4);
+    int32_t group_count = VDB_BRICK_COUNT;
 
     vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_mesh_renderer_pipeline);
     vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_mesh_renderer_pipeline_layout, 0, 1, &g_renderer.vdb_mesh_renderer_descriptor_set, 0, 0);
-    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count_x, group_count_y, group_count_z);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
   }
 
   {

@@ -1,16 +1,15 @@
 #version 460 core
 
-#extension GL_KHR_shader_subgroup_ballot : require
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_mesh_shader : require
 
 #include "../vdb/common.glsl"
 
-#define VDB_GET_VOXEL(BRICK_INDEX, VOXEL_POSITION) \
-	(uint(texelFetch(vdb_brick_data[BRICK_INDEX], VOXEL_POSITION, 0).r))
+const int SUB_DIV = 2;
+const int SUBPARTS_PER_LAYER = SUB_DIV * SUB_DIV;
 
-layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout (binding = 0) uniform camera_info_t {
 	vec3 position;
@@ -31,7 +30,7 @@ layout (binding = 3) readonly buffer vdb_brick_info_buffer_t {
     vdb_brick_info_t brick_info[];
 } vdb_brick_info_buffer;
 
-//taskPayloadSharedEXT shared_data_t shared_data; // TODO
+taskPayloadSharedEXT vdb_shared_mesh_data_t vdb_shared_mesh_data;
 
 bool aabb_in_frustum(vec3 minp, vec3 maxp) {
 
@@ -52,7 +51,7 @@ bool aabb_in_frustum(vec3 minp, vec3 maxp) {
 }
 
 void main() {
-	uint brick_index = gl_GlobalInvocationID.x;
+	int brick_index = int(gl_GlobalInvocationID.x);
 	
 	vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
 
@@ -60,41 +59,8 @@ void main() {
 		return;
 	}
 
-	EmitMeshTasksEXT(brick_info.meshlet_count, 1, 1);
+	vdb_shared_mesh_data.brick_position = brick_info.brick_position;
+	vdb_shared_mesh_data.brick_index = brick_index;
 
-	/*
-	vec2 position = vec2(vdb_occlusion_info.cull_center_x, vdb_occlusion_info.cull_center_y);
-
-	vec2 p0 = position + offset;
-	vec2 p1 = p0 + vec2(size.x, 0.0f);
-	vec2 p2 = p0 + size;
-	vec2 p3 = p0 + vec2(0.0f, size.y);
-
-	float radius_sq = vdb_occlusion_info.cull_radius * vdb_occlusion_info.cull_radius;
-
-	bool is_valid = (length(p0) < radius_sq) &&
-					(length(p1) < radius_sq) &&
-					(length(p2) < radius_sq) &&
-					(length(p3) < radius_sq);
-
-	uvec4 valid_votes = subgroupBallot(is_valid); // contribute a single bit by this task shader invocation
-
-	if (is_valid) {
-
-		uint index = subgroupBallotExclusiveBitCount(valid_votes); // get the next free index into the offsets array
-
-		shared_data.offsets[index] = offset;
-	}
-
-	if (gl_LocalInvocationIndex == 0) {
-
-		// for just one task shader invocation we can emit mesh shaders
-		shared_data.position = position;
-		shared_data.size = size;
-
-		uint valid_count = subgroupBallotBitCount(valid_votes); // get the actual number of task shader invocations that are determined to display something
-
-		//EmitMeshTasksEXT(1, 1, 1);
-	}
-	*/
+	EmitMeshTasksEXT(VDB_BRICK_SIZE * SUBPARTS_PER_LAYER, 1, 1);
 }

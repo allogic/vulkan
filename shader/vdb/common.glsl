@@ -6,9 +6,9 @@
 #define VDB_EPSILON_5 (1E-5)
 #define VDB_EPSILON_6 (1E-6)
 
-#define VDB_LOD_COUNT (5)
+#define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
-#define VDB_BRICK_SIZE (32)
+#define VDB_BRICK_SIZE (16)
 #define VDB_CLUSTER_DIM_X (16)
 #define VDB_CLUSTER_DIM_Y (8)
 #define VDB_CLUSTER_DIM_Z (16)
@@ -44,7 +44,7 @@ const int vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE] = int[VDB_LOD_COUNT_PL
 	// 256, // 256 >> 0
 	// 128, // 256 >> 1
 	// 64,  // 256 >> 2
-	32,  // 256 >> 3
+	// 32,  // 256 >> 3
 	16,  // 256 >> 4
 	8,   // 256 >> 5
 	4,   // 256 >> 6
@@ -56,7 +56,7 @@ const int vdb_voxel_count_per_lod[VDB_LOD_COUNT_PLUS_ONE] = int[VDB_LOD_COUNT_PL
 	// 16777216, // 256x256x256
 	// 2097152,  // 128x128x128
 	// 262144,   // 64x64x64
-	32768,    // 32x32x32
+	// 32768,    // 32x32x32
 	4096,     // 16x16x16
 	512,      // 8x8x8
 	64,       // 4x4x4
@@ -65,20 +65,17 @@ const int vdb_voxel_count_per_lod[VDB_LOD_COUNT_PLUS_ONE] = int[VDB_LOD_COUNT_PL
 );
 
 struct vdb_brick_info_t {
+	ivec3 brick_position;
+	int lod;
 	vec3 aabb_min;
 	int reserved0;
 	vec3 aabb_max;
 	int reserved1;
-	int lod;
-	int meshlet_offset;
-	int meshlet_count;
-	int reserved2;
 };
 
-struct shared_data_t {
-	vec2 position;
-	vec2 offsets[2 * 2];
-	vec2 size;
+struct vdb_shared_mesh_data_t {
+	ivec3 brick_position;
+	int brick_index;
 };
 
 #endif // VDB_COMMON_H
