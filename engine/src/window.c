@@ -184,6 +184,15 @@ void window_run(void) {
       (vector3_t){(float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_X), (float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_Y), (float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_Z)},
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
+    // TODO
+    vdb_debug_pos_x();
+    vdb_debug_pos_y();
+    vdb_debug_pos_z();
+
+    // vdb_debug_neg_x();
+    // vdb_debug_neg_y();
+    // vdb_debug_neg_z();
+
     player_update(&player);
 
     renderer_draw(&player.transform, &player.camera);

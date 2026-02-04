@@ -3,8 +3,13 @@
 
 // TODO: remove push constants!
 
-#define RENDERER_DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
-#define RENDERER_DEBUG_LINE_INDEX_COUNT (0xFFFFF)
+// #define ENABLE_VDB_WORLD_GENERATOR
+// #define ENABLE_VDB_LOD_GENERATOR
+// #define ENABLE_VDB_MESH_RENDERER
+#define ENABLE_DEBUG_LINE_RENDERER
+
+#define DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
+#define DEBUG_LINE_INDEX_COUNT (0xFFFFF)
 
 typedef struct time_info_t {
   float time;
@@ -65,46 +70,50 @@ typedef struct renderer_t {
   int8_t rebuild_world;
   int8_t rebuild_lod;
   int32_t image_index;
-  int32_t debug_line_vertex_offset;
-  int32_t debug_line_index_offset;
   VkCommandBuffer command_buffer;
   VkSemaphore render_finished_semaphore[SWAPCHAIN_MAX_IMAGE_COUNT];
   VkSemaphore image_available_semaphore;
   VkFence frame_fence;
+#ifdef ENABLE_VDB_WORLD_GENERATOR
   VkDescriptorPool vdb_world_generator_descriptor_pool;
-  VkDescriptorPool vdb_lod_generator_descriptor_pool;
-  VkDescriptorPool vdb_soft_tracer_descriptor_pool;
-  VkDescriptorPool vdb_mesh_renderer_descriptor_pool;
-  VkDescriptorPool debug_line_descriptor_pool;
   VkDescriptorSetLayout vdb_world_generator_descriptor_set_layout;
-  VkDescriptorSetLayout vdb_lod_generator_descriptor_set_layout;
-  VkDescriptorSetLayout vdb_soft_tracer_descriptor_set_layout;
-  VkDescriptorSetLayout vdb_mesh_renderer_descriptor_set_layout;
-  VkDescriptorSetLayout debug_line_descriptor_set_layout;
   VkDescriptorSet vdb_world_generator_descriptor_set;
-  VkDescriptorSet vdb_lod_generator_descriptor_set;
-  VkDescriptorSet vdb_soft_tracer_descriptor_set;
-  VkDescriptorSet vdb_mesh_renderer_descriptor_set;
-  VkDescriptorSet debug_line_descriptor_set;
   VkPipelineLayout vdb_world_generator_pipeline_layout;
-  VkPipelineLayout vdb_lod_generator_pipeline_layout;
-  VkPipelineLayout vdb_soft_tracer_pipeline_layout;
-  VkPipelineLayout vdb_mesh_renderer_pipeline_layout;
-  VkPipelineLayout debug_line_pipeline_layout;
   VkPipeline vdb_world_generator_pipeline;
+#endif // ENABLE_VDB_WORLD_GENERATOR
+#ifdef ENABLE_VDB_LOD_GENERATOR
+  VkDescriptorPool vdb_lod_generator_descriptor_pool;
+  VkDescriptorSetLayout vdb_lod_generator_descriptor_set_layout;
+  VkDescriptorSet vdb_lod_generator_descriptor_set;
+  VkPipelineLayout vdb_lod_generator_pipeline_layout;
   VkPipeline vdb_lod_generator_pipeline;
-  VkPipeline vdb_soft_tracer_pipeline;
+#endif // ENABLE_VDB_LOD_GENERATOR
+#ifdef ENABLE_VDB_MESH_RENDERER
+  VkDescriptorPool vdb_mesh_renderer_descriptor_pool;
+  VkDescriptorSetLayout vdb_mesh_renderer_descriptor_set_layout;
+  VkDescriptorSet vdb_mesh_renderer_descriptor_set;
+  VkPipelineLayout vdb_mesh_renderer_pipeline_layout;
   VkPipeline vdb_mesh_renderer_pipeline;
+#endif // ENABLE_VDB_MESH_RENDERER
+#ifdef ENABLE_DEBUG_LINE_RENDERER
+  VkDescriptorPool debug_line_descriptor_pool;
+  VkDescriptorSetLayout debug_line_descriptor_set_layout;
+  VkDescriptorSet debug_line_descriptor_set;
+  VkPipelineLayout debug_line_pipeline_layout;
   VkPipeline debug_line_pipeline;
+  buffer_t debug_line_vertex_buffer;
+  buffer_t debug_line_index_buffer;
+  int32_t debug_line_vertex_offset;
+  int32_t debug_line_index_offset;
+#endif // ENABLE_DEBUG_LINE_RENDERER
   buffer_t time_info_buffer;
   buffer_t screen_info_buffer;
   buffer_t camera_info_buffer;
-  buffer_t debug_line_vertex_buffer;
-  buffer_t debug_line_index_buffer;
   buffer_t full_screen_vertex_buffer;
   buffer_t full_screen_index_buffer;
-  vdb_world_generator_push_constant_t vdb_world_generator_push_constant;
-  vdb_lod_generator_push_constant_t vdb_lod_generator_push_constant;
+  // TODO
+  // vdb_world_generator_push_constant_t vdb_world_generator_push_constant;
+  // vdb_lod_generator_push_constant_t vdb_lod_generator_push_constant;
 } renderer_t;
 
 #ifdef __cplusplus
@@ -117,8 +126,13 @@ void renderer_create(void);
 void renderer_draw(transform_t *transform, camera_t *camera);
 void renderer_destroy(void);
 
+#ifdef ENABLE_DEBUG_LINE_RENDERER
 void renderer_draw_debug_line(vector3_t from, vector3_t to, vector4_t color);
 void renderer_draw_debug_box(vector3_t position, vector3_t size, vector4_t color);
+#else
+#  define renderer_draw_debug_line(...)
+#  define renderer_draw_debug_box(...)
+#endif // ENABLE_DEBUG_LINE_RENDERER
 
 #ifdef __cplusplus
 }

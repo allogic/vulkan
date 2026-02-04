@@ -1,46 +1,378 @@
 #include <pch.h>
 
-static void vdb_create_brick_data(void);
 static void vdb_create_terrain_layer_buffer(void);
 static void vdb_create_cluster_info_buffer(void);
 static void vdb_create_occlusion_info_buffer(void);
 static void vdb_create_brick_info_buffer(void);
-static void vdb_create_brick_sampler(void);
-
-static void vdb_destroy_brick_data(void);
-static void vdb_destroy_buffer(void);
-static void vdb_destroy_brick_sampler(void);
+static void vdb_create_brick_mask_buffer(void);
 
 vdb_t g_vdb = {0};
 
-int32_t g_vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE] = {
-  // 256, // 256 >> 0
-  // 128, // 256 >> 1
-  // 64,  // 256 >> 2
-  // 32, // 256 >> 3
-  16, // 256 >> 4
-  8,  // 256 >> 5
-  4,  // 256 >> 6
-  2,  // 256 >> 7
-  1,  // 256 >> 8
-};
-
 void vdb_create(void) {
-  vdb_create_brick_data();
-
   vdb_create_terrain_layer_buffer();
   vdb_create_cluster_info_buffer();
   vdb_create_occlusion_info_buffer();
   vdb_create_brick_info_buffer();
+  vdb_create_brick_mask_buffer();
+}
+void vdb_debug_pos_x(void) {
+  const vector4_t color = {1.0f, 0.0f, 0.0f, 1.0f};
 
-  vdb_create_brick_sampler();
+  for (int brick_i = 0; brick_i < VDB_BRICK_COUNT; brick_i++) {
+    if (g_vdb.brick_mask[brick_i].any_x_faces == 0)
+      continue;
+
+    ivector3_t bp = vdb_brick_index_to_position(brick_i);
+
+    vector3_t offset = {
+      (float)bp.x * VDB_BRICK_SIZE,
+      (float)bp.y * VDB_BRICK_SIZE,
+      (float)bp.z * VDB_BRICK_SIZE};
+
+    for (uint32_t slice_x = 0; slice_x < VDB_BRICK_SIZE; slice_x++) {
+      if ((g_vdb.brick_mask[brick_i].any_x_faces & (1u << slice_x)) == 0)
+        continue;
+
+      uint32_t rows[VDB_BRICK_SIZE] = {0};
+
+      for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++) {
+        uint32_t mask_row = 0;
+        for (uint32_t y = 0; y < VDB_BRICK_SIZE; y++) {
+          uint32_t idx = z * VDB_BRICK_SIZE + y + 1;
+          if (g_vdb.brick_mask[brick_i].x_mask[idx] & (1u << slice_x))
+            mask_row |= (1u << y);
+        }
+        rows[z] = mask_row;
+      }
+
+      for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++) {
+        uint32_t row = rows[z];
+        while (row) {
+          uint32_t y_start = _tzcnt_u32(row);
+
+          uint32_t remaining = row >> y_start;
+          uint32_t width = _tzcnt_u32(~remaining);
+
+          if (y_start + width > VDB_BRICK_SIZE)
+            width = VDB_BRICK_SIZE - y_start;
+
+          uint32_t quad_mask = (width == 32) ? 0xFFFFFFFFu : (((1u << width) - 1u) << y_start);
+
+          uint32_t height = 1;
+          while (z + height < VDB_BRICK_SIZE && (rows[z + height] & quad_mask) == quad_mask)
+            height++;
+
+          float x_face = (float)slice_x + 1.0f;
+
+          vector3_t p0 = {(float)x_face, (float)y_start, (float)z};
+          vector3_t p1 = {(float)x_face, (float)(y_start + width), (float)z};
+          vector3_t p2 = {(float)x_face, (float)(y_start + width), (float)(z + height)};
+          vector3_t p3 = {(float)x_face, (float)y_start, (float)(z + height)};
+
+          p0 = vector3_add(p0, offset);
+          p1 = vector3_add(p1, offset);
+          p2 = vector3_add(p2, offset);
+          p3 = vector3_add(p3, offset);
+
+          renderer_draw_debug_line(p0, p1, color);
+          renderer_draw_debug_line(p1, p2, color);
+          renderer_draw_debug_line(p2, p3, color);
+          renderer_draw_debug_line(p3, p0, color);
+          renderer_draw_debug_line(p0, p2, color);
+
+          for (uint32_t hh = 0; hh < height; hh++)
+            rows[z + hh] &= ~quad_mask;
+
+          row = rows[z];
+        }
+      }
+    }
+  }
+}
+void vdb_debug_pos_y(void) {
+  const vector4_t color = {0.0f, 1.0f, 0.0f, 1.0f};
+
+  for (int brick_i = 0; brick_i < VDB_BRICK_COUNT; brick_i++) {
+    if (g_vdb.brick_mask[brick_i].any_y_faces == 0)
+      continue;
+
+    ivector3_t bp = vdb_brick_index_to_position(brick_i);
+
+    vector3_t offset = {
+      (float)bp.x * VDB_BRICK_SIZE,
+      (float)bp.y * VDB_BRICK_SIZE,
+      (float)bp.z * VDB_BRICK_SIZE};
+
+    for (uint32_t slice_y = 0; slice_y < VDB_BRICK_SIZE; slice_y++) {
+      if ((g_vdb.brick_mask[brick_i].any_y_faces & (1u << slice_y)) == 0)
+        continue;
+
+      uint32_t rows[VDB_BRICK_SIZE] = {0};
+
+      for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++) {
+        uint32_t mask_row = 0;
+        for (uint32_t x = 0; x < VDB_BRICK_SIZE; x++) {
+          uint32_t idx = z * VDB_BRICK_SIZE + x + 1;
+          if (g_vdb.brick_mask[brick_i].y_mask[idx] & (1u << slice_y))
+            mask_row |= (1u << x);
+        }
+        rows[z] = mask_row;
+      }
+
+      for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++) {
+        uint32_t row = rows[z];
+        while (row) {
+          uint32_t x_start = _tzcnt_u32(row);
+
+          uint32_t remaining = row >> x_start;
+          uint32_t width = _tzcnt_u32(~remaining);
+
+          if (x_start + width > VDB_BRICK_SIZE)
+            width = VDB_BRICK_SIZE - x_start;
+
+          uint32_t quad_mask = (width == 32) ? 0xFFFFFFFFu : (((1u << width) - 1u) << x_start);
+
+          uint32_t height = 1;
+          while (z + height < VDB_BRICK_SIZE && (rows[z + height] & quad_mask) == quad_mask)
+            height++;
+
+          float y_face = (float)slice_y + 1.0f;
+
+          vector3_t p0 = {(float)x_start, (float)y_face, (float)z};
+          vector3_t p1 = {(float)(x_start + width), (float)y_face, (float)z};
+          vector3_t p2 = {(float)(x_start + width), (float)y_face, (float)(z + height)};
+          vector3_t p3 = {(float)x_start, (float)y_face, (float)(z + height)};
+
+          p0 = vector3_add(p0, offset);
+          p1 = vector3_add(p1, offset);
+          p2 = vector3_add(p2, offset);
+          p3 = vector3_add(p3, offset);
+
+          renderer_draw_debug_line(p0, p1, color);
+          renderer_draw_debug_line(p1, p2, color);
+          renderer_draw_debug_line(p2, p3, color);
+          renderer_draw_debug_line(p3, p0, color);
+          renderer_draw_debug_line(p0, p2, color);
+
+          for (uint32_t hh = 0; hh < height; hh++)
+            rows[z + hh] &= ~quad_mask;
+
+          row = rows[z];
+        }
+      }
+    }
+  }
+}
+void vdb_debug_pos_z(void) {
+  const vector4_t color = {0.0f, 0.0f, 1.0f, 1.0f};
+
+  for (int brick_i = 0; brick_i < VDB_BRICK_COUNT; brick_i++) {
+
+    if (g_vdb.brick_mask[brick_i].any_z_faces == 0)
+      continue;
+
+    ivector3_t bp = vdb_brick_index_to_position(brick_i);
+
+    vector3_t offset = {
+      (float)bp.x * VDB_BRICK_SIZE,
+      (float)bp.y * VDB_BRICK_SIZE,
+      (float)bp.z * VDB_BRICK_SIZE};
+
+    for (uint32_t slice_z = 0; slice_z < VDB_BRICK_SIZE; slice_z++) {
+      if ((g_vdb.brick_mask[brick_i].any_z_faces & (1u << slice_z)) == 0)
+        continue;
+
+      uint32_t rows[VDB_BRICK_SIZE] = {0};
+
+      for (uint32_t y = 0; y < VDB_BRICK_SIZE; y++) {
+        uint32_t mask_row = 0;
+        for (uint32_t x = 0; x < VDB_BRICK_SIZE; x++) {
+          uint32_t idx = y * VDB_BRICK_SIZE + x + 1;
+          if (g_vdb.brick_mask[brick_i].z_mask[idx] & (1u << slice_z))
+            mask_row |= (1u << x);
+        }
+        rows[y] = mask_row;
+      }
+
+      for (uint32_t y = 0; y < VDB_BRICK_SIZE; y++) {
+        uint32_t row = rows[y];
+        while (row) {
+          uint32_t x = _tzcnt_u32(row);
+
+          uint32_t remaining = row >> x;
+          uint32_t w = _tzcnt_u32(~remaining);
+
+          if (x + w > VDB_BRICK_SIZE)
+            w = VDB_BRICK_SIZE - x;
+
+          uint32_t quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << x);
+
+          uint32_t h = 1;
+          while (y + h < VDB_BRICK_SIZE && (rows[y + h] & quad_mask) == quad_mask)
+            h++;
+
+          float z_face = (float)slice_z + 1.0f;
+
+          vector3_t p0 = {(float)x, (float)y, z_face};
+          vector3_t p1 = {(float)(x + w), (float)y, z_face};
+          vector3_t p2 = {(float)(x + w), (float)(y + h), z_face};
+          vector3_t p3 = {(float)x, (float)(y + h), z_face};
+
+          p0 = vector3_add(p0, offset);
+          p1 = vector3_add(p1, offset);
+          p2 = vector3_add(p2, offset);
+          p3 = vector3_add(p3, offset);
+
+          renderer_draw_debug_line(p0, p1, color);
+          renderer_draw_debug_line(p1, p2, color);
+          renderer_draw_debug_line(p2, p3, color);
+          renderer_draw_debug_line(p3, p0, color);
+          renderer_draw_debug_line(p0, p2, color);
+
+          for (uint32_t hh = 0; hh < h; hh++)
+            rows[y + hh] &= ~quad_mask;
+
+          row = rows[y];
+        }
+      }
+    }
+  }
+}
+void vdb_debug_neg_x(void) {
+  for (uint32_t slice_x = 0; slice_x < VDB_BRICK_SIZE; slice_x++) {
+    uint32_t rows[VDB_BRICK_SIZE] = {0};
+
+    for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++)
+      for (uint32_t y = 0; y < VDB_BRICK_SIZE; y++) {
+        uint32_t idx = z * VDB_BRICK_SIZE + y + 1;
+        if (g_vdb.brick_mask[0].x_mask[idx] & (1u << slice_x))
+          rows[z] |= (1u << y);
+      }
+
+    for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++) {
+      while (rows[z]) {
+        uint32_t y = 0;
+        while (y < VDB_BRICK_SIZE && (rows[z] & (1u << y)) == 0)
+          y++;
+        if (y == VDB_BRICK_SIZE)
+          break;
+
+        uint32_t w = 0;
+        while (y + w < VDB_BRICK_SIZE && (rows[z] & (1u << (y + w))) != 0)
+          w++;
+
+        uint32_t quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << y);
+
+        uint32_t h = 1;
+        while (z + h < VDB_BRICK_SIZE && (rows[z + h] & quad_mask) == quad_mask)
+          h++;
+
+        float x_face = (float)slice_x;
+
+        renderer_draw_debug_line((vector3_t){x_face, (float)y, (float)z}, (vector3_t){x_face, (float)y, (float)(z + h)}, (vector4_t){0.8f, 0.0f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){x_face, (float)y, (float)(z + h)}, (vector3_t){x_face, (float)(y + w), (float)(z + h)}, (vector4_t){0.8f, 0.0f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){x_face, (float)(y + w), (float)(z + h)}, (vector3_t){x_face, (float)(y + w), (float)z}, (vector4_t){0.8f, 0.0f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){x_face, (float)(y + w), (float)z}, (vector3_t){x_face, (float)y, (float)z}, (vector4_t){0.8f, 0.0f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){x_face, (float)y, (float)z}, (vector3_t){x_face, (float)(y + w), (float)(z + h)}, (vector4_t){0.8f, 0.0f, 0.0f, 1});
+
+        for (uint32_t zz = 0; zz < h; zz++)
+          rows[z + zz] &= ~quad_mask;
+      }
+    }
+  }
+}
+void vdb_debug_neg_y(void) {
+  for (uint32_t slice_y = 0; slice_y < VDB_BRICK_SIZE; slice_y++) {
+    uint32_t rows[VDB_BRICK_SIZE] = {0};
+
+    for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++)
+      for (uint32_t x = 0; x < VDB_BRICK_SIZE; x++) {
+        uint32_t idx = z * VDB_BRICK_SIZE + x + 1;
+        if (g_vdb.brick_mask[0].y_mask[idx] & (1u << slice_y))
+          rows[z] |= (1u << x);
+      }
+
+    for (uint32_t z = 0; z < VDB_BRICK_SIZE; z++) {
+      while (rows[z]) {
+        uint32_t x = 0;
+        while (x < VDB_BRICK_SIZE && (rows[z] & (1u << x)) == 0)
+          x++;
+        if (x == VDB_BRICK_SIZE)
+          break;
+
+        uint32_t w = 0;
+        while (x + w < VDB_BRICK_SIZE && (rows[z] & (1u << (x + w))) != 0)
+          w++;
+
+        uint32_t quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << x);
+
+        uint32_t h = 1;
+        while (z + h < VDB_BRICK_SIZE && (rows[z + h] & quad_mask) == quad_mask)
+          h++;
+
+        float y_face = (float)slice_y;
+
+        renderer_draw_debug_line((vector3_t){(float)x, y_face, (float)z}, (vector3_t){(float)x, y_face, (float)(z + h)}, (vector4_t){0.0f, 0.7f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){(float)x, y_face, (float)(z + h)}, (vector3_t){(float)(x + w), y_face, (float)(z + h)}, (vector4_t){0.0f, 0.7f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){(float)(x + w), y_face, (float)(z + h)}, (vector3_t){(float)(x + w), y_face, (float)z}, (vector4_t){0.0f, 0.7f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){(float)(x + w), y_face, (float)z}, (vector3_t){(float)x, y_face, (float)z}, (vector4_t){0.0f, 0.7f, 0.0f, 1});
+        renderer_draw_debug_line((vector3_t){(float)x, y_face, (float)z}, (vector3_t){(float)(x + w), y_face, (float)(z + h)}, (vector4_t){0.0f, 0.7f, 0.0f, 1});
+
+        for (uint32_t zz = 0; zz < h; zz++)
+          rows[z + zz] &= ~quad_mask;
+      }
+    }
+  }
+}
+void vdb_debug_neg_z(void) {
+  for (uint32_t slice_z = 0; slice_z < VDB_BRICK_SIZE; slice_z++) {
+    uint32_t rows[VDB_BRICK_SIZE] = {0};
+
+    for (uint32_t y = 0; y < VDB_BRICK_SIZE; y++)
+      for (uint32_t x = 0; x < VDB_BRICK_SIZE; x++) {
+        uint32_t idx = y * VDB_BRICK_SIZE + x + 1;
+        if (g_vdb.brick_mask[0].z_mask[idx] & (1u << slice_z))
+          rows[y] |= (1u << x);
+      }
+
+    for (uint32_t y = 0; y < VDB_BRICK_SIZE; y++) {
+      while (rows[y]) {
+        uint32_t x = 0;
+        while (x < VDB_BRICK_SIZE && (rows[y] & (1u << x)) == 0)
+          x++;
+        if (x == VDB_BRICK_SIZE)
+          break;
+
+        uint32_t w = 0;
+        while (x + w < VDB_BRICK_SIZE && (rows[y] & (1u << (x + w))) != 0)
+          w++;
+
+        uint32_t quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << x);
+
+        uint32_t h = 1;
+        while (y + h < VDB_BRICK_SIZE && (rows[y + h] & quad_mask) == quad_mask)
+          h++;
+
+        float z_face = (float)slice_z;
+
+        renderer_draw_debug_line((vector3_t){(float)x, (float)y, z_face}, (vector3_t){(float)x, (float)(y + h), z_face}, (vector4_t){0.0f, 0.4f, 0.8f, 1});
+        renderer_draw_debug_line((vector3_t){(float)x, (float)(y + h), z_face}, (vector3_t){(float)(x + w), (float)(y + h), z_face}, (vector4_t){0.0f, 0.4f, 0.8f, 1});
+        renderer_draw_debug_line((vector3_t){(float)(x + w), (float)(y + h), z_face}, (vector3_t){(float)(x + w), (float)y, z_face}, (vector4_t){0.0f, 0.4f, 0.8f, 1});
+        renderer_draw_debug_line((vector3_t){(float)(x + w), (float)y, z_face}, (vector3_t){(float)x, (float)y, z_face}, (vector4_t){0.0f, 0.4f, 0.8f, 1});
+        renderer_draw_debug_line((vector3_t){(float)x, (float)y, z_face}, (vector3_t){(float)(x + w), (float)(y + h), z_face}, (vector4_t){0.0f, 0.4f, 0.8f, 1});
+
+        for (uint32_t yy = 0; yy < h; yy++)
+          rows[y + yy] &= ~quad_mask;
+      }
+    }
+  }
 }
 void vdb_destroy(void) {
-  vdb_destroy_brick_sampler();
-
-  vdb_destroy_buffer();
-
-  vdb_destroy_brick_data();
+  buffer_destroy(&g_vdb.terrain_layer_buffer);
+  buffer_destroy(&g_vdb.cluster_info_buffer);
+  buffer_destroy(&g_vdb.occlusion_info_buffer);
+  buffer_destroy(&g_vdb.brick_info_buffer);
+  buffer_destroy(&g_vdb.brick_mask_buffer);
 }
 
 int32_t vdb_brick_position_to_index(ivector3_t brick_position) {
@@ -54,113 +386,6 @@ ivector3_t vdb_brick_index_to_position(int32_t brick_index) {
     (brick_index / VDB_CLUSTER_DIM_X) % VDB_CLUSTER_DIM_Y,
     brick_index / (VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y),
   };
-}
-
-static void vdb_create_brick_data(void) {
-  g_vdb.brick_image = (VkImage *)HEAP_ALLOC(sizeof(VkImage) * VDB_BRICK_COUNT, 0, 0);
-  g_vdb.brick_device_memory = (VkDeviceMemory *)HEAP_ALLOC(sizeof(VkDeviceMemory) * VDB_BRICK_COUNT, 0, 0);
-  g_vdb.brick_image_view = (VkImageView *)HEAP_ALLOC(sizeof(VkImageView) * VDB_BRICK_COUNT * VDB_LOD_COUNT_PLUS_ONE, 0, 0);
-
-  VkCommandBuffer command_buffer = vkutils_begin_command_buffer();
-
-  int32_t brick_index = 0;
-  int32_t brick_count = VDB_BRICK_COUNT;
-
-  while (brick_index < brick_count) {
-
-    VkImageCreateInfo image_create_info = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-      .imageType = VK_IMAGE_TYPE_3D,
-      .extent = {
-        .width = VDB_BRICK_SIZE,
-        .height = VDB_BRICK_SIZE,
-        .depth = VDB_BRICK_SIZE,
-      },
-      .mipLevels = VDB_LOD_COUNT_PLUS_ONE,
-      .arrayLayers = 1,
-      .format = VK_FORMAT_R32_UINT,
-      .tiling = VK_IMAGE_TILING_OPTIMAL,
-      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-      .samples = VK_SAMPLE_COUNT_1_BIT,
-      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
-
-    VK_CHECK(vkCreateImage(g_window.device, &image_create_info, 0, &g_vdb.brick_image[brick_index]));
-
-    VkMemoryRequirements memory_requirements = {0};
-
-    vkGetImageMemoryRequirements(g_window.device, g_vdb.brick_image[brick_index], &memory_requirements);
-
-    uint32_t memory_type_index = vkutils_find_memory_type_index(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    VkMemoryAllocateInfo memory_allocate_info = {
-      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-      .allocationSize = memory_requirements.size,
-      .memoryTypeIndex = memory_type_index,
-    };
-
-    VK_CHECK(vkAllocateMemory(g_window.device, &memory_allocate_info, 0, &g_vdb.brick_device_memory[brick_index]));
-    VK_CHECK(vkBindImageMemory(g_window.device, g_vdb.brick_image[brick_index], g_vdb.brick_device_memory[brick_index], 0));
-
-    int32_t lod_index = 0;
-    int32_t lod_count = VDB_LOD_COUNT_PLUS_ONE;
-
-    while (lod_index < lod_count) {
-
-      VkImageViewCreateInfo image_view_create_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = g_vdb.brick_image[brick_index],
-        .viewType = VK_IMAGE_VIEW_TYPE_3D,
-        .format = VK_FORMAT_R32_UINT,
-        .subresourceRange = {
-          .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-          .baseMipLevel = lod_index,
-          .levelCount = 1,
-          .baseArrayLayer = 0,
-          .layerCount = 1,
-        },
-      };
-
-      VK_CHECK(vkCreateImageView(g_window.device, &image_view_create_info, 0, &g_vdb.brick_image_view[lod_index + (brick_index * VDB_LOD_COUNT_PLUS_ONE)]));
-
-      lod_index++;
-    }
-
-    VkImageMemoryBarrier image_memory_barrier = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-      .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .image = g_vdb.brick_image[brick_index],
-      .subresourceRange = {
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseMipLevel = 0,
-        .levelCount = VDB_LOD_COUNT_PLUS_ONE,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-      },
-      .srcAccessMask = VK_ACCESS_NONE,
-      .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-    };
-
-    vkCmdPipelineBarrier(
-      command_buffer,
-      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-      0,
-      0,
-      0,
-      0,
-      0,
-      1,
-      &image_memory_barrier);
-
-    brick_index++;
-  }
-
-  vkutils_end_command_buffer(command_buffer);
 }
 
 static void vdb_create_terrain_layer_buffer(void) {
@@ -213,62 +438,68 @@ static void vdb_create_brick_info_buffer(void) {
 
   HEAP_FREE(brick_info);
 }
-static void vdb_create_brick_sampler(void) {
-  VkSamplerCreateInfo sampler_create_info = {
-    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-    .magFilter = VK_FILTER_NEAREST,
-    .minFilter = VK_FILTER_NEAREST,
-    .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-    .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-    .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-    .anisotropyEnable = 0,
-    .maxAnisotropy = 0.0F,
-    .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-    .unnormalizedCoordinates = 0,
-    .compareEnable = 0,
-    .compareOp = VK_COMPARE_OP_ALWAYS,
-    .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-    .mipLodBias = 0.0F,
-    .minLod = 0.0F,
-    .maxLod = VK_LOD_CLAMP_NONE,
-  };
+static void vdb_create_brick_mask_buffer(void) {
+  g_vdb.brick_mask = (vdb_brick_mask_t *)HEAP_ALLOC(sizeof(vdb_brick_mask_t) * VDB_BRICK_COUNT, 1, 0);
 
-  VK_CHECK(vkCreateSampler(g_window.device, &sampler_create_info, 0, &g_vdb.brick_sampler));
-}
+  float nx = 0.1F;
+  float ny = 1.2F;
+  float nz = 0.1F;
+  float len_inv = 1.0F / sqrtf(nx * nx + ny * ny + nz * nz);
 
-static void vdb_destroy_brick_data(void) {
+  nx *= len_inv;
+  ny *= len_inv;
+  nz *= len_inv;
+
+  float d = -32.0F;
+
   int32_t brick_index = 0;
   int32_t brick_count = VDB_BRICK_COUNT;
 
   while (brick_index < brick_count) {
 
-    int32_t lod_index = 0;
-    int32_t lod_count = VDB_LOD_COUNT_PLUS_ONE;
+    ivector3_t brick_position = vdb_brick_index_to_position(brick_index);
 
-    while (lod_index < lod_count) {
+    for (int lz = 0; lz < VDB_BRICK_SIZE; lz++) {
+      for (int ly = 0; ly < VDB_BRICK_SIZE; ly++) {
+        for (int lx = 0; lx < VDB_BRICK_SIZE; lx++) {
 
-      vkDestroyImageView(g_window.device, g_vdb.brick_image_view[lod_index + (brick_index * VDB_LOD_COUNT_PLUS_ONE)], 0);
+          float wx = brick_position.x * VDB_BRICK_SIZE + lx + 0.5f;
+          float wy = brick_position.y * VDB_BRICK_SIZE + ly + 0.5f;
+          float wz = brick_position.z * VDB_BRICK_SIZE + lz + 0.5f;
 
-      lod_index++;
+          float sdf = wx * nx + wy * ny + wz * nz + d;
+
+          if (sdf < 0.0f) {
+            // +Z face
+            float sdf_front = wx * nx + wy * ny + (wz + 1.0f) * nz + d;
+            if (sdf_front >= 0.0f) {
+              uint32_t idx = ly * 32 + lx + 1;
+              g_vdb.brick_mask[brick_index].z_mask[idx] |= (1u << lz);
+              g_vdb.brick_mask[brick_index].any_z_faces |= (1u << lz);
+            }
+
+            // +X face
+            float sdf_right = (wx + 1.0f) * nx + wy * ny + wz * nz + d;
+            if (sdf_right >= 0.0f) {
+              uint32_t idx = lz * 32 + ly + 1;
+              g_vdb.brick_mask[brick_index].x_mask[idx] |= (1u << lx);
+              g_vdb.brick_mask[brick_index].any_x_faces |= (1u << lx);
+            }
+
+            // +Y face
+            float sdf_up = wx * nx + (wy + 1.0f) * ny + wz * nz + d;
+            if (sdf_up >= 0.0f) {
+              uint32_t idx = lz * 32 + lx + 1;
+              g_vdb.brick_mask[brick_index].y_mask[idx] |= (1u << ly);
+              g_vdb.brick_mask[brick_index].any_y_faces |= (1u << ly);
+            }
+          }
+        }
+      }
     }
-
-    vkFreeMemory(g_window.device, g_vdb.brick_device_memory[brick_index], 0);
-    vkDestroyImage(g_window.device, g_vdb.brick_image[brick_index], 0);
 
     brick_index++;
   }
 
-  HEAP_FREE(g_vdb.brick_image);
-  HEAP_FREE(g_vdb.brick_device_memory);
-  HEAP_FREE(g_vdb.brick_image_view);
-}
-
-static void vdb_destroy_buffer(void) {
-  buffer_destroy(&g_vdb.terrain_layer_buffer);
-  buffer_destroy(&g_vdb.cluster_info_buffer);
-  buffer_destroy(&g_vdb.occlusion_info_buffer);
-  buffer_destroy(&g_vdb.brick_info_buffer);
-}
-static void vdb_destroy_brick_sampler(void) {
-  vkDestroySampler(g_window.device, g_vdb.brick_sampler, 0);
+  g_vdb.brick_mask_buffer = buffer_create_storage(g_vdb.brick_mask, sizeof(vdb_brick_mask_t) * VDB_BRICK_COUNT);
 }

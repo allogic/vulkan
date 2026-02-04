@@ -31,19 +31,18 @@ layout (binding = 0) uniform camera_info_t {
 	mat4 view_projection_inv;
 	vec4 frustum_plane[6];
 } camera_info;
-layout (binding = 2) uniform usampler3D vdb_brick_data[];
-layout (binding = 3) readonly buffer vdb_brick_info_buffer_t {
+layout (binding = 2) readonly buffer vdb_brick_info_buffer_t {
     vdb_brick_info_t brick_info[];
 } vdb_brick_info_buffer;
 
-taskPayloadSharedEXT vdb_shared_mesh_data_t vdb_shared_mesh_data;
+taskPayloadSharedEXT vdb_shared_data_t vdb_shared_data;
 
 shared mask_cell_t mask[SUB_SIZE][SUB_SIZE];
 shared uint ao_count[SUB_SIZE + 1][SUB_SIZE + 1];
 shared bool used[SUB_SIZE][SUB_SIZE];
 
 uint vdb_get_voxel(ivec3 voxel_position) {
-	ivec3 brick_position = vdb_shared_mesh_data.brick_position;
+	ivec3 brick_position = vdb_shared_data.brick_position;
 
 	if (voxel_position.x < 0) { brick_position.x -= 1; voxel_position.x = 0; }
 	if (voxel_position.y < 0) { brick_position.y -= 1; voxel_position.y = 0; }
@@ -62,14 +61,14 @@ uint vdb_get_voxel(ivec3 voxel_position) {
 
 			brick_index *= VDB_LOD_COUNT_PLUS_ONE;
 
-			return uint(texelFetch(vdb_brick_data[brick_index], voxel_position, 0).r);
+			return VDB_EMPTY_VOXEL;
 		}
 	}
 
 	return VDB_EMPTY_VOXEL;
 }
 uint vdb_get_voxel(int voxel_position_x, int voxel_position_y, int voxel_position_z) {
-	ivec3 brick_position = vdb_shared_mesh_data.brick_position;
+	ivec3 brick_position = vdb_shared_data.brick_position;
 
 	if (voxel_position_x < 0) { brick_position.x -= 1; voxel_position_x = 0; }
 	if (voxel_position_y < 0) { brick_position.y -= 1; voxel_position_y = 0; }
@@ -88,7 +87,7 @@ uint vdb_get_voxel(int voxel_position_x, int voxel_position_y, int voxel_positio
 
 			brick_index *= VDB_LOD_COUNT_PLUS_ONE;
 
-			return uint(texelFetch(vdb_brick_data[brick_index], ivec3(voxel_position_x, voxel_position_y, voxel_position_z), 0).r);
+			return VDB_EMPTY_VOXEL;
 		}
 	}
 
@@ -266,7 +265,7 @@ void greedy_emit_z(int z, inout int vert_count, inout int prim_count, vec3 brick
 }
 
 void main() {
-	int brick_index = vdb_shared_mesh_data.brick_index;
+	int brick_index = vdb_shared_data.brick_index;
 
 	vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
 

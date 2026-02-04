@@ -3,14 +3,11 @@
 
 #define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
-#define VDB_BRICK_SIZE (16)
-#define VDB_CLUSTER_DIM_X (16)
-#define VDB_CLUSTER_DIM_Y (8)
-#define VDB_CLUSTER_DIM_Z (16)
-#define VDB_BRICK_COUNT (VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y * VDB_CLUSTER_DIM_Z)
-
-#define VDB_VOXELS_PER_AXIS(LOD) \
-  (g_vdb_axis_voxels_per_lod[LOD])
+#define VDB_BRICK_SIZE (32)
+#define VDB_CLUSTER_DIM_X (3)
+#define VDB_CLUSTER_DIM_Y (1)
+#define VDB_CLUSTER_DIM_Z (3)
+#define VDB_BRICK_COUNT (9)
 
 #define VDB_TERRAIN_LAYER_COUNT (16)
 
@@ -118,21 +115,28 @@ typedef struct vdb_brick_info_t {
   vector3_t aabb_max;
   int32_t reserved1;
 } vdb_brick_info_t;
+typedef struct vdb_brick_mask_t {
+  uint32_t any_x_faces;
+  uint32_t any_y_faces;
+  uint32_t any_z_faces;
+  uint32_t x_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
+  uint32_t y_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
+  uint32_t z_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
+} vdb_brick_mask_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_cluster_info_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_occlusion_info_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_brick_info_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_brick_mask_t) == 4);
 
 typedef struct vdb_t {
-  VkImage *brick_image;
-  VkDeviceMemory *brick_device_memory;
-  VkImageView *brick_image_view;
-  VkSampler brick_sampler;
+  vdb_brick_mask_t *brick_mask;
   buffer_t terrain_layer_buffer;
   buffer_t cluster_info_buffer;
   buffer_t occlusion_info_buffer;
   buffer_t brick_info_buffer;
+  buffer_t brick_mask_buffer;
 } vdb_t;
 
 #ifdef __cplusplus
@@ -141,9 +145,13 @@ extern "C" {
 
 extern vdb_t g_vdb;
 
-extern int32_t g_vdb_axis_voxels_per_lod[VDB_LOD_COUNT_PLUS_ONE];
-
 void vdb_create(void);
+void vdb_debug_pos_x(void);
+void vdb_debug_pos_y(void);
+void vdb_debug_pos_z(void);
+void vdb_debug_neg_x(void);
+void vdb_debug_neg_y(void);
+void vdb_debug_neg_z(void);
 void vdb_destroy(void);
 
 int32_t vdb_brick_position_to_index(ivector3_t brick_position);

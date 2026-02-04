@@ -33,8 +33,8 @@ void main() {
 	int curr_lod = vdb_lod_generator_push_constant.brick_lod;
 	int prev_lod = curr_lod - 1;
 
-	int curr_voxels_per_axis = VDB_VOXELS_PER_AXIS(curr_lod);
-	int prev_voxels_per_axis = VDB_VOXELS_PER_AXIS(prev_lod);
+	int curr_voxels_per_axis = 0; // VDB_VOXELS_PER_AXIS(curr_lod);
+	int prev_voxels_per_axis = 0; // VDB_VOXELS_PER_AXIS(prev_lod);
 
 	if (curr_voxel_position.x < curr_voxels_per_axis &&
 		curr_voxel_position.y < curr_voxels_per_axis &&
