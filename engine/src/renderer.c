@@ -615,7 +615,7 @@ static void renderer_create_descriptor_set_layouts(void) {
         .binding = 3,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT,
+        .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT,
         .pImmutableSamplers = 0,
       },
     };
@@ -985,7 +985,7 @@ static void renderer_create_vdb_mesh_renderer_pipeline(char const *task_shader_f
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
     .depthClampEnable = 0,
     .rasterizerDiscardEnable = 0,
-    .polygonMode = VK_POLYGON_MODE_FILL,
+    .polygonMode = VK_POLYGON_MODE_LINE,
     .lineWidth = 1.0F,
     .cullMode = VK_CULL_MODE_BACK_BIT,
     .frontFace = VK_FRONT_FACE_CLOCKWISE,

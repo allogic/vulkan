@@ -6,11 +6,6 @@
 
 #include "../vdb/common.glsl"
 
-//struct mask_cell_t {
-//	bool solid;
-//	uint material;
-//};
-
 const int MAX_VERTICES = 256;
 const int MAX_PRIMITIVES = 128;
 const int SUB_DIVISION = 4;
@@ -40,184 +35,158 @@ layout (binding = 3) readonly buffer vdb_brick_mask_buffer_t {
 
 taskPayloadSharedEXT vdb_payload_data_t vdb_payload_data;
 
-/*
-shared mask_cell_t mask[SUB_SIZE][SUB_SIZE];
-shared uint ao_count[SUB_SIZE + 1][SUB_SIZE + 1];
-shared bool used[SUB_SIZE][SUB_SIZE];
+void greedy_emit_x(
+    int slice,
+    inout int vert_count,
+    inout int prim_count,
+    int sub_y,
+    int sub_z
+) {
+    const int TILE = 8;
+    int y_base = sub_y * TILE;
+    int z_base = sub_z * TILE;
 
-void build_mask_z(int z, int sub_x, int sub_y) {
-	for (int y = 0; y < SUB_SIZE; y++) {
-		for (int x = 0; x < SUB_SIZE; x++) {
+    uint local_rows[TILE];
 
-			int vx = sub_x + x;
-			int vy = sub_y + y;
+    for (int lz = 0; lz < TILE; lz++) {
+        uint mask = 0u;
+        for (int ly = 0; ly < TILE; ly++) {
+            int gy = y_base + ly;
+            int gz = z_base + lz;
+            uint idx = gz * VDB_BRICK_SIZE + gy + 1u;
+            if ((vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].x_mask[idx] & (1u << slice)) != 0u) {
+                mask |= (1u << ly);
+            }
+        }
+        local_rows[lz] = mask;
+    }
 
-			uint v0 = vdb_get_voxel(vx, vy, z);
-			uint v1 = vdb_get_voxel(vx, vy, z + 1);
+    for (int lz = 0; lz < TILE; ) {
+        uint row = local_rows[lz];
+        while (row != 0u) {
+            int ly = findLSB(row);
+            uint remaining = row >> ly;
+            int w = findLSB(~remaining);
+            if (ly + w > TILE) w = TILE - ly;
 
-			bool visible = VDB_VOXEL_IS_SOLID(v0) && !VDB_VOXEL_IS_SOLID(v1);
+            uint quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << ly);
 
-			mask[y][x].solid = visible;
-			mask[y][x].material = VDB_VOXEL_GET_MATERIAL(v0);
-		}
-	}
+            int h = 1;
+            while (lz + h < TILE && (local_rows[lz + h] & quad_mask) == quad_mask) {
+                h++;
+            }
+
+            if (vert_count + 4 > MAX_VERTICES || prim_count + 2 > MAX_PRIMITIVES) return;
+
+            vec3 base = vdb_payload_data.brick_position * float(VDB_BRICK_SIZE) +
+                        vec3(float(slice) + 1.0, float(y_base + ly), float(z_base + lz));
+
+            vec3 v0 = base + vec3(0.0, 0.0, 0.0);
+            vec3 v1 = base + vec3(0.0, float(w), 0.0);
+            vec3 v2 = base + vec3(0.0, float(w), float(h));
+            vec3 v3 = base + vec3(0.0, 0.0, float(h));
+
+            gl_MeshVerticesEXT[vert_count + 0].gl_Position = camera_info.view_projection * vec4(v0, 1.0);
+            gl_MeshVerticesEXT[vert_count + 1].gl_Position = camera_info.view_projection * vec4(v1, 1.0);
+            gl_MeshVerticesEXT[vert_count + 2].gl_Position = camera_info.view_projection * vec4(v2, 1.0);
+            gl_MeshVerticesEXT[vert_count + 3].gl_Position = camera_info.view_projection * vec4(v3, 1.0);
+
+            output_color[vert_count + 0] = vec4(1.0, 0.2, 0.2, 1.0);
+            output_color[vert_count + 1] = vec4(1.0, 0.2, 0.2, 1.0);
+            output_color[vert_count + 2] = vec4(1.0, 0.2, 0.2, 1.0);
+            output_color[vert_count + 3] = vec4(1.0, 0.2, 0.2, 1.0);
+
+            gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(vert_count+0, vert_count+1, vert_count+2);
+            gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(vert_count+0, vert_count+2, vert_count+3);
+
+            vert_count += 4;
+            prim_count += 2;
+
+            for (int hh = 0; hh < h; hh++) {
+                local_rows[lz + hh] &= ~quad_mask;
+            }
+            row = local_rows[lz];
+        }
+        lz++;
+    }
 }
-void compute_ao_grid(int z, int sub_x, int sub_y) {
-	int face_z = z;
+void greedy_emit_y(
+    int slice,
+    inout int vert_count,
+    inout int prim_count,
+    int sub_x,
+    int sub_z
+) {
+    const int TILE = 8;
+    int x_base = sub_x * TILE;
+    int z_base = sub_z * TILE;
 
-	for (int y = 0; y <= SUB_SIZE; y++) {
-		for (int x = 0; x <= SUB_SIZE; x++) {
+    uint local_rows[TILE];
 
-			int vx = sub_x + x;
-			int vy = sub_y + y;
+    for (int lz = 0; lz < TILE; lz++) {
+        uint mask = 0u;
+        for (int lx = 0; lx < TILE; lx++) {
+            int gx = x_base + lx;
+            int gz = z_base + lz;
+            uint idx = gz * VDB_BRICK_SIZE + gx + 1u;
+            if ((vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].y_mask[idx] & (1u << slice)) != 0u) {
+                mask |= (1u << lx);
+            }
+        }
+        local_rows[lz] = mask;
+    }
 
-			bool s1 = VDB_VOXEL_IS_SOLID(vdb_get_voxel(vx - 1, vy, face_z));
-			bool s2 = VDB_VOXEL_IS_SOLID(vdb_get_voxel(vx, vy - 1, face_z));
-			bool corner = VDB_VOXEL_IS_SOLID(vdb_get_voxel(vx - 1, vy - 1, face_z));
+    for (int lz = 0; lz < TILE; ) {
+        uint row = local_rows[lz];
+        while (row != 0u) {
+            int lx = findLSB(row);
+            uint remaining = row >> lx;
+            int w = findLSB(~remaining);
+            if (lx + w > TILE) w = TILE - lx;
 
-			uint count = (s1 ? 1 : 0) + (s2 ? 1 : 0) + (corner ? 1 : 0);
+            uint quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << lx);
 
-			ao_count[y][x] = count;
-		}
-	}
+            int h = 1;
+            while (lz + h < TILE && (local_rows[lz + h] & quad_mask) == quad_mask) {
+                h++;
+            }
+
+            if (vert_count + 4 > MAX_VERTICES || prim_count + 2 > MAX_PRIMITIVES) return;
+
+            vec3 base = vdb_payload_data.brick_position * float(VDB_BRICK_SIZE) +
+                        vec3(float(x_base + lx), float(slice) + 1.0, float(z_base + lz));
+
+            vec3 v0 = base + vec3(0.0, 0.0, 0.0);
+            vec3 v1 = base + vec3(float(w), 0.0, 0.0);
+            vec3 v2 = base + vec3(float(w), 0.0, float(h));
+            vec3 v3 = base + vec3(0.0, 0.0, float(h));
+
+            gl_MeshVerticesEXT[vert_count + 0].gl_Position = camera_info.view_projection * vec4(v0, 1.0);
+            gl_MeshVerticesEXT[vert_count + 1].gl_Position = camera_info.view_projection * vec4(v1, 1.0);
+            gl_MeshVerticesEXT[vert_count + 2].gl_Position = camera_info.view_projection * vec4(v2, 1.0);
+            gl_MeshVerticesEXT[vert_count + 3].gl_Position = camera_info.view_projection * vec4(v3, 1.0);
+
+            output_color[vert_count + 0] = vec4(0.2, 1.0, 0.2, 1.0);
+            output_color[vert_count + 1] = vec4(0.2, 1.0, 0.2, 1.0);
+            output_color[vert_count + 2] = vec4(0.2, 1.0, 0.2, 1.0);
+            output_color[vert_count + 3] = vec4(0.2, 1.0, 0.2, 1.0);
+
+            gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(vert_count+0, vert_count+2, vert_count+1);
+            gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(vert_count+0, vert_count+3, vert_count+2);
+
+            vert_count += 4;
+            prim_count += 2;
+
+            for (int hh = 0; hh < h; hh++) {
+                local_rows[lz + hh] &= ~quad_mask;
+            }
+            row = local_rows[lz];
+        }
+        lz++;
+    }
 }
-void clear_used() {
-	for (int y = 0; y < SUB_SIZE; y++) {
-		for (int x = 0; x < SUB_SIZE; x++) {
-			used[y][x] = false;
-		}
-	}
-}
-void greedy_emit_z(int z, inout int vert_count, inout int prim_count, vec3 brick_offset, int sub_x, int sub_y) {
-	for (int y = 0; y < SUB_SIZE; y++) {
-		for (int x = 0; x < SUB_SIZE; x++) {
-
-			if (!mask[y][x].solid || used[y][x]) {
-				continue;
-			}
-
-			uint material = mask[y][x].material;
-
-			int w = 1;
-			int h = 1;
-
-			while (x + w < SUB_SIZE &&
-				mask[y][x+w].solid &&
-				!used[y][x+w] &&
-				mask[y][x+w].material == material &&
-				ao_count[y][x + w] == ao_count[y][x] &&
-				ao_count[y + h - 1][x + w] == ao_count[y + h - 1][x]) {
-				w++;
-			}
-
-			bool done = false;
-
-			//while (y + h < SUB_SIZE && !done) {
-			//
-			//	for (int i = 0; i < w; ++i) {
-			//
-			//		if (!mask[y+h][x+i].solid || used[y+h][x+i] || mask[y+h][x+i].material != material) {
-			//
-			//			done = true;
-			//
-			//			break;
-			//		}
-			//	}
-			//
-			//	if (!done) {
-			//		h++;
-			//	}
-			//}
-
-			while (y + h < SUB_SIZE && !done) {
-
-				bool row_ok = true;
-
-				for (uint i = 0; i < w; ++i) {
-
-					if (!mask[y+h][x+i].solid ||
-						used[y+h][x+i] ||
-						mask[y+h][x+i].material != material ||
-						ao_count[y + h][x + i] != ao_count[y][x + i]) {
-
-						row_ok = false;
-
-						break;
-					}
-				}
-
-				if (row_ok) {
-					h++;
-				} else {
-					done = true;
-				}
-			}
-
-			for (int dy = 0; dy < h; dy++) {
-				for (int dx = 0; dx < w; dx++) {
-					used[y+dy][x+dx] = true;
-				}
-			}
-
-			//if (vert_count + 4 > MAX_VERTICES) {
-			//	return;
-			//}
-
-			// uint ao_bl = ao_count[y][x];
-			// uint ao_br = ao_count[y][x + w];
-			// uint ao_tr = ao_count[y + h][x + w];
-			// uint ao_tl = ao_count[y + h][x];
-
-			//if (ao_bl != ao_br || ao_bl != ao_tr || ao_bl != ao_tl) {
-			//	
-			//}
-
-			vec3 p0 = brick_offset + vec3(sub_x + x    , sub_y + y    , z + 1.0);
-			vec3 p1 = brick_offset + vec3(sub_x + x + w, sub_y + y    , z + 1.0);
-			vec3 p2 = brick_offset + vec3(sub_x + x + w, sub_y + y + h, z + 1.0);
-			vec3 p3 = brick_offset + vec3(sub_x + x    , sub_y + y + h, z + 1.0);
-
-			gl_MeshVerticesEXT[vert_count + 0].gl_Position = camera_info.view_projection * vec4(p0, 1.0);
-			gl_MeshVerticesEXT[vert_count + 1].gl_Position = camera_info.view_projection * vec4(p1, 1.0);
-			gl_MeshVerticesEXT[vert_count + 2].gl_Position = camera_info.view_projection * vec4(p2, 1.0);
-			gl_MeshVerticesEXT[vert_count + 3].gl_Position = camera_info.view_projection * vec4(p3, 1.0);
-
-			uint ao[4] = uint[](ao_count[y][x], ao_count[y][x+w], ao_count[y+h][x+w], ao_count[y+h][x]);
-
-			const vec3 ao_factors[4] = vec3[](vec3(0.15), vec3(0.4), vec3(0.7), vec3(1.0));
-
-			vec3 color = vec3(1.0);
-
-			output_color[vert_count + 0] = vec4(color * ao_factors[ao[0]], 1.0);
-			output_color[vert_count + 1] = vec4(color * ao_factors[ao[1]], 1.0);
-			output_color[vert_count + 2] = vec4(color * ao_factors[ao[2]], 1.0);
-			output_color[vert_count + 3] = vec4(color * ao_factors[ao[3]], 1.0);
-
-			//output_color[vert_count + 0] = vec4(1.0, 1.0, 1.0, 1.0);
-			//output_color[vert_count + 1] = vec4(1.0, 1.0, 1.0, 1.0);
-			//output_color[vert_count + 2] = vec4(1.0, 1.0, 1.0, 1.0);
-			//output_color[vert_count + 3] = vec4(1.0, 1.0, 1.0, 1.0);
-
-			// out_normal[vert_count + 0] = out_normal[v+1] =
-			// out_normal[vert_count + 2] = out_normal[v+3] = vec3(0,0,1);
-
-			// out_material[vert_count + 0] =
-			// out_material[vert_count + 1] =
-			// out_material[vert_count + 2] =
-			// out_material[vert_count + 3] = mat;
-
-			gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(vert_count + 0, vert_count + 1, vert_count + 2);
-			gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(vert_count + 2, vert_count + 3, vert_count + 0);
-
-			vert_count += 4;
-			prim_count += 2;
-		}
-	}
-}
-*/
-
 void greedy_emit_z(
-    int z,
+    int slice,
     inout int vert_count,
     inout int prim_count,
     int sub_x,
@@ -234,9 +203,8 @@ void greedy_emit_z(
         for (int lx = 0; lx < TILE; lx++) {
             int gx = x_base + lx;
             int gy = y_base + ly;
-
             uint idx = gy * VDB_BRICK_SIZE + gx + 1u;
-            if ((vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].z_mask[idx] & (1u << z)) != 0u) {
+            if ((vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].z_mask[idx] & (1u << slice)) != 0u) {
                 mask |= (1u << lx);
             }
         }
@@ -245,12 +213,10 @@ void greedy_emit_z(
 
     for (int ly = 0; ly < TILE; ) {
         uint row = local_rows[ly];
-
         while (row != 0u) {
             int lx = findLSB(row);
             uint remaining = row >> lx;
             int w = findLSB(~remaining);
-
             if (lx + w > TILE) w = TILE - lx;
 
             uint quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << lx);
@@ -260,7 +226,10 @@ void greedy_emit_z(
                 h++;
             }
 
-            vec3 base = vdb_payload_data.brick_position * VDB_BRICK_SIZE + vec3(float(x_base + lx), float(y_base + ly), float(z) + 1.0);
+            if (vert_count + 4 > MAX_VERTICES || prim_count + 2 > MAX_PRIMITIVES) return;
+
+            vec3 base = vdb_payload_data.brick_position * float(VDB_BRICK_SIZE) +
+                        vec3(float(x_base + lx), float(y_base + ly), float(slice) + 1.0);
 
             vec3 v0 = base + vec3(0.0, 0.0, 0.0);
             vec3 v1 = base + vec3(float(w), 0.0, 0.0);
@@ -272,11 +241,13 @@ void greedy_emit_z(
             gl_MeshVerticesEXT[vert_count + 2].gl_Position = camera_info.view_projection * vec4(v2, 1.0);
             gl_MeshVerticesEXT[vert_count + 3].gl_Position = camera_info.view_projection * vec4(v3, 1.0);
 
-            //gl_MeshPrimitivesEXT[prim_count + 0].gl_PrimitiveTriangleIndicesEXT = uvec3(vert_count+0, vert_count+1, vert_count+2);
-            //gl_MeshPrimitivesEXT[prim_count + 1].gl_PrimitiveTriangleIndicesEXT = uvec3(vert_count+0, vert_count+2, vert_count+3);
+            output_color[vert_count + 0] = vec4(0.0, 0.0, 1.0, 1.0);
+            output_color[vert_count + 1] = vec4(0.0, 0.0, 1.0, 1.0);
+            output_color[vert_count + 2] = vec4(0.0, 0.0, 1.0, 1.0);
+            output_color[vert_count + 3] = vec4(0.0, 0.0, 1.0, 1.0);
 
-			gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(vert_count + 0, vert_count + 1, vert_count + 2);
-			gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(vert_count + 2, vert_count + 3, vert_count + 0);
+            gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(vert_count+0, vert_count+1, vert_count+2);
+            gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(vert_count+0, vert_count+2, vert_count+3);
 
             vert_count += 4;
             prim_count += 2;
@@ -284,63 +255,77 @@ void greedy_emit_z(
             for (int hh = 0; hh < h; hh++) {
                 local_rows[ly + hh] &= ~quad_mask;
             }
-
             row = local_rows[ly];
         }
-
         ly++;
     }
 }
 
 void main() {
-	//int brick_index = vdb_payload_data.brick_index;
-	//
-	//vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
-	//
-	//vec3 brick_offset = brick_info.aabb_min;
-	//
-	//int vert_count = 0;
-	//int prim_count = 0;
-	//
-	//int task_id = int(gl_WorkGroupID.x);
-	//int z = task_id / SUBPARTS_PER_LAYER;
-	//
-	//if (z >= VDB_BRICK_SIZE) {
-	//
-	//	SetMeshOutputsEXT(0, 0);
-	//
-	//	return;
-	//}
+	int active_idx = int(gl_WorkGroupID.y);           // 0 .. active-1
+    int sub_id     = int(gl_WorkGroupID.x);           // 0 .. 15
 
-	//int sub_id = task_id % SUBPARTS_PER_LAYER;
-	//int sub_x = (sub_id % SUB_DIVISION) * SUB_DIVISION;
-	//int sub_y = (sub_id / SUB_DIVISION) * SUB_DIVISION;
+    int sub_x = sub_id % SUB_DIVISION;                // 0..3
+    int sub_y = sub_id / SUB_DIVISION;                // 0..3
 
-	//build_mask_z(z, sub_x, sub_y);
-	//compute_ao_grid(z, sub_x, sub_y);
-	//clear_used();
-	//greedy_emit_z(z, vert_count, prim_count, brick_offset, sub_x, sub_y);
+    // Find the real z-slice by scanning the bitmask again
+    // (small cost – 32 iterations max, done once per meshlet)
+    int real_x = -1;
+    int real_y = -1;
+    int real_z = -1;
 
-	//SetMeshOutputsEXT(vert_count, prim_count);
+    int current_active_x = 0;
+    int current_active_y = 0;
+    int current_active_z = 0;
 
+    uint any_x = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].any_x_faces;
+	uint any_y = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].any_y_faces;
+	uint any_z = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].any_z_faces;
 
-	//uint mid = gl_WorkGroupID.x;
-	int task_id = int(gl_WorkGroupID.x);
-	int z = task_id / SUBPARTS_PER_LAYER;
+	for (int candidate = 0; candidate < VDB_BRICK_SIZE; candidate++) {
 
-	int sub_id = task_id % SUBPARTS_PER_LAYER;
-	int sub_x = (sub_id % SUB_DIVISION) * SUB_DIVISION;
-	int sub_y = (sub_id / SUB_DIVISION) * SUB_DIVISION;
+		if ((any_x & (1u << candidate)) != 0u) {
+			if (current_active_x == active_idx) {
+				if (real_x == -1) {
+					real_x = candidate;
+				}
+			}
+			current_active_x++;
+		}
 
-	//int sub_x = int(mid % 4u);
-	//int sub_y = int((mid / 4u) % 4u);
-	//int slice_z = int(mid / 16u);
+		if ((any_y & (1u << candidate)) != 0u) {
+			if (current_active_y == active_idx) {
+				if (real_y == -1) {
+					real_y = candidate;
+				}
+			}
+			current_active_y++;
+		}
 
-    int vert_count = 0;
-    int prim_count = 0;
+		if ((any_z & (1u << candidate)) != 0u) {
+			if (current_active_z == active_idx) {
+				if (real_z == -1) {
+					real_z = candidate;
+				}
+			}
+			current_active_z++;
+		}
+	}
 
-    greedy_emit_z(z, vert_count, prim_count, sub_x, sub_y);
+	if (real_x < 0 || real_y < 0 || real_z < 0) {
 
-    //gl_PrimitiveCountEXT = prim_count;
+		SetMeshOutputsEXT(0, 0);
+
+		return;
+	}
+
+	int vert_count = 0;
+	int prim_count = 0;
+
+	greedy_emit_x(real_x, vert_count, prim_count, sub_x, sub_y);
+	greedy_emit_y(real_y, vert_count, prim_count, sub_x, sub_y);
+	greedy_emit_z(real_z, vert_count, prim_count, sub_x, sub_y);
+
+	// Always set outputs (even if zero)
 	SetMeshOutputsEXT(vert_count, prim_count);
 }

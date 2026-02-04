@@ -4,10 +4,10 @@
 #define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
 #define VDB_BRICK_SIZE (32)
-#define VDB_CLUSTER_DIM_X (3)
-#define VDB_CLUSTER_DIM_Y (1)
-#define VDB_CLUSTER_DIM_Z (3)
-#define VDB_BRICK_COUNT (9)
+#define VDB_CLUSTER_DIM_X (16)
+#define VDB_CLUSTER_DIM_Y (8)
+#define VDB_CLUSTER_DIM_Z (16)
+#define VDB_BRICK_COUNT (2048)
 
 #define VDB_SURFACE_THRESHOLD (0.5)
 #define VDB_TERRAIN_LAYER_COUNT (16)
@@ -145,7 +145,6 @@ STATIC_ASSERT(ALIGNOF(vdb_brick_info_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_brick_mask_t) == 4);
 
 typedef struct vdb_t {
-  vdb_brick_mask_t *brick_mask; // TODO: remove this CPU utility buffer..
   buffer_t terrain_layer_buffer;
   buffer_t cluster_info_buffer;
   buffer_t occlusion_info_buffer;

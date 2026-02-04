@@ -144,11 +144,17 @@ void main() {
 	//float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 	//float density = vdb_default_density(sample_position, ground_level, cluster_height);
 
-	float density_right = vdb_default_density(ivec3(sample_position.x + 1, sample_position.y, sample_position.z), ground_level, cluster_height);
-	float density_up = vdb_default_density(ivec3(sample_position.x, sample_position.y + 1, sample_position.z), ground_level, cluster_height);
-	float density_front = vdb_default_density(ivec3(sample_position.x, sample_position.y, sample_position.z + 1), ground_level, cluster_height);
+	float density = vdb_default_density(sample_position, ground_level, cluster_height);
 
-	if (density_right > VDB_SURFACE_THRESHOLD) {
+	if (density <= VDB_SURFACE_THRESHOLD) {
+		return;
+	}
+
+	float density_right = vdb_default_density(sample_position + ivec3(1, 0, 0), ground_level, cluster_height);
+	float density_up = vdb_default_density(sample_position + ivec3(0, 1, 0), ground_level, cluster_height);
+	float density_front = vdb_default_density(sample_position + ivec3(0, 0, 1), ground_level, cluster_height);
+
+	if (density_right <= VDB_SURFACE_THRESHOLD) {
 
 		uint idx = (voxel_position.y + 1) + (voxel_position.z * VDB_BRICK_SIZE);
 		uint value = 1u << voxel_position.x;
@@ -157,7 +163,7 @@ void main() {
 		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_x_faces, value);
 	}
 
-	if (density_up > VDB_SURFACE_THRESHOLD) {
+	if (density_up <= VDB_SURFACE_THRESHOLD) {
 
 		uint idx = (voxel_position.x + 1) + (voxel_position.z * VDB_BRICK_SIZE);
 		uint value = 1u << voxel_position.y;
@@ -166,7 +172,7 @@ void main() {
 		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_y_faces, value);
 	}
 
-	if (density_front > VDB_SURFACE_THRESHOLD) {
+	if (density_front <= VDB_SURFACE_THRESHOLD) {
 
 		uint idx = (voxel_position.x + 1) + (voxel_position.y * VDB_BRICK_SIZE);
 		uint value = 1u << voxel_position.z;

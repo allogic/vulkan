@@ -15,6 +15,7 @@ void vdb_create(void) {
   vdb_create_brick_info_buffer();
   vdb_create_brick_mask_buffer();
 }
+/*
 void vdb_debug_pos_x(void) {
   const vector4_t color = {1.0f, 0.0f, 0.0f, 1.0f};
 
@@ -367,6 +368,7 @@ void vdb_debug_neg_z(void) {
     }
   }
 }
+*/
 void vdb_destroy(void) {
   buffer_destroy(&g_vdb.terrain_layer_buffer);
   buffer_destroy(&g_vdb.cluster_info_buffer);
@@ -439,6 +441,7 @@ static void vdb_create_brick_info_buffer(void) {
   HEAP_FREE(brick_info);
 }
 static void vdb_create_brick_mask_buffer(void) {
+  /*
   g_vdb.brick_mask = (vdb_brick_mask_t *)HEAP_ALLOC(sizeof(vdb_brick_mask_t) * VDB_BRICK_COUNT, 1, 0);
 
   float nx = 0.1F;
@@ -500,6 +503,7 @@ static void vdb_create_brick_mask_buffer(void) {
 
     brick_index++;
   }
+  */
 
-  g_vdb.brick_mask_buffer = buffer_create_storage(g_vdb.brick_mask, sizeof(vdb_brick_mask_t) * VDB_BRICK_COUNT);
+  g_vdb.brick_mask_buffer = buffer_create_storage(0, sizeof(vdb_brick_mask_t) * VDB_BRICK_COUNT);
 }

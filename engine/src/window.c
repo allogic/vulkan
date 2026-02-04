@@ -185,9 +185,9 @@ void window_run(void) {
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
     // TODO
-    vdb_debug_pos_x();
-    vdb_debug_pos_y();
-    vdb_debug_pos_z();
+    // vdb_debug_pos_x();
+    // vdb_debug_pos_y();
+    // vdb_debug_pos_z();
 
     // vdb_debug_neg_x();
     // vdb_debug_neg_y();
