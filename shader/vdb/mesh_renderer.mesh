@@ -6,16 +6,16 @@
 
 #include "../vdb/common.glsl"
 
-struct mask_cell_t {
-	bool solid;
-	uint material;
-};
+//struct mask_cell_t {
+//	bool solid;
+//	uint material;
+//};
 
 const int MAX_VERTICES = 256;
 const int MAX_PRIMITIVES = 128;
-const int SUB_DIV = 2;
-const int SUBPARTS_PER_LAYER = SUB_DIV * SUB_DIV;
-const int SUB_SIZE = VDB_BRICK_SIZE / SUB_DIV;
+const int SUB_DIVISION = 4;
+const int SUBPARTS_PER_LAYER = SUB_DIVISION * SUB_DIVISION;
+const int SUB_SIZE = VDB_BRICK_SIZE / SUB_DIVISION;
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout (triangles, max_vertices = MAX_VERTICES, max_primitives = MAX_PRIMITIVES) out;
@@ -32,67 +32,18 @@ layout (binding = 0) uniform camera_info_t {
 	vec4 frustum_plane[6];
 } camera_info;
 layout (binding = 2) readonly buffer vdb_brick_info_buffer_t {
-    vdb_brick_info_t brick_info[];
+	vdb_brick_info_t brick_info[];
 } vdb_brick_info_buffer;
+layout (binding = 3) readonly buffer vdb_brick_mask_buffer_t {
+	vdb_brick_mask_t brick_mask[];
+} vdb_brick_mask_buffer;
 
-taskPayloadSharedEXT vdb_shared_data_t vdb_shared_data;
+taskPayloadSharedEXT vdb_payload_data_t vdb_payload_data;
 
+/*
 shared mask_cell_t mask[SUB_SIZE][SUB_SIZE];
 shared uint ao_count[SUB_SIZE + 1][SUB_SIZE + 1];
 shared bool used[SUB_SIZE][SUB_SIZE];
-
-uint vdb_get_voxel(ivec3 voxel_position) {
-	ivec3 brick_position = vdb_shared_data.brick_position;
-
-	if (voxel_position.x < 0) { brick_position.x -= 1; voxel_position.x = 0; }
-	if (voxel_position.y < 0) { brick_position.y -= 1; voxel_position.y = 0; }
-	if (voxel_position.z < 0) { brick_position.z -= 1; voxel_position.z = 0; }
-
-	if (voxel_position.x >= VDB_BRICK_SIZE) { brick_position.x += 1; voxel_position.x = (VDB_BRICK_SIZE - 1); }
-	if (voxel_position.y >= VDB_BRICK_SIZE) { brick_position.y += 1; voxel_position.y = (VDB_BRICK_SIZE - 1); }
-	if (voxel_position.z >= VDB_BRICK_SIZE) { brick_position.z += 1; voxel_position.z = (VDB_BRICK_SIZE - 1); }
-
-	if (all(greaterThanEqual(brick_position, ivec3(0)))) {
-		if (all(lessThan(brick_position, ivec3(VDB_CLUSTER_DIM_X, VDB_CLUSTER_DIM_Y, VDB_CLUSTER_DIM_Z)))) {
-
-			uint brick_index = (brick_position.x) +
-							   (brick_position.y * VDB_CLUSTER_DIM_X) +
-							   (brick_position.z * VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y);
-
-			brick_index *= VDB_LOD_COUNT_PLUS_ONE;
-
-			return VDB_EMPTY_VOXEL;
-		}
-	}
-
-	return VDB_EMPTY_VOXEL;
-}
-uint vdb_get_voxel(int voxel_position_x, int voxel_position_y, int voxel_position_z) {
-	ivec3 brick_position = vdb_shared_data.brick_position;
-
-	if (voxel_position_x < 0) { brick_position.x -= 1; voxel_position_x = 0; }
-	if (voxel_position_y < 0) { brick_position.y -= 1; voxel_position_y = 0; }
-	if (voxel_position_z < 0) { brick_position.z -= 1; voxel_position_z = 0; }
-
-	if (voxel_position_x >= VDB_BRICK_SIZE) { brick_position.x += 1; voxel_position_x = (VDB_BRICK_SIZE - 1); }
-	if (voxel_position_y >= VDB_BRICK_SIZE) { brick_position.y += 1; voxel_position_y = (VDB_BRICK_SIZE - 1); }
-	if (voxel_position_z >= VDB_BRICK_SIZE) { brick_position.z += 1; voxel_position_z = (VDB_BRICK_SIZE - 1); }
-
-	if (all(greaterThanEqual(brick_position, ivec3(0)))) {
-		if (all(lessThan(brick_position, ivec3(VDB_CLUSTER_DIM_X, VDB_CLUSTER_DIM_Y, VDB_CLUSTER_DIM_Z)))) {
-
-			uint brick_index = (brick_position.x) +
-							   (brick_position.y * VDB_CLUSTER_DIM_X) +
-							   (brick_position.z * VDB_CLUSTER_DIM_X * VDB_CLUSTER_DIM_Y);
-
-			brick_index *= VDB_LOD_COUNT_PLUS_ONE;
-
-			return VDB_EMPTY_VOXEL;
-		}
-	}
-
-	return VDB_EMPTY_VOXEL;
-}
 
 void build_mask_z(int z, int sub_x, int sub_y) {
 	for (int y = 0; y < SUB_SIZE; y++) {
@@ -263,9 +214,10 @@ void greedy_emit_z(int z, inout int vert_count, inout int prim_count, vec3 brick
 		}
 	}
 }
+*/
 
 void main() {
-	int brick_index = vdb_shared_data.brick_index;
+	int brick_index = vdb_payload_data.brick_index;
 
 	vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
 
@@ -285,13 +237,13 @@ void main() {
 	}
 
 	int sub_id = task_id % SUBPARTS_PER_LAYER;
-	int sub_x = (sub_id % SUB_DIV) * SUB_SIZE;
-	int sub_y = (sub_id / SUB_DIV) * SUB_SIZE;
+	int sub_x = (sub_id % SUB_DIVISION) * SUB_DIVISION;
+	int sub_y = (sub_id / SUB_DIVISION) * SUB_DIVISION;
 
-	build_mask_z(z, sub_x, sub_y);
-	compute_ao_grid(z, sub_x, sub_y);
-	clear_used();
-	greedy_emit_z(z, vert_count, prim_count, brick_offset, sub_x, sub_y);
+	//build_mask_z(z, sub_x, sub_y);
+	//compute_ao_grid(z, sub_x, sub_y);
+	//clear_used();
+	//greedy_emit_z(z, vert_count, prim_count, brick_offset, sub_x, sub_y);
 
 	SetMeshOutputsEXT(vert_count, prim_count);
 }

@@ -9,6 +9,7 @@
 #define VDB_CLUSTER_DIM_Z (3)
 #define VDB_BRICK_COUNT (9)
 
+#define VDB_SURFACE_THRESHOLD (0.5)
 #define VDB_TERRAIN_LAYER_COUNT (16)
 
 #define VDB_NOISE_TYPE_CELLULAR (0x0)
@@ -30,6 +31,19 @@
 #define VDB_CURL_AXIS_XZ (0x1)
 #define VDB_CURL_AXIS_YX (0x2)
 #define VDB_CURL_AXIS_YZ (0x3)
+
+#define VDB_VOXEL_IS_SOLID_BIT (0x1)
+
+#define VDB_EMPTY_VOXEL (0)
+
+#define VDB_VOXEL_IS_SOLID(VOXEL) \
+  ((VOXEL & VDB_VOXEL_IS_SOLID_BIT) == VDB_VOXEL_IS_SOLID_BIT)
+
+#define VDB_VOXEL_GET_MATERIAL(VOXEL) \
+  ((VOXEL >> 8) & 0xFF)
+
+#define VDB_VOXEL_SET_SOLID(VOXEL) \
+  (VOXEL | VDB_VOXEL_IS_SOLID_BIT)
 
 typedef struct cellular_noise_args_t {
   vector4_t offset;
@@ -131,7 +145,7 @@ STATIC_ASSERT(ALIGNOF(vdb_brick_info_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_brick_mask_t) == 4);
 
 typedef struct vdb_t {
-  vdb_brick_mask_t *brick_mask;
+  vdb_brick_mask_t *brick_mask; // TODO: remove this CPU utility buffer..
   buffer_t terrain_layer_buffer;
   buffer_t cluster_info_buffer;
   buffer_t occlusion_info_buffer;

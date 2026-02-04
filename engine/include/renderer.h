@@ -2,10 +2,12 @@
 #define RENDERER_H
 
 // TODO: remove push constants!
+// TODO: rename brick to chunk!
+// TODO: remove occlusion_info_t struct!
 
-// #define ENABLE_VDB_WORLD_GENERATOR
+#define ENABLE_VDB_WORLD_GENERATOR
 // #define ENABLE_VDB_LOD_GENERATOR
-// #define ENABLE_VDB_MESH_RENDERER
+#define ENABLE_VDB_MESH_RENDERER
 #define ENABLE_DEBUG_LINE_RENDERER
 
 #define DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
@@ -111,8 +113,6 @@ typedef struct renderer_t {
   buffer_t camera_info_buffer;
   buffer_t full_screen_vertex_buffer;
   buffer_t full_screen_index_buffer;
-  // TODO
-  // vdb_world_generator_push_constant_t vdb_world_generator_push_constant;
   // vdb_lod_generator_push_constant_t vdb_lod_generator_push_constant;
 } renderer_t;
 

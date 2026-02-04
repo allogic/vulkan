@@ -6,8 +6,8 @@
 
 #include "../vdb/common.glsl"
 
-const int SUB_DIV = 2;
-const int SUBPARTS_PER_LAYER = SUB_DIV * SUB_DIV;
+const int SUB_DIVISION = 4;
+const int SUBPARTS_PER_LAYER = SUB_DIVISION * SUB_DIVISION;
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
@@ -30,7 +30,7 @@ layout (binding = 2) readonly buffer vdb_brick_info_buffer_t {
 	vdb_brick_info_t brick_info[];
 } vdb_brick_info_buffer;
 
-taskPayloadSharedEXT vdb_shared_data_t vdb_shared_data;
+taskPayloadSharedEXT vdb_payload_data_t vdb_payload_data;
 
 bool aabb_in_frustum(vec3 minp, vec3 maxp) {
 
@@ -59,8 +59,8 @@ void main() {
 		return;
 	}
 
-	vdb_shared_data.brick_position = brick_info.brick_position;
-	vdb_shared_data.brick_index = brick_index;
+	vdb_payload_data.brick_position = brick_info.brick_position;
+	vdb_payload_data.brick_index = brick_index;
 
 	EmitMeshTasksEXT(VDB_BRICK_SIZE * SUBPARTS_PER_LAYER, 1, 1);
 }
