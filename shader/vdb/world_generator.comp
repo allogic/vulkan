@@ -153,8 +153,8 @@ void main() {
 		uint idx = (voxel_position.y + 1) + (voxel_position.z * VDB_BRICK_SIZE);
 		uint value = 1u << voxel_position.x;
 
-		vdb_brick_mask_buffer.brick_mask[brick_index].x_mask[idx] |= value; // TODO: use atomic or
-		vdb_brick_mask_buffer.brick_mask[brick_index].any_x_faces |= value; // TODO: use atomic or
+		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].x_mask[idx], value);
+		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_x_faces, value);
 	}
 
 	if (density_up > VDB_SURFACE_THRESHOLD) {
@@ -162,8 +162,8 @@ void main() {
 		uint idx = (voxel_position.x + 1) + (voxel_position.z * VDB_BRICK_SIZE);
 		uint value = 1u << voxel_position.y;
 
-		vdb_brick_mask_buffer.brick_mask[brick_index].y_mask[idx] |= value; // TODO: use atomic or
-		vdb_brick_mask_buffer.brick_mask[brick_index].any_y_faces |= value; // TODO: use atomic or
+		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].y_mask[idx], value);
+		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_y_faces, value);
 	}
 
 	if (density_front > VDB_SURFACE_THRESHOLD) {
@@ -171,7 +171,7 @@ void main() {
 		uint idx = (voxel_position.x + 1) + (voxel_position.y * VDB_BRICK_SIZE);
 		uint value = 1u << voxel_position.z;
 
-		vdb_brick_mask_buffer.brick_mask[brick_index].z_mask[idx] |= value; // TODO: use atomic or
-		vdb_brick_mask_buffer.brick_mask[brick_index].any_z_faces |= value; // TODO: use atomic or
+		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].z_mask[idx], value);
+		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_z_faces, value);
 	}
 }

@@ -985,7 +985,7 @@ static void renderer_create_vdb_mesh_renderer_pipeline(char const *task_shader_f
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
     .depthClampEnable = 0,
     .rasterizerDiscardEnable = 0,
-    .polygonMode = VK_POLYGON_MODE_LINE,
+    .polygonMode = VK_POLYGON_MODE_FILL,
     .lineWidth = 1.0F,
     .cullMode = VK_CULL_MODE_BACK_BIT,
     .frontFace = VK_FRONT_FACE_CLOCKWISE,

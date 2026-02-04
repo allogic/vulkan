@@ -216,34 +216,131 @@ void greedy_emit_z(int z, inout int vert_count, inout int prim_count, vec3 brick
 }
 */
 
+void greedy_emit_z(
+    int z,
+    inout int vert_count,
+    inout int prim_count,
+    int sub_x,
+    int sub_y
+) {
+    const int TILE = 8;
+    int x_base = sub_x * TILE;
+    int y_base = sub_y * TILE;
+
+    uint local_rows[TILE];
+
+    for (int ly = 0; ly < TILE; ly++) {
+        uint mask = 0u;
+        for (int lx = 0; lx < TILE; lx++) {
+            int gx = x_base + lx;
+            int gy = y_base + ly;
+
+            uint idx = gy * VDB_BRICK_SIZE + gx + 1u;
+            if ((vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].z_mask[idx] & (1u << z)) != 0u) {
+                mask |= (1u << lx);
+            }
+        }
+        local_rows[ly] = mask;
+    }
+
+    for (int ly = 0; ly < TILE; ) {
+        uint row = local_rows[ly];
+
+        while (row != 0u) {
+            int lx = findLSB(row);
+            uint remaining = row >> lx;
+            int w = findLSB(~remaining);
+
+            if (lx + w > TILE) w = TILE - lx;
+
+            uint quad_mask = (w == 32) ? 0xFFFFFFFFu : (((1u << w) - 1u) << lx);
+
+            int h = 1;
+            while (ly + h < TILE && (local_rows[ly + h] & quad_mask) == quad_mask) {
+                h++;
+            }
+
+            vec3 base = vdb_payload_data.brick_position * VDB_BRICK_SIZE + vec3(float(x_base + lx), float(y_base + ly), float(z) + 1.0);
+
+            vec3 v0 = base + vec3(0.0, 0.0, 0.0);
+            vec3 v1 = base + vec3(float(w), 0.0, 0.0);
+            vec3 v2 = base + vec3(float(w), float(h), 0.0);
+            vec3 v3 = base + vec3(0.0, float(h), 0.0);
+
+            gl_MeshVerticesEXT[vert_count + 0].gl_Position = camera_info.view_projection * vec4(v0, 1.0);
+            gl_MeshVerticesEXT[vert_count + 1].gl_Position = camera_info.view_projection * vec4(v1, 1.0);
+            gl_MeshVerticesEXT[vert_count + 2].gl_Position = camera_info.view_projection * vec4(v2, 1.0);
+            gl_MeshVerticesEXT[vert_count + 3].gl_Position = camera_info.view_projection * vec4(v3, 1.0);
+
+            //gl_MeshPrimitivesEXT[prim_count + 0].gl_PrimitiveTriangleIndicesEXT = uvec3(vert_count+0, vert_count+1, vert_count+2);
+            //gl_MeshPrimitivesEXT[prim_count + 1].gl_PrimitiveTriangleIndicesEXT = uvec3(vert_count+0, vert_count+2, vert_count+3);
+
+			gl_PrimitiveTriangleIndicesEXT[prim_count + 0] = uvec3(vert_count + 0, vert_count + 1, vert_count + 2);
+			gl_PrimitiveTriangleIndicesEXT[prim_count + 1] = uvec3(vert_count + 2, vert_count + 3, vert_count + 0);
+
+            vert_count += 4;
+            prim_count += 2;
+
+            for (int hh = 0; hh < h; hh++) {
+                local_rows[ly + hh] &= ~quad_mask;
+            }
+
+            row = local_rows[ly];
+        }
+
+        ly++;
+    }
+}
+
 void main() {
-	int brick_index = vdb_payload_data.brick_index;
+	//int brick_index = vdb_payload_data.brick_index;
+	//
+	//vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
+	//
+	//vec3 brick_offset = brick_info.aabb_min;
+	//
+	//int vert_count = 0;
+	//int prim_count = 0;
+	//
+	//int task_id = int(gl_WorkGroupID.x);
+	//int z = task_id / SUBPARTS_PER_LAYER;
+	//
+	//if (z >= VDB_BRICK_SIZE) {
+	//
+	//	SetMeshOutputsEXT(0, 0);
+	//
+	//	return;
+	//}
 
-	vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
-
-	vec3 brick_offset = brick_info.aabb_min;
-
-	int vert_count = 0;
-	int prim_count = 0;
-
-	int task_id = int(gl_WorkGroupID.x);
-	int z = task_id / SUBPARTS_PER_LAYER;
-
-	if (z >= VDB_BRICK_SIZE) {
-
-		SetMeshOutputsEXT(0, 0);
-
-		return;
-	}
-
-	int sub_id = task_id % SUBPARTS_PER_LAYER;
-	int sub_x = (sub_id % SUB_DIVISION) * SUB_DIVISION;
-	int sub_y = (sub_id / SUB_DIVISION) * SUB_DIVISION;
+	//int sub_id = task_id % SUBPARTS_PER_LAYER;
+	//int sub_x = (sub_id % SUB_DIVISION) * SUB_DIVISION;
+	//int sub_y = (sub_id / SUB_DIVISION) * SUB_DIVISION;
 
 	//build_mask_z(z, sub_x, sub_y);
 	//compute_ao_grid(z, sub_x, sub_y);
 	//clear_used();
 	//greedy_emit_z(z, vert_count, prim_count, brick_offset, sub_x, sub_y);
 
+	//SetMeshOutputsEXT(vert_count, prim_count);
+
+
+	//uint mid = gl_WorkGroupID.x;
+	int task_id = int(gl_WorkGroupID.x);
+	int z = task_id / SUBPARTS_PER_LAYER;
+
+	int sub_id = task_id % SUBPARTS_PER_LAYER;
+	int sub_x = (sub_id % SUB_DIVISION) * SUB_DIVISION;
+	int sub_y = (sub_id / SUB_DIVISION) * SUB_DIVISION;
+
+	//int sub_x = int(mid % 4u);
+	//int sub_y = int((mid / 4u) % 4u);
+	//int slice_z = int(mid / 16u);
+
+    int vert_count = 0;
+    int prim_count = 0;
+
+    greedy_emit_z(z, vert_count, prim_count, sub_x, sub_y);
+
+    //gl_PrimitiveCountEXT = prim_count;
 	SetMeshOutputsEXT(vert_count, prim_count);
 }
