@@ -263,69 +263,83 @@ void greedy_emit_z(
 
 void main() {
 	int active_idx = int(gl_WorkGroupID.y);           // 0 .. active-1
-    int sub_id     = int(gl_WorkGroupID.x);           // 0 .. 15
+	int sub_id     = int(gl_WorkGroupID.x);           // 0 .. 15
 
-    int sub_x = sub_id % SUB_DIVISION;                // 0..3
-    int sub_y = sub_id / SUB_DIVISION;                // 0..3
+	int sub_x = sub_id % SUB_DIVISION;                // 0..3
+	int sub_y = sub_id / SUB_DIVISION;                // 0..3
 
-    // Find the real z-slice by scanning the bitmask again
-    // (small cost – 32 iterations max, done once per meshlet)
-    int real_x = -1;
-    int real_y = -1;
-    int real_z = -1;
-
-    int current_active_x = 0;
-    int current_active_y = 0;
-    int current_active_z = 0;
-
-    uint any_x = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].any_x_faces;
-	uint any_y = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].any_y_faces;
-	uint any_z = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index].any_z_faces;
-
-	for (int candidate = 0; candidate < VDB_BRICK_SIZE; candidate++) {
-
-		if ((any_x & (1u << candidate)) != 0u) {
-			if (current_active_x == active_idx) {
-				if (real_x == -1) {
-					real_x = candidate;
-				}
-			}
-			current_active_x++;
-		}
-
-		if ((any_y & (1u << candidate)) != 0u) {
-			if (current_active_y == active_idx) {
-				if (real_y == -1) {
-					real_y = candidate;
-				}
-			}
-			current_active_y++;
-		}
-
-		if ((any_z & (1u << candidate)) != 0u) {
-			if (current_active_z == active_idx) {
-				if (real_z == -1) {
-					real_z = candidate;
-				}
-			}
-			current_active_z++;
-		}
-	}
-
-	if (real_x < 0 || real_y < 0 || real_z < 0) {
-
-		SetMeshOutputsEXT(0, 0);
-
-		return;
-	}
+	vdb_brick_mask_t brick_mask = vdb_brick_mask_buffer.brick_mask[vdb_payload_data.brick_index];
 
 	int vert_count = 0;
 	int prim_count = 0;
 
-	greedy_emit_x(real_x, vert_count, prim_count, sub_x, sub_y);
-	greedy_emit_y(real_y, vert_count, prim_count, sub_x, sub_y);
-	greedy_emit_z(real_z, vert_count, prim_count, sub_x, sub_y);
+	int slice = -1;
+	int current_active = 0;
 
-	// Always set outputs (even if zero)
+	// Find the real z-slice by scanning the bitmask again
+	// (small cost – 32 iterations max, done once per meshlet)
+	switch (vdb_payload_data.axis) {
+		case VDB_PAYLOAD_AXIS_X: {
+
+			for (int candidate = 0; candidate < VDB_BRICK_SIZE; candidate++) {
+
+				if ((brick_mask.any_x_faces & (1u << candidate)) != 0u) {
+					if (current_active == active_idx) {
+						slice = candidate;
+						break;
+					}
+
+					current_active++;
+				}
+			}
+
+			if (slice >= 0) {
+				greedy_emit_x(slice, vert_count, prim_count, sub_x, sub_y);
+			}
+
+			break;
+		}
+		case VDB_PAYLOAD_AXIS_Y: {
+
+			for (int candidate = 0; candidate < VDB_BRICK_SIZE; candidate++) {
+
+				if ((brick_mask.any_y_faces & (1u << candidate)) != 0u) {
+					if (current_active == active_idx) {
+						slice = candidate;
+						break;
+					}
+
+					current_active++;
+				}
+			}
+
+			if (slice >= 0) {
+				greedy_emit_y(slice, vert_count, prim_count, sub_x, sub_y);
+			}
+
+			break;
+		}
+		case VDB_PAYLOAD_AXIS_Z: {
+
+			for (int candidate = 0; candidate < VDB_BRICK_SIZE; candidate++) {
+
+				if ((brick_mask.any_z_faces & (1u << candidate)) != 0u) {
+					if (current_active == active_idx) {
+						slice = candidate;
+						break;
+					}
+
+					current_active++;
+				}
+			}
+
+			if (slice >= 0) {
+				greedy_emit_z(slice, vert_count, prim_count, sub_x, sub_y);
+			}
+
+			break;
+		}
+	}
+
 	SetMeshOutputsEXT(vert_count, prim_count);
 }

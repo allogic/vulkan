@@ -45,6 +45,10 @@
 #define VDB_VOXEL_SET_SOLID(VOXEL) \
 	(VOXEL | VDB_VOXEL_IS_SOLID_BIT)
 
+#define VDB_PAYLOAD_AXIS_X (0)
+#define VDB_PAYLOAD_AXIS_Y (1)
+#define VDB_PAYLOAD_AXIS_Z (2)
+
 struct cellular_noise_args_t {
   vec4 offset;
   int type;
@@ -124,6 +128,7 @@ struct vdb_brick_mask_t {
 struct vdb_payload_data_t {
 	ivec3 brick_position;
 	int brick_index;
+	int axis;
 };
 
 #endif // VDB_COMMON_H

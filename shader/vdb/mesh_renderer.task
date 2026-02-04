@@ -67,20 +67,39 @@ void main() {
         return;
     }
 
-	vdb_payload_data.brick_position = brick_info.brick_position;
-	vdb_payload_data.brick_index = brick_index;
-
 	//EmitMeshTasksEXT(VDB_BRICK_SIZE * SUBPARTS_PER_LAYER, 1, 1);
 
-	uint active_slice_count = 0u;
-    uint active_mask = 0u;
+	uint active_slice_count_x = 0u;
+	uint active_slice_count_y = 0u;
+	uint active_slice_count_z = 0u;
 
     for (int slice = 0; slice < VDB_BRICK_SIZE; slice++) {
-        if ((brick_mask.any_z_faces & (1u << slice)) != 0u) {
-            active_slice_count++;
+
+        if ((brick_mask.any_x_faces & (1u << slice)) != 0u) {
+            active_slice_count_x++;
+            // Optional: if active_slice_count > some max, break or handle in multiple dispatches
+        }
+
+		if ((brick_mask.any_y_faces & (1u << slice)) != 0u) {
+            active_slice_count_y++;
+            // Optional: if active_slice_count > some max, break or handle in multiple dispatches
+        }
+
+		if ((brick_mask.any_z_faces & (1u << slice)) != 0u) {
+            active_slice_count_z++;
             // Optional: if active_slice_count > some max, break or handle in multiple dispatches
         }
     }
 
-    EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count, 1u);
+	vdb_payload_data.brick_position = brick_info.brick_position;
+	vdb_payload_data.brick_index = brick_index;
+
+	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_X;
+	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_x, 1u);
+
+	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_Y;
+	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_y, 1u);
+
+	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_Z;
+	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_z, 1u);
 }
