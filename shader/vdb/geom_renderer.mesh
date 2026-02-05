@@ -31,17 +31,14 @@ layout (binding = 0) uniform camera_info_t {
 	mat4 view_projection_inv;
 	vec4 frustum_plane[6];
 } camera_info;
-layout (binding = 1) readonly buffer vdb_chunk_info_buffer_t {
-	vdb_chunk_info_t chunk_info[];
-} vdb_chunk_info_buffer;
 layout (binding = 2) readonly buffer vdb_chunk_mask_buffer_t {
 	vdb_chunk_mask_t chunk_mask[];
 } vdb_chunk_mask_buffer;
 
-taskPayloadSharedEXT vdb_payload_data_t vdb_payload_data;
+taskPayloadSharedEXT vdb_payload_t vdb_payload;
 
 void greedy_emit_x(
-    int slice,
+    uint slice,
     inout int vert_count,
     inout int prim_count,
     int sub_y,
@@ -59,7 +56,7 @@ void greedy_emit_x(
             int gy = y_base + ly;
             int gz = z_base + lz;
             uint idx = gz * VDB_CHUNK_SIZE + gy + 1u;
-            if ((vdb_chunk_mask_buffer.chunk_mask[vdb_payload_data.chunk_index].x_mask[idx] & (1u << slice)) != 0u) {
+            if ((vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].x_mask[idx] & (1u << slice)) != 0u) {
                 mask |= (1u << ly);
             }
         }
@@ -83,7 +80,7 @@ void greedy_emit_x(
 
             if (vert_count + 4 > MAX_VERTICES || prim_count + 2 > MAX_PRIMITIVES) return;
 
-            vec3 base = vdb_payload_data.chunk_position * float(VDB_CHUNK_SIZE) +
+            vec3 base = vdb_payload.chunk_position * float(VDB_CHUNK_SIZE) +
                         vec3(float(slice) + 1.0, float(y_base + ly), float(z_base + lz));
 
             vec3 v0 = base + vec3(0.0, 0.0, 0.0);
@@ -116,7 +113,7 @@ void greedy_emit_x(
     }
 }
 void greedy_emit_y(
-    int slice,
+    uint slice,
     inout int vert_count,
     inout int prim_count,
     int sub_x,
@@ -134,7 +131,7 @@ void greedy_emit_y(
             int gx = x_base + lx;
             int gz = z_base + lz;
             uint idx = gz * VDB_CHUNK_SIZE + gx + 1u;
-            if ((vdb_chunk_mask_buffer.chunk_mask[vdb_payload_data.chunk_index].y_mask[idx] & (1u << slice)) != 0u) {
+            if ((vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].y_mask[idx] & (1u << slice)) != 0u) {
                 mask |= (1u << lx);
             }
         }
@@ -158,7 +155,7 @@ void greedy_emit_y(
 
             if (vert_count + 4 > MAX_VERTICES || prim_count + 2 > MAX_PRIMITIVES) return;
 
-            vec3 base = vdb_payload_data.chunk_position * float(VDB_CHUNK_SIZE) +
+            vec3 base = vdb_payload.chunk_position * float(VDB_CHUNK_SIZE) +
                         vec3(float(x_base + lx), float(slice) + 1.0, float(z_base + lz));
 
             vec3 v0 = base + vec3(0.0, 0.0, 0.0);
@@ -191,7 +188,7 @@ void greedy_emit_y(
     }
 }
 void greedy_emit_z(
-    int slice,
+    uint slice,
     inout int vert_count,
     inout int prim_count,
     int sub_x,
@@ -209,7 +206,7 @@ void greedy_emit_z(
             int gx = x_base + lx;
             int gy = y_base + ly;
             uint idx = gy * VDB_CHUNK_SIZE + gx + 1u;
-            if ((vdb_chunk_mask_buffer.chunk_mask[vdb_payload_data.chunk_index].z_mask[idx] & (1u << slice)) != 0u) {
+            if ((vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].z_mask[idx] & (1u << slice)) != 0u) {
                 mask |= (1u << lx);
             }
         }
@@ -233,7 +230,7 @@ void greedy_emit_z(
 
             if (vert_count + 4 > MAX_VERTICES || prim_count + 2 > MAX_PRIMITIVES) return;
 
-            vec3 base = vdb_payload_data.chunk_position * float(VDB_CHUNK_SIZE) +
+            vec3 base = vdb_payload.chunk_position * float(VDB_CHUNK_SIZE) +
                         vec3(float(x_base + lx), float(y_base + ly), float(slice) + 1.0);
 
             vec3 v0 = base + vec3(0.0, 0.0, 0.0);
@@ -267,83 +264,59 @@ void greedy_emit_z(
 }
 
 void main() {
-	int active_idx = int(gl_WorkGroupID.y);           // 0 .. active-1
-	int sub_id     = int(gl_WorkGroupID.x);           // 0 .. 15
+	uint meshlet_index = gl_WorkGroupID.y;
+	uint sub_tile_index = gl_WorkGroupID.x;
 
-	int sub_x = sub_id % SUB_DIVISION;                // 0..3
-	int sub_y = sub_id / SUB_DIVISION;                // 0..3
+	int sub_x = int(sub_tile_index % SUB_DIVISION);
+	int sub_y = int(sub_tile_index / SUB_DIVISION);
 
-	vdb_chunk_mask_t chunk_mask = vdb_chunk_mask_buffer.chunk_mask[vdb_payload_data.chunk_index];
+	uint axis = 0u;
+	uint slice = ~0u;
+
+	if (meshlet_index < vdb_payload.offset_y) {
+		axis  = 0u;
+		slice = meshlet_index / SUBPARTS_PER_LAYER;
+	} else if (meshlet_index < vdb_payload.offset_z) {
+		axis  = 1u;
+		slice = (meshlet_index - vdb_payload.offset_y) / SUBPARTS_PER_LAYER;
+	} else {
+		axis  = 2u;
+		slice = (meshlet_index - vdb_payload.offset_z) / SUBPARTS_PER_LAYER;
+	}
+
+	if (slice >= VDB_CHUNK_SIZE) {
+
+		SetMeshOutputsEXT(0, 0);
+
+		return;
+	}
+
+	uint any_mask;
+
+	if (axis == 0u) {
+		any_mask = vdb_payload.any_x_faces;
+	} else if (axis == 1u) {
+		any_mask = vdb_payload.any_y_faces;
+	} else {
+		any_mask = vdb_payload.any_z_faces;
+	}
+
+	if ((any_mask & (1u << slice)) == 0u) {
+
+		SetMeshOutputsEXT(0, 0);
+
+		return;
+	}
 
 	int vert_count = 0;
 	int prim_count = 0;
 
-	int slice = -1;
-	int current_active = 0;
-
-	// Find the real z-slice by scanning the bitmask again
-	// (small cost – 32 iterations max, done once per meshlet)
-	switch (vdb_payload_data.axis) {
-		case VDB_PAYLOAD_AXIS_X: {
-
-			for (int candidate = 0; candidate < VDB_CHUNK_SIZE; candidate++) {
-
-				if ((chunk_mask.any_x_faces & (1u << candidate)) != 0u) {
-					if (current_active == active_idx) {
-						slice = candidate;
-						break;
-					}
-
-					current_active++;
-				}
-			}
-
-			if (slice >= 0) {
-				greedy_emit_x(slice, vert_count, prim_count, sub_x, sub_y);
-			}
-
-			break;
-		}
-		case VDB_PAYLOAD_AXIS_Y: {
-
-			for (int candidate = 0; candidate < VDB_CHUNK_SIZE; candidate++) {
-
-				if ((chunk_mask.any_y_faces & (1u << candidate)) != 0u) {
-					if (current_active == active_idx) {
-						slice = candidate;
-						break;
-					}
-
-					current_active++;
-				}
-			}
-
-			if (slice >= 0) {
-				greedy_emit_y(slice, vert_count, prim_count, sub_x, sub_y);
-			}
-
-			break;
-		}
-		case VDB_PAYLOAD_AXIS_Z: {
-
-			for (int candidate = 0; candidate < VDB_CHUNK_SIZE; candidate++) {
-
-				if ((chunk_mask.any_z_faces & (1u << candidate)) != 0u) {
-					if (current_active == active_idx) {
-						slice = candidate;
-						break;
-					}
-
-					current_active++;
-				}
-			}
-
-			if (slice >= 0) {
-				greedy_emit_z(slice, vert_count, prim_count, sub_x, sub_y);
-			}
-
-			break;
-		}
+	if (axis == 0u) {
+		greedy_emit_x(slice, vert_count, prim_count, sub_x, sub_y);
+	} else if (axis == 1u) {
+		greedy_emit_y(slice, vert_count, prim_count, sub_x, sub_y);
+	} else {
+		greedy_emit_z(slice, vert_count, prim_count, sub_x, sub_y);
 	}
 
 	SetMeshOutputsEXT(vert_count, prim_count);

@@ -6,5 +6,4 @@ glslangValidator -I"." -V --target-env vulkan1.3 -o vdb/geom_renderer.mesh.spv v
 glslangValidator -I"." -V --target-env vulkan1.3 -o vdb/geom_renderer.frag.spv vdb/geom_renderer.frag
 
 glslangValidator -I"." -V --target-env vulkan1.3 -o vdb/mask_generator.comp.spv vdb/mask_generator.comp
-glslangValidator -I"." -V --target-env vulkan1.3 -o vdb/meshlet_generator.comp.spv vdb/meshlet_generator.comp
 glslangValidator -I"." -V --target-env vulkan1.3 -o vdb/lod_generator.comp.spv vdb/lod_generator.comp

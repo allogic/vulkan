@@ -4,10 +4,10 @@
 #define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
 #define VDB_CHUNK_SIZE (32)
-#define VDB_CLUSTER_DIM_X (3)
-#define VDB_CLUSTER_DIM_Y (3)
-#define VDB_CLUSTER_DIM_Z (3)
-#define VDB_CHUNK_COUNT (27)
+#define VDB_CLUSTER_DIM_X (16)
+#define VDB_CLUSTER_DIM_Y (8)
+#define VDB_CLUSTER_DIM_Z (16)
+#define VDB_CHUNK_COUNT (2048)
 
 #define VDB_SURFACE_THRESHOLD (0.5)
 #define VDB_TERRAIN_LAYER_COUNT (16)
@@ -44,10 +44,6 @@
 
 #define VDB_VOXEL_SET_SOLID(VOXEL) \
 	(VOXEL | VDB_VOXEL_IS_SOLID_BIT)
-
-#define VDB_PAYLOAD_AXIS_X (0)
-#define VDB_PAYLOAD_AXIS_Y (1)
-#define VDB_PAYLOAD_AXIS_Z (2)
 
 struct cellular_noise_args_t {
 	vec4 offset;
@@ -89,24 +85,24 @@ struct perlin_noise_args_t {
 	int reserved2;
 };
 struct simplex_noise_args_t {
-	  vec4 offset;
-	  int type;
-	  int reserved0;
-	  int reserved1;
-	  int reserved2;
+	vec4 offset;
+	int type;
+	int reserved0;
+	int reserved1;
+	int reserved2;
 };
 
 struct vdb_terrain_layer_t {
-	  cellular_noise_args_t cellular_noise_args;
-	  curl_noise_args_t curl_noise_args;
-	  fbm_noise_args_t fbm_noise_args;
-	  gradient_noise_args_t gradient_noise_args;
-	  perlin_noise_args_t perlin_noise_args;
-	  simplex_noise_args_t simplex_noise_args;
-	  int noise_type;
-	  float scale;
-	  float weight;
-	  int reserved0;
+	cellular_noise_args_t cellular_noise_args;
+	curl_noise_args_t curl_noise_args;
+	fbm_noise_args_t fbm_noise_args;
+	gradient_noise_args_t gradient_noise_args;
+	perlin_noise_args_t perlin_noise_args;
+	simplex_noise_args_t simplex_noise_args;
+	int noise_type;
+	float scale;
+	float weight;
+	int reserved0;
 };
 struct vdb_chunk_info_t {
 	ivec3 chunk_position;
@@ -127,7 +123,16 @@ struct vdb_chunk_mask_t {
 
 struct vdb_payload_t {
 	ivec3 chunk_position;
-	int chunk_index;
+	uint chunk_index;
+	uint count_x;
+	uint count_y;
+	uint count_z;
+	uint offset_x;
+	uint offset_y;
+	uint offset_z;
+	uint any_x_faces;
+	uint any_y_faces;
+	uint any_z_faces;
 };
 
 #endif // VDB_COMMON_H

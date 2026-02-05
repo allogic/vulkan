@@ -54,6 +54,7 @@ static char const *s_window_instance_extension[] = {
 
 static char const *s_window_device_extension[] = {
   "VK_KHR_swapchain",
+  "VK_KHR_fragment_shading_rate", // TODO: remove me..
   "VK_EXT_mesh_shader",
 };
 
@@ -520,7 +521,7 @@ static void window_create_instance(void) {
 
   VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info = {
     .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-    .pNext = &validation_features,
+    .pNext = 0,
     .flags = 0,
     .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
     .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
@@ -562,14 +563,9 @@ static void window_create_surface(void) {
   VK_CHECK(vkCreateWin32SurfaceKHR(g_window.instance, &win32_surface_create_info, 0, &g_window.surface));
 }
 static void window_create_device(void) {
-  VkPhysicalDeviceRayQueryFeaturesKHR physical_device_ray_query_features = {
-    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
-    .pNext = 0,
-  };
-
   VkPhysicalDevice8BitStorageFeatures physical_device_8bit_storage_features = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
-    .pNext = &physical_device_ray_query_features,
+    .pNext = 0,
   };
 
   VkPhysicalDeviceBufferDeviceAddressFeatures physical_device_buffer_device_address_freatures = {

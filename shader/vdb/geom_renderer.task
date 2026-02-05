@@ -29,10 +29,9 @@ layout (binding = 2) readonly buffer vdb_chunk_mask_buffer_t {
 	vdb_chunk_mask_t chunk_mask[];
 } vdb_chunk_mask_buffer;
 
-taskPayloadSharedEXT vdb_payload_data_t vdb_payload_data;
+taskPayloadSharedEXT vdb_payload_t vdb_payload;
 
 bool aabb_in_frustum(vec3 minp, vec3 maxp) {
-
 	for (int i = 0; i < 6; i++) {
 
 		vec3 position = vec3(
@@ -50,8 +49,12 @@ bool aabb_in_frustum(vec3 minp, vec3 maxp) {
 }
 
 void main() {
-	int chunk_index = int(gl_GlobalInvocationID.x);
+	uint chunk_index = gl_GlobalInvocationID.x;
 	
+	if (chunk_index > VDB_CHUNK_COUNT) {
+		return;
+	}
+
 	vdb_chunk_info_t chunk_info = vdb_chunk_info_buffer.chunk_info[chunk_index];
 	vdb_chunk_mask_t chunk_mask = vdb_chunk_mask_buffer.chunk_mask[chunk_index];
 
@@ -59,43 +62,30 @@ void main() {
 		return;
 	}
 
-    if (chunk_mask.any_z_faces == 0u) {
-        return;
-    }
+	uint nx = bitCount(chunk_mask.any_x_faces);
+	uint ny = bitCount(chunk_mask.any_y_faces);
+	uint nz = bitCount(chunk_mask.any_z_faces);
 
-	//EmitMeshTasksEXT(VDB_CHUNK_SIZE * SUBPARTS_PER_LAYER, 1, 1);
+	uint total_meshlets =
+		nx * SUBPARTS_PER_LAYER +
+		ny * SUBPARTS_PER_LAYER +
+		nz * SUBPARTS_PER_LAYER;
 
-	uint active_slice_count_x = 0u;
-	uint active_slice_count_y = 0u;
-	uint active_slice_count_z = 0u;
+	if (total_meshlets == 0) {
+		return;
+	}
 
-    for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
+	vdb_payload.chunk_position = chunk_info.chunk_position;
+	vdb_payload.chunk_index    = chunk_index;
+	vdb_payload.count_x        = nx;
+	vdb_payload.count_y        = ny;
+	vdb_payload.count_z        = nz;
+	vdb_payload.offset_x       = 0u;
+	vdb_payload.offset_y       = vdb_payload.offset_x + nx * SUBPARTS_PER_LAYER;
+	vdb_payload.offset_z       = vdb_payload.offset_y + ny * SUBPARTS_PER_LAYER;
+	vdb_payload.any_x_faces    = chunk_mask.any_x_faces;
+	vdb_payload.any_y_faces    = chunk_mask.any_y_faces;
+	vdb_payload.any_z_faces    = chunk_mask.any_z_faces;
 
-        if ((chunk_mask.any_x_faces & (1u << slice)) != 0u) {
-            active_slice_count_x++;
-            // Optional: if active_slice_count > some max, break or handle in multiple dispatches
-        }
-
-		if ((chunk_mask.any_y_faces & (1u << slice)) != 0u) {
-            active_slice_count_y++;
-            // Optional: if active_slice_count > some max, break or handle in multiple dispatches
-        }
-
-		if ((chunk_mask.any_z_faces & (1u << slice)) != 0u) {
-            active_slice_count_z++;
-            // Optional: if active_slice_count > some max, break or handle in multiple dispatches
-        }
-    }
-
-	vdb_payload_data.chunk_position = chunk_info.chunk_position;
-	vdb_payload_data.chunk_index = chunk_index;
-
-	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_X;
-	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_x, 1u);
-
-	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_Y;
-	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_y, 1u);
-
-	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_Z;
-	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_z, 1u);
+	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, total_meshlets, 1u);
 }

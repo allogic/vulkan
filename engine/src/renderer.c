@@ -480,7 +480,7 @@ static void renderer_create_descriptor_pools(void) {
     VkDescriptorPoolSize descriptor_pool_sizes[] = {
       {
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 2,
+        .descriptorCount = 1,
       },
       {
         .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -599,20 +599,13 @@ static void renderer_create_descriptor_set_layouts(void) {
       },
       {
         .binding = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
         .pImmutableSamplers = 0,
       },
       {
         .binding = 2,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT,
-        .pImmutableSamplers = 0,
-      },
-      {
-        .binding = 3,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT,
@@ -985,9 +978,9 @@ static void renderer_create_vdb_geom_renderer_pipeline(char const *task_shader_f
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
     .depthClampEnable = 0,
     .rasterizerDiscardEnable = 0,
-    .polygonMode = VK_POLYGON_MODE_LINE,
+    .polygonMode = VK_POLYGON_MODE_FILL,
     .lineWidth = 1.0F,
-    .cullMode = VK_CULL_MODE_BACK_BIT,
+    .cullMode = VK_CULL_MODE_NONE,
     .frontFace = VK_FRONT_FACE_CLOCKWISE,
     .depthBiasEnable = 0,
     .depthBiasConstantFactor = 0.0F,
@@ -1018,7 +1011,7 @@ static void renderer_create_vdb_geom_renderer_pipeline(char const *task_shader_f
 
   VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    .depthTestEnable = 0,
+    .depthTestEnable = 1,
     .depthWriteEnable = 1,
     .depthCompareOp = VK_COMPARE_OP_LESS,
     .depthBoundsTestEnable = 0,
