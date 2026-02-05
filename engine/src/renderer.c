@@ -1484,6 +1484,12 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   transform_compute_world_rotation(transform);
   transform_compute_world_scale(transform);
 
+  // TODO: (only do radix sort when a chunk border has been crossed!)
+  // After world position has been calculated, we are ready to do radix sort on
+  // all chunks based on distance to camera position.
+  // After that the depth pre-pass can begin!
+  vdb_rsort(transform);
+
   float window_width = (float)g_window.window_width;
   float window_height = (float)g_window.window_height;
 
@@ -1517,6 +1523,7 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   camera_info->view_projection = view_projection;
   camera_info->view_projection_inv = view_projection_inv;
 
+  // TODO: do this continuously..
   if (window_is_keyboard_key_held(KEYBOARD_KEY_SPACE)) {
     vector4_t col3 = {view_projection.m03, view_projection.m13, view_projection.m23, view_projection.m33};
     vector4_t col0 = {view_projection.m00, view_projection.m10, view_projection.m20, view_projection.m30};

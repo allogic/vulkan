@@ -138,10 +138,14 @@ STATIC_ASSERT(ALIGNOF(vdb_chunk_info_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_chunk_mask_t) == 4);
 
 typedef struct vdb_t {
+  uint32_t *rsort_key;
+  uint32_t *rsort_idx;
+  uint32_t *rsort_tmp;
   buffer_t terrain_layer_buffer;
   buffer_t cluster_info_buffer;
   buffer_t chunk_info_buffer;
   buffer_t chunk_mask_buffer;
+  buffer_t chunk_index_buffer;
 } vdb_t;
 
 #ifdef __cplusplus
@@ -151,6 +155,7 @@ extern "C" {
 extern vdb_t g_vdb;
 
 void vdb_create(void);
+void vdb_rsort(transform_t *transform);
 void vdb_destroy(void);
 
 int32_t vdb_chunk_position_to_index(ivector3_t chunk_position);
