@@ -3,11 +3,11 @@
 
 #define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
-#define VDB_BRICK_SIZE (32)
+#define VDB_CHUNK_SIZE (32)
 #define VDB_CLUSTER_DIM_X (3)
 #define VDB_CLUSTER_DIM_Y (3)
 #define VDB_CLUSTER_DIM_Z (3)
-#define VDB_BRICK_COUNT (27)
+#define VDB_CHUNK_COUNT (27)
 
 #define VDB_SURFACE_THRESHOLD (0.5)
 #define VDB_TERRAIN_LAYER_COUNT (16)
@@ -115,41 +115,33 @@ typedef struct vdb_cluster_info_t {
   ivector3_t cluster_dim;
   int32_t reserved0;
 } vdb_cluster_info_t;
-typedef struct vdb_occlusion_info_t {
-  float cull_center_x;
-  float cull_center_y;
-  float cull_radius;
-  float meshlet_density;
-} vdb_occlusion_info_t;
-typedef struct vdb_brick_info_t {
-  ivector3_t brick_position;
+typedef struct vdb_chunk_info_t {
+  ivector3_t chunk_position;
   int32_t lod;
   vector3_t aabb_min;
   int32_t reserved0;
   vector3_t aabb_max;
   int32_t reserved1;
-} vdb_brick_info_t;
-typedef struct vdb_brick_mask_t {
+} vdb_chunk_info_t;
+typedef struct vdb_chunk_mask_t {
   uint32_t any_x_faces;
   uint32_t any_y_faces;
   uint32_t any_z_faces;
-  uint32_t x_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
-  uint32_t y_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
-  uint32_t z_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
-} vdb_brick_mask_t;
+  uint32_t x_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t y_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t z_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+} vdb_chunk_mask_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_cluster_info_t) == 4);
-STATIC_ASSERT(ALIGNOF(vdb_occlusion_info_t) == 4);
-STATIC_ASSERT(ALIGNOF(vdb_brick_info_t) == 4);
-STATIC_ASSERT(ALIGNOF(vdb_brick_mask_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_chunk_info_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_chunk_mask_t) == 4);
 
 typedef struct vdb_t {
   buffer_t terrain_layer_buffer;
   buffer_t cluster_info_buffer;
-  buffer_t occlusion_info_buffer;
-  buffer_t brick_info_buffer;
-  buffer_t brick_mask_buffer;
+  buffer_t chunk_info_buffer;
+  buffer_t chunk_mask_buffer;
 } vdb_t;
 
 #ifdef __cplusplus
@@ -167,8 +159,8 @@ void vdb_debug_neg_y(void);
 void vdb_debug_neg_z(void);
 void vdb_destroy(void);
 
-int32_t vdb_brick_position_to_index(ivector3_t brick_position);
-ivector3_t vdb_brick_index_to_position(int32_t brick_index);
+int32_t vdb_chunk_position_to_index(ivector3_t chunk_position);
+ivector3_t vdb_chunk_index_to_position(int32_t chunk_index);
 
 #ifdef __cplusplus
 }

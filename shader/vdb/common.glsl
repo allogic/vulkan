@@ -3,11 +3,11 @@
 
 #define VDB_LOD_COUNT (4)
 #define VDB_LOD_COUNT_PLUS_ONE (VDB_LOD_COUNT + 1)
-#define VDB_BRICK_SIZE (32)
+#define VDB_CHUNK_SIZE (32)
 #define VDB_CLUSTER_DIM_X (3)
 #define VDB_CLUSTER_DIM_Y (3)
 #define VDB_CLUSTER_DIM_Z (3)
-#define VDB_BRICK_COUNT (27)
+#define VDB_CHUNK_COUNT (27)
 
 #define VDB_SURFACE_THRESHOLD (0.5)
 #define VDB_TERRAIN_LAYER_COUNT (16)
@@ -50,85 +50,91 @@
 #define VDB_PAYLOAD_AXIS_Z (2)
 
 struct cellular_noise_args_t {
-  vec4 offset;
-  int type;
-  float u;
-  float v;
-  int axis;
+	vec4 offset;
+	int type;
+	float u;
+	float v;
+	int axis;
 };
 struct curl_noise_args_t {
-  vec4 offset;
-  int type;
-  int axis;
-  int reserved0;
-  int reserved1;
+	vec4 offset;
+	int type;
+	int axis;
+	int reserved0;
+	int reserved1;
 };
 struct fbm_noise_args_t {
-  vec4 offset;
-  int type;
-  float scale;
-  float tile_length;
-  float amplitude;
-  float lacunarity;
-  int octaves;
-  int reserved0;
-  int reserved1;
+	vec4 offset;
+	int type;
+	float scale;
+	float tile_length;
+	float amplitude;
+	float lacunarity;
+	int octaves;
+	int reserved0;
+	int reserved1;
 };
 struct gradient_noise_args_t {
-  vec4 offset;
-  int type;
-  float tile_length;
-  int reserved0;
-  int reserved1;
+	vec4 offset;
+	int type;
+	float tile_length;
+	int reserved0;
+	int reserved1;
 };
 struct perlin_noise_args_t {
-  vec4 offset;
-  int type;
-  int reserved0;
-  int reserved1;
-  int reserved2;
+	vec4 offset;
+	int type;
+	int reserved0;
+	int reserved1;
+	int reserved2;
 };
 struct simplex_noise_args_t {
-  vec4 offset;
-  int type;
-  int reserved0;
-  int reserved1;
-  int reserved2;
+	  vec4 offset;
+	  int type;
+	  int reserved0;
+	  int reserved1;
+	  int reserved2;
 };
 
 struct vdb_terrain_layer_t {
-  cellular_noise_args_t cellular_noise_args;
-  curl_noise_args_t curl_noise_args;
-  fbm_noise_args_t fbm_noise_args;
-  gradient_noise_args_t gradient_noise_args;
-  perlin_noise_args_t perlin_noise_args;
-  simplex_noise_args_t simplex_noise_args;
-  int noise_type;
-  float scale;
-  float weight;
-  int reserved0;
+	  cellular_noise_args_t cellular_noise_args;
+	  curl_noise_args_t curl_noise_args;
+	  fbm_noise_args_t fbm_noise_args;
+	  gradient_noise_args_t gradient_noise_args;
+	  perlin_noise_args_t perlin_noise_args;
+	  simplex_noise_args_t simplex_noise_args;
+	  int noise_type;
+	  float scale;
+	  float weight;
+	  int reserved0;
 };
-struct vdb_brick_info_t {
-	ivec3 brick_position;
+struct vdb_chunk_info_t {
+	ivec3 chunk_position;
 	int lod;
 	vec3 aabb_min;
 	int reserved0;
 	vec3 aabb_max;
 	int reserved1;
 };
-struct vdb_brick_mask_t {
-  uint any_x_faces;
-  uint any_y_faces;
-  uint any_z_faces;
-  uint x_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
-  uint y_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
-  uint z_mask[VDB_BRICK_SIZE * VDB_BRICK_SIZE + 2];
+struct vdb_chunk_mask_t {
+	uint any_x_faces;
+	uint any_y_faces;
+	uint any_z_faces;
+	uint x_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint y_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint z_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
 };
 
-struct vdb_payload_data_t {
-	ivec3 brick_position;
-	int brick_index;
-	int axis;
+struct vdb_payload_t {
+	ivec3 chunk_position;
+	int chunk_index;
+};
+
+struct vdb_meshlet_t {
+	uint vertex_offset;
+	uint vertex_count;
+	uint triangle_offset;
+	uint triangle_count;
 };
 
 #endif // VDB_COMMON_H

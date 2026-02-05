@@ -14,7 +14,9 @@
 
 #include "../vdb/common.glsl"
 
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+layout (local_size_x = 8) in;
+layout (local_size_y = 8) in;
+layout (local_size_z = 8) in;
 
 layout (binding = 0) uniform vdb_cluster_info_t {
 	ivec3 cluster_dim;
@@ -22,13 +24,13 @@ layout (binding = 0) uniform vdb_cluster_info_t {
 layout (binding = 1) uniform vdb_terrain_layer_buffer_t {
 	vdb_terrain_layer_t terrain_layer[VDB_TERRAIN_LAYER_COUNT];
 } vdb_terrain_layer_buffer;
-layout (binding = 2) buffer vdb_brick_mask_buffer_t {
-	vdb_brick_mask_t brick_mask[];
-} vdb_brick_mask_buffer;
+layout (binding = 2) buffer vdb_chunk_mask_buffer_t {
+	vdb_chunk_mask_t chunk_mask[];
+} vdb_chunk_mask_buffer;
 
 layout (push_constant) uniform vdb_world_generator_push_constant_t {
-	ivec3 brick_position;
-	int brick_index;
+	ivec3 chunk_position;
+	int chunk_index;
 } vdb_world_generator_push_constant;
 
 float vdb_default_density(vec3 sample_position, float ground_level, float cluster_height) {
@@ -131,15 +133,15 @@ float vdb_density_from_layers(vec3 sample_position, float ground_level, float cl
 }
 
 void main() {
-	uint brick_index = vdb_world_generator_push_constant.brick_index;
+	uint chunk_index = vdb_world_generator_push_constant.chunk_index;
 
-	ivec3 brick_position = vdb_world_generator_push_constant.brick_position;
+	ivec3 chunk_position = vdb_world_generator_push_constant.chunk_position;
 	ivec3 voxel_position = ivec3(gl_GlobalInvocationID.xyz);
 	
-	vec3 sample_position = vec3((brick_position * VDB_BRICK_SIZE) + voxel_position);
+	vec3 sample_position = vec3((chunk_position * VDB_CHUNK_SIZE) + voxel_position);
 
-	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_BRICK_SIZE) / 2.0;
-	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_BRICK_SIZE);
+	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_CHUNK_SIZE) / 2.0;
+	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_CHUNK_SIZE);
 
 	//float density = vdb_density_from_layers(sample_position, ground_level, cluster_height);
 	//float density = vdb_default_density(sample_position, ground_level, cluster_height);
@@ -156,28 +158,28 @@ void main() {
 
 	if (density_right <= VDB_SURFACE_THRESHOLD) {
 
-		uint idx = (voxel_position.y + 1) + (voxel_position.z * VDB_BRICK_SIZE);
+		uint idx = (voxel_position.y + 1) + (voxel_position.z * VDB_CHUNK_SIZE);
 		uint value = 1u << voxel_position.x;
 
-		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].x_mask[idx], value);
-		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_x_faces, value);
+		atomicOr(vdb_chunk_mask_buffer.chunk_mask[chunk_index].x_mask[idx], value);
+		atomicOr(vdb_chunk_mask_buffer.chunk_mask[chunk_index].any_x_faces, value);
 	}
 
 	if (density_up <= VDB_SURFACE_THRESHOLD) {
 
-		uint idx = (voxel_position.x + 1) + (voxel_position.z * VDB_BRICK_SIZE);
+		uint idx = (voxel_position.x + 1) + (voxel_position.z * VDB_CHUNK_SIZE);
 		uint value = 1u << voxel_position.y;
 
-		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].y_mask[idx], value);
-		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_y_faces, value);
+		atomicOr(vdb_chunk_mask_buffer.chunk_mask[chunk_index].y_mask[idx], value);
+		atomicOr(vdb_chunk_mask_buffer.chunk_mask[chunk_index].any_y_faces, value);
 	}
 
 	if (density_front <= VDB_SURFACE_THRESHOLD) {
 
-		uint idx = (voxel_position.x + 1) + (voxel_position.y * VDB_BRICK_SIZE);
+		uint idx = (voxel_position.x + 1) + (voxel_position.y * VDB_CHUNK_SIZE);
 		uint value = 1u << voxel_position.z;
 
-		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].z_mask[idx], value);
-		atomicOr(vdb_brick_mask_buffer.brick_mask[brick_index].any_z_faces, value);
+		atomicOr(vdb_chunk_mask_buffer.chunk_mask[chunk_index].z_mask[idx], value);
+		atomicOr(vdb_chunk_mask_buffer.chunk_mask[chunk_index].any_z_faces, value);
 	}
 }

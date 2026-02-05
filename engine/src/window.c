@@ -175,12 +175,12 @@ void window_run(void) {
 
     renderer_draw_debug_box(
       (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){(float)(VDB_BRICK_SIZE), (float)(VDB_BRICK_SIZE), (float)(VDB_BRICK_SIZE)},
+      (vector3_t){(float)(VDB_CHUNK_SIZE), (float)(VDB_CHUNK_SIZE), (float)(VDB_CHUNK_SIZE)},
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
     renderer_draw_debug_box(
       (vector3_t){0.0F, 0.0F, 0.0F},
-      (vector3_t){(float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_X), (float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_Y), (float)(VDB_BRICK_SIZE * VDB_CLUSTER_DIM_Z)},
+      (vector3_t){(float)(VDB_CHUNK_SIZE * VDB_CLUSTER_DIM_X), (float)(VDB_CHUNK_SIZE * VDB_CLUSTER_DIM_Y), (float)(VDB_CHUNK_SIZE * VDB_CLUSTER_DIM_Z)},
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
     // TODO
@@ -562,9 +562,14 @@ static void window_create_surface(void) {
   VK_CHECK(vkCreateWin32SurfaceKHR(g_window.instance, &win32_surface_create_info, 0, &g_window.surface));
 }
 static void window_create_device(void) {
+  VkPhysicalDeviceRayQueryFeaturesKHR physical_device_ray_query_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+    .pNext = 0,
+  };
+
   VkPhysicalDevice8BitStorageFeatures physical_device_8bit_storage_features = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
-    .pNext = 0,
+    .pNext = &physical_device_ray_query_features,
   };
 
   VkPhysicalDeviceBufferDeviceAddressFeatures physical_device_buffer_device_address_freatures = {

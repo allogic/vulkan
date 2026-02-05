@@ -9,7 +9,9 @@
 const int SUB_DIVISION = 4;
 const int SUBPARTS_PER_LAYER = SUB_DIVISION * SUB_DIVISION;
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1) in;
+layout (local_size_y = 1) in;
+layout (local_size_z = 1) in;
 
 layout (binding = 0) uniform camera_info_t {
 	vec3 position;
@@ -20,18 +22,12 @@ layout (binding = 0) uniform camera_info_t {
 	mat4 view_projection_inv;
 	vec4 frustum_plane[6];
 } camera_info;
-layout (binding = 1) uniform vdb_occlusion_info_t {
-	float cull_center_x;
-	float cull_center_y;
-	float cull_radius;
-	float meshlet_density;
-} vdb_occlusion_info;
-layout (binding = 2) readonly buffer vdb_brick_info_buffer_t {
-	vdb_brick_info_t brick_info[];
-} vdb_brick_info_buffer;
-layout (binding = 3) readonly buffer vdb_brick_mask_buffer_t {
-	vdb_brick_mask_t brick_mask[];
-} vdb_brick_mask_buffer;
+layout (binding = 1) readonly buffer vdb_chunk_info_buffer_t {
+	vdb_chunk_info_t chunk_info[];
+} vdb_chunk_info_buffer;
+layout (binding = 2) readonly buffer vdb_chunk_mask_buffer_t {
+	vdb_chunk_mask_t chunk_mask[];
+} vdb_chunk_mask_buffer;
 
 taskPayloadSharedEXT vdb_payload_data_t vdb_payload_data;
 
@@ -54,45 +50,45 @@ bool aabb_in_frustum(vec3 minp, vec3 maxp) {
 }
 
 void main() {
-	int brick_index = int(gl_GlobalInvocationID.x);
+	int chunk_index = int(gl_GlobalInvocationID.x);
 	
-	vdb_brick_info_t brick_info = vdb_brick_info_buffer.brick_info[brick_index];
-	vdb_brick_mask_t brick_mask = vdb_brick_mask_buffer.brick_mask[brick_index];
+	vdb_chunk_info_t chunk_info = vdb_chunk_info_buffer.chunk_info[chunk_index];
+	vdb_chunk_mask_t chunk_mask = vdb_chunk_mask_buffer.chunk_mask[chunk_index];
 
-	if (!aabb_in_frustum(brick_info.aabb_min, brick_info.aabb_max)) {
+	if (!aabb_in_frustum(chunk_info.aabb_min, chunk_info.aabb_max)) {
 		return;
 	}
 
-    if (brick_mask.any_z_faces == 0u) {
+    if (chunk_mask.any_z_faces == 0u) {
         return;
     }
 
-	//EmitMeshTasksEXT(VDB_BRICK_SIZE * SUBPARTS_PER_LAYER, 1, 1);
+	//EmitMeshTasksEXT(VDB_CHUNK_SIZE * SUBPARTS_PER_LAYER, 1, 1);
 
 	uint active_slice_count_x = 0u;
 	uint active_slice_count_y = 0u;
 	uint active_slice_count_z = 0u;
 
-    for (int slice = 0; slice < VDB_BRICK_SIZE; slice++) {
+    for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
 
-        if ((brick_mask.any_x_faces & (1u << slice)) != 0u) {
+        if ((chunk_mask.any_x_faces & (1u << slice)) != 0u) {
             active_slice_count_x++;
             // Optional: if active_slice_count > some max, break or handle in multiple dispatches
         }
 
-		if ((brick_mask.any_y_faces & (1u << slice)) != 0u) {
+		if ((chunk_mask.any_y_faces & (1u << slice)) != 0u) {
             active_slice_count_y++;
             // Optional: if active_slice_count > some max, break or handle in multiple dispatches
         }
 
-		if ((brick_mask.any_z_faces & (1u << slice)) != 0u) {
+		if ((chunk_mask.any_z_faces & (1u << slice)) != 0u) {
             active_slice_count_z++;
             // Optional: if active_slice_count > some max, break or handle in multiple dispatches
         }
     }
 
-	vdb_payload_data.brick_position = brick_info.brick_position;
-	vdb_payload_data.brick_index = brick_index;
+	vdb_payload_data.chunk_position = chunk_info.chunk_position;
+	vdb_payload_data.chunk_index = chunk_index;
 
 	vdb_payload_data.axis = VDB_PAYLOAD_AXIS_X;
 	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count_x, 1u);

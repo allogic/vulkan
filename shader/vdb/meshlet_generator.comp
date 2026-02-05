@@ -1,0 +1,34 @@
+#version 460 core
+
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+#include "../vdb/common.glsl"
+
+layout (local_size_x = 8) in;
+layout (local_size_y = 8) in;
+layout (local_size_z = 8) in;
+
+layout (binding = 0) readonly buffer vdb_chunk_info_buffer_t {
+	vdb_chunk_info_t chunk_info[];
+} vdb_chunk_info_buffer;
+layout (binding = 1) readonly buffer vdb_chunk_mask_buffer_t {
+	vdb_chunk_mask_t chunk_mask[];
+} vdb_chunk_mask_buffer;
+layout (binding = 2) readonly buffer vdb_chunk_vertex_buffer_t {
+	vdb_vertex_t vertex[];
+} vdb_chunk_vertex_buffer;
+layout (binding = 3) readonly buffer vdb_chunk_index_buffer_t {
+	vdb_index_t index[];
+} vdb_chunk_index_buffer;
+
+layout (binding = 4) writeonly buffer vdb_chunk_meshlet_buffer_t {
+	vdb_meshlet_t meshlet[];
+} vdb_chunk_meshlet_buffer;
+
+void main() {
+	uint chunk_index = gl_GlobalInvocationID.x;
+
+	vdb_chunk_info_t chunk_info = vdb_chunk_info_buffer.chunk_info[chunk_index];
+	vdb_chunk_mask_t chunk_mask = vdb_chunk_mask_buffer.chunk_mask[chunk_index];
+}

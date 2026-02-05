@@ -7,8 +7,8 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
-static void dbgui_draw_vdb_world_generator(void);
-static void dbgui_draw_vdb_mesh_renderer(void);
+static void dbgui_draw_vdb_mask_generator(void);
+static void dbgui_draw_vdb_geom_renderer(void);
 
 static void dbgui_draw_cellular_noise(vdb_terrain_layer_t *layer);
 static void dbgui_draw_curl_noise(vdb_terrain_layer_t *layer);
@@ -70,8 +70,8 @@ void dbgui_draw(void) {
 
   ImGui::NewFrame();
 
-  dbgui_draw_vdb_world_generator();
-  dbgui_draw_vdb_mesh_renderer();
+  dbgui_draw_vdb_mask_generator();
+  dbgui_draw_vdb_geom_renderer();
 
   ImGui::Render();
 
@@ -91,8 +91,8 @@ void dbgui_destroy(void) {
   vkDestroyDescriptorPool(g_window.device, s_dbgui_descriptor_pool, 0);
 }
 
-static void dbgui_draw_vdb_world_generator(void) {
-  ImGui::Begin("World Layer");
+static void dbgui_draw_vdb_mask_generator(void) {
+  ImGui::Begin("Terrain Layer");
 
   int32_t layer_index = 0;
   int32_t layer_count = VDB_TERRAIN_LAYER_COUNT;
@@ -160,15 +160,8 @@ static void dbgui_draw_vdb_world_generator(void) {
 
   ImGui::End();
 }
-static void dbgui_draw_vdb_mesh_renderer(void) {
-  ImGui::Begin("Terrain Mesher");
-
-  vdb_occlusion_info_t *occlusion_info = (vdb_occlusion_info_t *)g_vdb.occlusion_info_buffer.mapped_memory;
-
-  ImGui::DragFloat("Cull Center X", &occlusion_info->cull_center_x, 0.1F, 0.0F, 0.0F, "%.3F");
-  ImGui::DragFloat("Cull Center Y", &occlusion_info->cull_center_y, 0.1F, 0.0F, 0.0F, "%.3F");
-  ImGui::DragFloat("Cull Radius", &occlusion_info->cull_radius, 0.1F, 0.0F, 0.0F, "%.3F");
-  ImGui::DragFloat("Meshlet Density", &occlusion_info->meshlet_density, 0.1F, 0.0F, 0.0F, "%.3F");
+static void dbgui_draw_vdb_geom_renderer(void) {
+  ImGui::Begin("VDB Mesher");
 
   ImGui::End();
 }

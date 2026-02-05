@@ -1,14 +1,11 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-// TODO: remove push constants!
-// TODO: rename brick to chunk!
-// TODO: remove occlusion_info_t struct!
-
-#define ENABLE_VDB_WORLD_GENERATOR
+#define ENABLE_VDB_MASK_GENERATOR
+#define ENABLE_VDB_MESHLET_GENERATOR
 // #define ENABLE_VDB_LOD_GENERATOR
-#define ENABLE_VDB_MESH_RENDERER
-// #define ENABLE_DEBUG_LINE_RENDERER
+// #define ENABLE_VDB_GEOM_RENDERER
+#define ENABLE_DEBUG_LINE_RENDERER
 
 #define DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
 #define DEBUG_LINE_INDEX_COUNT (0xFFFFF)
@@ -50,20 +47,25 @@ STATIC_ASSERT(ALIGNOF(debug_line_vertex_t) == 4);
 typedef uint32_t full_screen_index_t;
 typedef uint32_t debug_line_index_t;
 
-typedef struct vdb_world_generator_push_constant_t {
-  ivector3_t brick_position;
-  int32_t brick_index;
-} vdb_world_generator_push_constant_t;
+typedef struct vdb_mask_generator_push_constant_t {
+  ivector3_t chunk_position;
+  int32_t chunk_index;
+} vdb_mask_generator_push_constant_t;
+typedef struct vdb_meshlet_generator_push_constant_t {
+  ivector3_t chunk_position;
+  int32_t chunk_index;
+} vdb_meshlet_generator_push_constant_t;
 typedef struct vdb_lod_generator_push_constant_t {
-  ivector3_t brick_position;
-  int32_t brick_index;
-  int32_t brick_lod;
+  ivector3_t chunk_position;
+  int32_t chunk_index;
+  int32_t chunk_lod;
   int32_t reserved0;
   int32_t reserved1;
   int32_t reserved2;
 } vdb_lod_generator_push_constant_t;
 
-STATIC_ASSERT(ALIGNOF(vdb_world_generator_push_constant_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_mask_generator_push_constant_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_meshlet_generator_push_constant_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_lod_generator_push_constant_t) == 4);
 
 typedef struct renderer_t {
@@ -76,13 +78,20 @@ typedef struct renderer_t {
   VkSemaphore render_finished_semaphore[SWAPCHAIN_MAX_IMAGE_COUNT];
   VkSemaphore image_available_semaphore;
   VkFence frame_fence;
-#ifdef ENABLE_VDB_WORLD_GENERATOR
-  VkDescriptorPool vdb_world_generator_descriptor_pool;
-  VkDescriptorSetLayout vdb_world_generator_descriptor_set_layout;
-  VkDescriptorSet vdb_world_generator_descriptor_set;
-  VkPipelineLayout vdb_world_generator_pipeline_layout;
-  VkPipeline vdb_world_generator_pipeline;
-#endif // ENABLE_VDB_WORLD_GENERATOR
+#ifdef ENABLE_VDB_MASK_GENERATOR
+  VkDescriptorPool vdb_mask_generator_descriptor_pool;
+  VkDescriptorSetLayout vdb_mask_generator_descriptor_set_layout;
+  VkDescriptorSet vdb_mask_generator_descriptor_set;
+  VkPipelineLayout vdb_mask_generator_pipeline_layout;
+  VkPipeline vdb_mask_generator_pipeline;
+#endif // ENABLE_VDB_MASK_GENERATOR
+#ifdef ENABLE_VDB_MESHLET_GENERATOR
+  VkDescriptorPool vdb_meshlet_generator_descriptor_pool;
+  VkDescriptorSetLayout vdb_meshlet_generator_descriptor_set_layout;
+  VkDescriptorSet vdb_meshlet_generator_descriptor_set;
+  VkPipelineLayout vdb_meshlet_generator_pipeline_layout;
+  VkPipeline vdb_meshlet_generator_pipeline;
+#endif // ENABLE_VDB_MESHLET_GENERATOR
 #ifdef ENABLE_VDB_LOD_GENERATOR
   VkDescriptorPool vdb_lod_generator_descriptor_pool;
   VkDescriptorSetLayout vdb_lod_generator_descriptor_set_layout;
@@ -90,13 +99,13 @@ typedef struct renderer_t {
   VkPipelineLayout vdb_lod_generator_pipeline_layout;
   VkPipeline vdb_lod_generator_pipeline;
 #endif // ENABLE_VDB_LOD_GENERATOR
-#ifdef ENABLE_VDB_MESH_RENDERER
-  VkDescriptorPool vdb_mesh_renderer_descriptor_pool;
-  VkDescriptorSetLayout vdb_mesh_renderer_descriptor_set_layout;
-  VkDescriptorSet vdb_mesh_renderer_descriptor_set;
-  VkPipelineLayout vdb_mesh_renderer_pipeline_layout;
-  VkPipeline vdb_mesh_renderer_pipeline;
-#endif // ENABLE_VDB_MESH_RENDERER
+#ifdef ENABLE_VDB_GEOM_RENDERER
+  VkDescriptorPool vdb_geom_renderer_descriptor_pool;
+  VkDescriptorSetLayout vdb_geom_renderer_descriptor_set_layout;
+  VkDescriptorSet vdb_geom_renderer_descriptor_set;
+  VkPipelineLayout vdb_geom_renderer_pipeline_layout;
+  VkPipeline vdb_geom_renderer_pipeline;
+#endif // ENABLE_VDB_GEOM_RENDERER
 #ifdef ENABLE_DEBUG_LINE_RENDERER
   VkDescriptorPool debug_line_descriptor_pool;
   VkDescriptorSetLayout debug_line_descriptor_set_layout;
@@ -113,7 +122,6 @@ typedef struct renderer_t {
   buffer_t camera_info_buffer;
   buffer_t full_screen_vertex_buffer;
   buffer_t full_screen_index_buffer;
-  // vdb_lod_generator_push_constant_t vdb_lod_generator_push_constant;
 } renderer_t;
 
 #ifdef __cplusplus
