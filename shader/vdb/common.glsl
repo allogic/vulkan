@@ -130,11 +130,4 @@ struct vdb_payload_t {
 	int chunk_index;
 };
 
-struct vdb_meshlet_t {
-	uint vertex_offset;
-	uint vertex_count;
-	uint triangle_offset;
-	uint triangle_count;
-};
-
 #endif // VDB_COMMON_H

@@ -1,8 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#define ENABLE_VDB_MASK_GENERATOR
-#define ENABLE_VDB_MESHLET_GENERATOR
+// #define ENABLE_VDB_MASK_GENERATOR
 // #define ENABLE_VDB_LOD_GENERATOR
 // #define ENABLE_VDB_GEOM_RENDERER
 #define ENABLE_DEBUG_LINE_RENDERER
@@ -51,10 +50,6 @@ typedef struct vdb_mask_generator_push_constant_t {
   ivector3_t chunk_position;
   int32_t chunk_index;
 } vdb_mask_generator_push_constant_t;
-typedef struct vdb_meshlet_generator_push_constant_t {
-  ivector3_t chunk_position;
-  int32_t chunk_index;
-} vdb_meshlet_generator_push_constant_t;
 typedef struct vdb_lod_generator_push_constant_t {
   ivector3_t chunk_position;
   int32_t chunk_index;
@@ -65,7 +60,6 @@ typedef struct vdb_lod_generator_push_constant_t {
 } vdb_lod_generator_push_constant_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_mask_generator_push_constant_t) == 4);
-STATIC_ASSERT(ALIGNOF(vdb_meshlet_generator_push_constant_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_lod_generator_push_constant_t) == 4);
 
 typedef struct renderer_t {
@@ -85,13 +79,6 @@ typedef struct renderer_t {
   VkPipelineLayout vdb_mask_generator_pipeline_layout;
   VkPipeline vdb_mask_generator_pipeline;
 #endif // ENABLE_VDB_MASK_GENERATOR
-#ifdef ENABLE_VDB_MESHLET_GENERATOR
-  VkDescriptorPool vdb_meshlet_generator_descriptor_pool;
-  VkDescriptorSetLayout vdb_meshlet_generator_descriptor_set_layout;
-  VkDescriptorSet vdb_meshlet_generator_descriptor_set;
-  VkPipelineLayout vdb_meshlet_generator_pipeline_layout;
-  VkPipeline vdb_meshlet_generator_pipeline;
-#endif // ENABLE_VDB_MESHLET_GENERATOR
 #ifdef ENABLE_VDB_LOD_GENERATOR
   VkDescriptorPool vdb_lod_generator_descriptor_pool;
   VkDescriptorSetLayout vdb_lod_generator_descriptor_set_layout;

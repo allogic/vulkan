@@ -151,12 +151,6 @@ extern "C" {
 extern vdb_t g_vdb;
 
 void vdb_create(void);
-void vdb_debug_pos_x(void);
-void vdb_debug_pos_y(void);
-void vdb_debug_pos_z(void);
-void vdb_debug_neg_x(void);
-void vdb_debug_neg_y(void);
-void vdb_debug_neg_z(void);
 void vdb_destroy(void);
 
 int32_t vdb_chunk_position_to_index(ivector3_t chunk_position);
