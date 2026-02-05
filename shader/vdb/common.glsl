@@ -120,20 +120,29 @@ struct vdb_chunk_info_t {
 	int reserved1;
 };
 struct vdb_chunk_mask_t {
-	uint any_x_faces;
-	uint any_y_faces;
-	uint any_z_faces;
-	uint x_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint y_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint z_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint any_px_faces;
+	uint any_nx_faces;
+	uint any_py_faces;
+	uint any_ny_faces;
+	uint any_pz_faces;
+	uint any_nz_faces;
+	uint px_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint nx_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint py_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint ny_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint pz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint nz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
 };
 
 struct vdb_payload_t {
 	ivec3 chunk_position;
 	uint chunk_index;
-	uint any_x_faces;
-	uint any_y_faces;
-	uint any_z_faces;
+	uint any_px_faces;
+	uint any_nx_faces;
+	uint any_py_faces;
+	uint any_ny_faces;
+	uint any_pz_faces;
+	uint any_nz_faces;
 	uint axis;
 };
 

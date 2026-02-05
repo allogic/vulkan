@@ -131,12 +131,18 @@ typedef struct vdb_chunk_info_t {
   int32_t reserved1;
 } vdb_chunk_info_t;
 typedef struct vdb_chunk_mask_t {
-  uint32_t any_x_faces;
-  uint32_t any_y_faces;
-  uint32_t any_z_faces;
-  uint32_t x_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t y_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t z_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t any_px_faces;
+  uint32_t any_nx_faces;
+  uint32_t any_py_faces;
+  uint32_t any_ny_faces;
+  uint32_t any_pz_faces;
+  uint32_t any_nz_faces;
+  uint32_t px_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t nx_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t py_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t ny_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t pz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t nz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
 } vdb_chunk_mask_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);

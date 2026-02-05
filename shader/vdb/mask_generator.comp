@@ -49,106 +49,72 @@ float vdb_default_density(vec3 sample_position, float ground_level, float cluste
 }
 
 void main() {
-    ivec3 local = ivec3(gl_GlobalInvocationID.xyz) - ivec3(1);
+
+    ivec3 local = ivec3(gl_GlobalInvocationID) - ivec3(1);
 
     if (any(lessThan(local, ivec3(-1))) ||
         any(greaterThan(local, ivec3(VDB_CHUNK_SIZE))))
-    {
         return;
-    }
 
     ivec3 chunk = pc.chunk_position;
-    int   cidx  = pc.chunk_index;
+    int cidx = pc.chunk_index;
 
     vec3 p = vec3(chunk * VDB_CHUNK_SIZE + local);
 
-    float ground_level   = float(VDB_CLUSTER_DIM_Y * VDB_CHUNK_SIZE) / 2.0;
-    float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_CHUNK_SIZE);
+	float ground_level = float(VDB_CLUSTER_DIM_Y * VDB_CHUNK_SIZE) / 2.0;
+	float cluster_height = float(VDB_CLUSTER_DIM_Y * VDB_CHUNK_SIZE);
 
-    float density = vdb_default_density(p, ground_level, cluster_height);
+    float d  = vdb_default_density(p, ground_level, cluster_height);
+    if (d <= VDB_SURFACE_THRESHOLD) return;
 
-    if (density <= VDB_SURFACE_THRESHOLD)
-        return;
+    float dxp = vdb_default_density(p + vec3(1,0,0), ground_level, cluster_height);
+    float dxn = vdb_default_density(p + vec3(-1,0,0), ground_level, cluster_height);
+    float dyp = vdb_default_density(p + vec3(0,1,0), ground_level, cluster_height);
+    float dyn = vdb_default_density(p + vec3(0,-1,0), ground_level, cluster_height);
+    float dzp = vdb_default_density(p + vec3(0,0,1), ground_level, cluster_height);
+    float dzn = vdb_default_density(p + vec3(0,0,-1), ground_level, cluster_height);
 
-    float dr = vdb_default_density(p + vec3( 1,0,0), ground_level, cluster_height);
-    float dl = vdb_default_density(p + vec3(-1,0,0), ground_level, cluster_height);
-    float du = vdb_default_density(p + vec3( 0,1,0), ground_level, cluster_height);
-    float dd = vdb_default_density(p + vec3( 0,-1,0), ground_level, cluster_height);
-    float df = vdb_default_density(p + vec3( 0,0,1), ground_level, cluster_height);
-    float db = vdb_default_density(p + vec3( 0,0,-1), ground_level, cluster_height);
+    uint x = uint(clamp(local.x, 0, VDB_CHUNK_SIZE - 1));
+    uint y = uint(clamp(local.y, 0, VDB_CHUNK_SIZE - 1));
+    uint z = uint(clamp(local.z, 0, VDB_CHUNK_SIZE - 1));
 
-    if (dr <= VDB_SURFACE_THRESHOLD || dl <= VDB_SURFACE_THRESHOLD) {
+    uint idx_yz = 1u + y + z * VDB_CHUNK_SIZE;
+    uint idx_xz = 1u + x + z * VDB_CHUNK_SIZE;
+    uint idx_xy = 1u + x + y * VDB_CHUNK_SIZE;
 
-        int target_chunk_id = cidx;
-        uint target_bit = 1u << uint(clamp(local.x, 0, VDB_CHUNK_SIZE - 1));
-        uint target_y = uint(clamp(local.y, 0, VDB_CHUNK_SIZE - 1));
-        uint target_z = uint(clamp(local.z, 0, VDB_CHUNK_SIZE - 1));
-        uint idx = 1u + target_y + target_z * VDB_CHUNK_SIZE;
-
-        if (local.x == VDB_CHUNK_SIZE) {
-            ivec3 npos = chunk + ivec3(1,0,0);
-            target_chunk_id = get_chunk_index(npos);
-            target_bit = 1u << 0u;
-        }
-        else if (local.x == -1) {
-            ivec3 npos = chunk + ivec3(-1,0,0);
-            target_chunk_id = get_chunk_index(npos);
-            target_bit = 1u << (VDB_CHUNK_SIZE - 1u);
-        }
-
-        if (target_chunk_id >= 0) {
-            atomicOr(vdb_chunk_mask_buffer.chunk_mask[target_chunk_id].x_mask[idx], target_bit);
-            atomicOr(vdb_chunk_mask_buffer.chunk_mask[target_chunk_id].any_x_faces, target_bit);
-        }
+    // +X
+    if (dxp <= VDB_SURFACE_THRESHOLD) {
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].px_mask[idx_yz], 1u << x);
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].any_px_faces, 1u << x);
     }
 
-    if (du <= VDB_SURFACE_THRESHOLD || dd <= VDB_SURFACE_THRESHOLD) {
-
-        int target_chunk_id = cidx;
-        uint target_bit = 1u << uint(clamp(local.y, 0, VDB_CHUNK_SIZE - 1));
-        uint target_x = uint(clamp(local.x, 0, VDB_CHUNK_SIZE - 1));
-        uint target_z = uint(clamp(local.z, 0, VDB_CHUNK_SIZE - 1));
-        uint idx = 1u + target_x + target_z * VDB_CHUNK_SIZE;
-
-        if (local.y == VDB_CHUNK_SIZE) {
-            ivec3 npos = chunk + ivec3(0,1,0);
-            target_chunk_id = get_chunk_index(npos);
-            target_bit = 1u << 0u;
-        }
-        else if (local.y == -1) {
-            ivec3 npos = chunk + ivec3(0,-1,0);
-            target_chunk_id = get_chunk_index(npos);
-            target_bit = 1u << (VDB_CHUNK_SIZE - 1u);
-        }
-
-        if (target_chunk_id >= 0) {
-            atomicOr(vdb_chunk_mask_buffer.chunk_mask[target_chunk_id].y_mask[idx], target_bit);
-            atomicOr(vdb_chunk_mask_buffer.chunk_mask[target_chunk_id].any_y_faces, target_bit);
-        }
+    // -X
+    if (dxn <= VDB_SURFACE_THRESHOLD) {
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].nx_mask[idx_yz], 1u << x);
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].any_nx_faces, 1u << x);
     }
 
-    if (df <= VDB_SURFACE_THRESHOLD || db <= VDB_SURFACE_THRESHOLD) {
+    // +Y
+    if (dyp <= VDB_SURFACE_THRESHOLD) {
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].py_mask[idx_xz], 1u << y);
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].any_py_faces, 1u << y);
+    }
 
-        int target_chunk_id = cidx;
-        uint target_bit = 1u << uint(clamp(local.z, 0, VDB_CHUNK_SIZE - 1));
-        uint target_x = uint(clamp(local.x, 0, VDB_CHUNK_SIZE - 1));
-        uint target_y = uint(clamp(local.y, 0, VDB_CHUNK_SIZE - 1));
-        uint idx = 1u + target_x + target_y * VDB_CHUNK_SIZE;
+    // -Y
+    if (dyn <= VDB_SURFACE_THRESHOLD) {
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].ny_mask[idx_xz], 1u << y);
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].any_ny_faces, 1u << y);
+    }
 
-        if (local.z == VDB_CHUNK_SIZE) {
-            ivec3 npos = chunk + ivec3(0,0,1);
-            target_chunk_id = get_chunk_index(npos);
-            target_bit = 1u << 0u;
-        }
-        else if (local.z == -1) {
-            ivec3 npos = chunk + ivec3(0,0,-1);
-            target_chunk_id = get_chunk_index(npos);
-            target_bit = 1u << (VDB_CHUNK_SIZE - 1u);
-        }
+    // +Z
+    if (dzp <= VDB_SURFACE_THRESHOLD) {
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].pz_mask[idx_xy], 1u << z);
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].any_pz_faces, 1u << z);
+    }
 
-        if (target_chunk_id >= 0) {
-            atomicOr(vdb_chunk_mask_buffer.chunk_mask[target_chunk_id].z_mask[idx], target_bit);
-            atomicOr(vdb_chunk_mask_buffer.chunk_mask[target_chunk_id].any_z_faces, target_bit);
-        }
+    // -Z
+    if (dzn <= VDB_SURFACE_THRESHOLD) {
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].nz_mask[idx_xy], 1u << z);
+        atomicOr(vdb_chunk_mask_buffer.chunk_mask[cidx].any_nz_faces, 1u << z);
     }
 }

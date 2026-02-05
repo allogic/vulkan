@@ -67,64 +67,60 @@ void main() {
 	}
 
 	uint active_slice_count = 0u;
+    uint any_mask = 0u;
 
-	switch (vdb_geom_renderer_push_constant.axis) {
-		case VDB_AXIS_POS_X:
-		case VDB_AXIS_NEG_X: {
+    switch (vdb_geom_renderer_push_constant.axis) {
 
-			if (chunk_mask.any_x_faces == 0u) {
-				return;
-			}
+        case VDB_AXIS_POS_X:
+            any_mask = chunk_mask.any_px_faces;
+            break;
 
-			for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
-				if ((chunk_mask.any_x_faces & (1u << slice)) != 0u) {
-					active_slice_count++;
-					// Optional: if active_slice_count > some max, break or handle in multiple dispatches
-				}
-			}
+        case VDB_AXIS_NEG_X:
+            any_mask = chunk_mask.any_nx_faces;
+            break;
 
-			break;
-		}
-		case VDB_AXIS_POS_Y:
-		case VDB_AXIS_NEG_Y: {
+        case VDB_AXIS_POS_Y:
+            any_mask = chunk_mask.any_py_faces;
+            break;
 
-			if (chunk_mask.any_y_faces == 0u) {
-				return;
-			}
+        case VDB_AXIS_NEG_Y:
+            any_mask = chunk_mask.any_ny_faces;
+            break;
 
-			for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
-				if ((chunk_mask.any_y_faces & (1u << slice)) != 0u) {
-					active_slice_count++;
-					// Optional: if active_slice_count > some max, break or handle in multiple dispatches
-				}
-			}
+        case VDB_AXIS_POS_Z:
+            any_mask = chunk_mask.any_pz_faces;
+            break;
 
-			break;
-		}
-		case VDB_AXIS_POS_Z:
-		case VDB_AXIS_NEG_Z: {
+        case VDB_AXIS_NEG_Z:
+            any_mask = chunk_mask.any_nz_faces;
+            break;
+    }
 
-			if (chunk_mask.any_z_faces == 0u) {
-				return;
-			}
+    if (any_mask == 0u)
+        return;
 
-			for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
-				if ((chunk_mask.any_z_faces & (1u << slice)) != 0u) {
-					active_slice_count++;
-					// Optional: if active_slice_count > some max, break or handle in multiple dispatches
-				}
-			}
+    for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
+        if ((any_mask & (1u << slice)) != 0u)
+            active_slice_count++;
+    }
 
-			break;
-		}
-	}
+    if (active_slice_count == 0u)
+        return;
 
-	vdb_payload.chunk_position = chunk_info.chunk_position;
-	vdb_payload.chunk_index    = chunk_index;
-	vdb_payload.any_x_faces    = chunk_mask.any_x_faces;
-	vdb_payload.any_y_faces    = chunk_mask.any_y_faces;
-	vdb_payload.any_z_faces    = chunk_mask.any_z_faces;
-	vdb_payload.axis           = vdb_geom_renderer_push_constant.axis;
+    vdb_payload.chunk_position = chunk_info.chunk_position;
+    vdb_payload.chunk_index    = chunk_index;
+    vdb_payload.any_px_faces = chunk_mask.any_px_faces;
+    vdb_payload.any_nx_faces = chunk_mask.any_nx_faces;
+    vdb_payload.any_py_faces = chunk_mask.any_py_faces;
+    vdb_payload.any_ny_faces = chunk_mask.any_ny_faces;
+    vdb_payload.any_pz_faces = chunk_mask.any_pz_faces;
+    vdb_payload.any_nz_faces = chunk_mask.any_nz_faces;
 
-	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count, 1u);
+    vdb_payload.axis = vdb_geom_renderer_push_constant.axis;
+
+    EmitMeshTasksEXT(
+        SUBPARTS_PER_LAYER,
+        active_slice_count,
+        1u
+    );
 }
