@@ -168,6 +168,8 @@ typedef struct window_t {
   VkPhysicalDeviceFeatures physical_device_features;
   VkPhysicalDeviceMemoryProperties physical_device_memory_properties;
   VkPhysicalDevice physical_device;
+  VkSurfaceFormatKHR prefered_surface_format;
+  VkPresentModeKHR prefered_present_mode;
   VkDevice device;
   VkQueue primary_queue;
   VkQueue present_queue;

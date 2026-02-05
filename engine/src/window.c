@@ -1,5 +1,8 @@
 #include <pch.h>
 
+#define MAX_SURFACE_FORMATS (0xFF)
+#define MAX_PRESENT_MODES (0xFF)
+
 static LRESULT window_native_message_proc(HWND window_handle, UINT window_message, WPARAM w_param, LPARAM l_param);
 
 #ifdef BUILD_DEBUG
@@ -14,6 +17,8 @@ static void window_create_command_pool(void);
 
 static void window_find_physical_device(void);
 static void window_find_physical_device_queue_families(void);
+static void window_find_prefered_surface_format(void);
+static void window_find_prefered_present_mode(void);
 
 static void window_check_physical_device_extensions(void);
 
@@ -49,14 +54,6 @@ static char const *s_window_instance_extension[] = {
 
 static char const *s_window_device_extension[] = {
   "VK_KHR_swapchain",
-  "VK_KHR_spirv_1_4",
-  "VK_KHR_shader_float_controls",
-  "VK_KHR_fragment_shading_rate",
-  "VK_KHR_create_renderpass2",
-#ifdef BUILD_DEBUG
-  "VK_KHR_shader_non_semantic_info",
-#endif // BUILD_DEBUG
-  "VK_EXT_descriptor_indexing",
   "VK_EXT_mesh_shader",
 };
 
@@ -73,6 +70,8 @@ void window_create(int32_t width, int32_t height, char const *title) {
 
   window_find_physical_device();
   window_find_physical_device_queue_families();
+  window_find_prefered_surface_format();
+  window_find_prefered_present_mode();
 
   window_check_physical_device_extensions();
 
@@ -83,7 +82,7 @@ void window_create(int32_t width, int32_t height, char const *title) {
 
   renderpass_create_main();
 
-  swapchain_create(2);
+  swapchain_create(3);
   vdb_create();
   renderer_create();
 }
@@ -137,7 +136,7 @@ void window_run(void) {
 
       window_update_surface_capabilities();
 
-      swapchain_create(2);
+      swapchain_create(3);
       renderer_create();
     }
 
@@ -504,11 +503,29 @@ static void window_create_instance(void) {
   };
 
 #ifdef BUILD_DEBUG
+  VkValidationFeatureEnableEXT validation_feature_enable[] = {
+    VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+    VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+    VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+  };
+
+  VkValidationFeaturesEXT validation_features = {
+    .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+    .pNext = 0,
+    .enabledValidationFeatureCount = ARRAY_COUNT(validation_feature_enable),
+    .pEnabledValidationFeatures = validation_feature_enable,
+    .disabledValidationFeatureCount = 0,
+    .pDisabledValidationFeatures = 0,
+  };
+
   VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info = {
     .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+    .pNext = &validation_features,
+    .flags = 0,
     .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
     .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
     .pfnUserCallback = window_vulkan_message_proc,
+    .pUserData = 0,
   };
 #endif // BUILD_DEBUG
 
@@ -518,7 +535,7 @@ static void window_create_instance(void) {
     .ppEnabledExtensionNames = s_window_instance_extension,
     .enabledExtensionCount = ARRAY_COUNT(s_window_instance_extension),
 #ifdef BUILD_DEBUG
-    .pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_utils_messenger_create_info,
+    .pNext = &debug_utils_messenger_create_info,
     .ppEnabledLayerNames = s_window_enabled_layer,
     .enabledLayerCount = ARRAY_COUNT(s_window_enabled_layer),
 #endif // BUILD_DEBUG
@@ -545,9 +562,29 @@ static void window_create_surface(void) {
   VK_CHECK(vkCreateWin32SurfaceKHR(g_window.instance, &win32_surface_create_info, 0, &g_window.surface));
 }
 static void window_create_device(void) {
+  VkPhysicalDevice8BitStorageFeatures physical_device_8bit_storage_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
+    .pNext = 0,
+  };
+
+  VkPhysicalDeviceBufferDeviceAddressFeatures physical_device_buffer_device_address_freatures = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+    .pNext = &physical_device_8bit_storage_features,
+  };
+
+  VkPhysicalDeviceVulkanMemoryModelFeatures physical_device_vulkan_memory_model_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES,
+    .pNext = &physical_device_buffer_device_address_freatures,
+  };
+
+  VkPhysicalDeviceTimelineSemaphoreFeatures physical_device_timeline_semaphore_features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+    .pNext = &physical_device_vulkan_memory_model_features,
+  };
+
   VkPhysicalDeviceMaintenance4Features physical_device_maintenance4_features = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES,
-    .pNext = 0,
+    .pNext = &physical_device_timeline_semaphore_features,
   };
 
   VkPhysicalDeviceFragmentShadingRateFeaturesKHR physical_device_fragment_shading_rate_features = {
@@ -710,6 +747,52 @@ static void window_find_physical_device_queue_families(void) {
   printf("  Present Queue Index %d\n", g_window.present_queue_index);
   printf("\n");
 #endif // BUILD_DEBUG
+}
+static void window_find_prefered_surface_format(void) {
+  int32_t surface_format_index = 0;
+  int32_t surface_format_count = 0;
+
+  VkSurfaceFormatKHR surface_formats[MAX_SURFACE_FORMATS] = {0};
+
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(g_window.physical_device, g_window.surface, &surface_format_count, 0));
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(g_window.physical_device, g_window.surface, &surface_format_count, surface_formats));
+
+  while (surface_format_index < surface_format_count) {
+
+    VkSurfaceFormatKHR surface_format = surface_formats[surface_format_index];
+
+    if ((surface_format.format == VK_FORMAT_B8G8R8A8_UNORM) && (surface_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)) {
+
+      g_window.prefered_surface_format = surface_format;
+
+      break;
+    }
+
+    surface_format_index++;
+  }
+}
+static void window_find_prefered_present_mode(void) {
+  int32_t present_mode_index = 0;
+  int32_t present_mode_count = 0;
+
+  VkPresentModeKHR present_modes[MAX_PRESENT_MODES] = {0};
+
+  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(g_window.physical_device, g_window.surface, &present_mode_count, 0));
+  VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(g_window.physical_device, g_window.surface, &present_mode_count, present_modes));
+
+  while (present_mode_index < present_mode_count) {
+
+    VkPresentModeKHR present_mode = present_modes[present_mode_index];
+
+    if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+
+      g_window.prefered_present_mode = present_mode;
+
+      break;
+    }
+
+    present_mode_index++;
+  }
 }
 
 static void window_check_physical_device_extensions(void) {
