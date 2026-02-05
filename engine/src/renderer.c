@@ -110,6 +110,16 @@ static VkPushConstantRange const s_vdb_lod_generator_push_constant_ranges[] = {
 };
 #endif // ENABLE_VDB_LOD_GENERATOR
 
+#ifdef ENABLE_VDB_GEOM_RENDERER
+static VkPushConstantRange const s_vdb_geom_renderer_push_constant_ranges[] = {
+  {
+    .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
+    .offset = 0,
+    .size = sizeof(vdb_geom_renderer_push_constant_t),
+  },
+};
+#endif // ENABLE_VDB_GEOM_RENDERER
+
 void renderer_create(void) {
   g_renderer.is_debug_enabled = 1;
   g_renderer.rebuild_world = 1;
@@ -763,8 +773,8 @@ static void renderer_create_pipeline_layouts(void) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = 1,
       .pSetLayouts = &g_renderer.vdb_geom_renderer_descriptor_set_layout,
-      .pPushConstantRanges = 0,
-      .pushConstantRangeCount = 0,
+      .pPushConstantRanges = s_vdb_geom_renderer_push_constant_ranges,
+      .pushConstantRangeCount = ARRAY_COUNT(s_vdb_geom_renderer_push_constant_ranges),
     };
 
     VK_CHECK(vkCreatePipelineLayout(g_window.device, &pipeline_layout_create_info, 0, &g_renderer.vdb_geom_renderer_pipeline_layout));
@@ -980,7 +990,7 @@ static void renderer_create_vdb_geom_renderer_pipeline(char const *task_shader_f
     .rasterizerDiscardEnable = 0,
     .polygonMode = VK_POLYGON_MODE_FILL,
     .lineWidth = 1.0F,
-    .cullMode = VK_CULL_MODE_NONE,
+    .cullMode = VK_CULL_MODE_BACK_BIT,
     .frontFace = VK_FRONT_FACE_CLOCKWISE,
     .depthBiasEnable = 0,
     .depthBiasConstantFactor = 0.0F,
@@ -1481,7 +1491,7 @@ static void renderer_update_uniform_buffers(transform_t *transform, camera_t *ca
   // After world position has been calculated, we are ready to do radix sort on
   // all chunks based on distance to camera position.
   // After that the depth pre-pass can begin!
-  vdb_rsort(transform);
+  vdb_sort(transform);
 
   float window_width = (float)g_window.window_width;
   float window_height = (float)g_window.window_height;
@@ -1726,8 +1736,39 @@ static void renderer_record_graphics_commands(void) {
   {
     int32_t group_count = VDB_CHUNK_COUNT;
 
+    vdb_geom_renderer_push_constant_t vdb_geom_renderer_push_constant = {0};
+
     vkCmdBindPipeline(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_geom_renderer_pipeline);
     vkCmdBindDescriptorSets(g_renderer.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderer.vdb_geom_renderer_pipeline_layout, 0, 1, &g_renderer.vdb_geom_renderer_descriptor_set, 0, 0);
+
+    vdb_geom_renderer_push_constant.axis = VDB_AXIS_POS_X;
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_geom_renderer_pipeline_layout, VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(vdb_geom_renderer_push_constant_t), &vdb_geom_renderer_push_constant);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
+
+    vdb_geom_renderer_push_constant.axis = VDB_AXIS_POS_Y;
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_geom_renderer_pipeline_layout, VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(vdb_geom_renderer_push_constant_t), &vdb_geom_renderer_push_constant);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
+
+    vdb_geom_renderer_push_constant.axis = VDB_AXIS_POS_Z;
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_geom_renderer_pipeline_layout, VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(vdb_geom_renderer_push_constant_t), &vdb_geom_renderer_push_constant);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
+
+    vdb_geom_renderer_push_constant.axis = VDB_AXIS_NEG_X;
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_geom_renderer_pipeline_layout, VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(vdb_geom_renderer_push_constant_t), &vdb_geom_renderer_push_constant);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
+
+    vdb_geom_renderer_push_constant.axis = VDB_AXIS_NEG_Y;
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_geom_renderer_pipeline_layout, VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(vdb_geom_renderer_push_constant_t), &vdb_geom_renderer_push_constant);
+    vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
+
+    vdb_geom_renderer_push_constant.axis = VDB_AXIS_NEG_Z;
+
+    vkCmdPushConstants(g_renderer.command_buffer, g_renderer.vdb_geom_renderer_pipeline_layout, VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(vdb_geom_renderer_push_constant_t), &vdb_geom_renderer_push_constant);
     vkCmdDrawMeshTasks(g_renderer.command_buffer, group_count, 1, 1);
   }
 #endif // ENABLE_VDB_GEOM_RENDERER

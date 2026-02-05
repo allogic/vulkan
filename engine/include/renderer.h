@@ -58,9 +58,13 @@ typedef struct vdb_lod_generator_push_constant_t {
   int32_t reserved1;
   int32_t reserved2;
 } vdb_lod_generator_push_constant_t;
+typedef struct vdb_geom_renderer_push_constant_t {
+  uint32_t axis;
+} vdb_geom_renderer_push_constant_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_mask_generator_push_constant_t) == 4);
 STATIC_ASSERT(ALIGNOF(vdb_lod_generator_push_constant_t) == 4);
+STATIC_ASSERT(ALIGNOF(vdb_geom_renderer_push_constant_t) == 4);
 
 typedef struct renderer_t {
   int8_t is_dirty;

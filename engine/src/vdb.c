@@ -19,7 +19,7 @@ void vdb_create(void) {
   vdb_create_chunk_mask_buffer();
   vdb_create_chunk_index_buffer();
 }
-void vdb_rsort(transform_t *transform) {
+void vdb_sort(transform_t *transform) {
   vector3_t world_position = transform->world_position;
 
   for (uint32_t z = 0; z < VDB_CLUSTER_DIM_Z; z++) {

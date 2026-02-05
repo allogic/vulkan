@@ -29,6 +29,10 @@ layout (binding = 2) readonly buffer vdb_chunk_mask_buffer_t {
 	vdb_chunk_mask_t chunk_mask[];
 } vdb_chunk_mask_buffer;
 
+layout (push_constant) uniform vdb_geom_renderer_push_constant_t {
+	uint axis;
+} vdb_geom_renderer_push_constant;
+
 taskPayloadSharedEXT vdb_payload_t vdb_payload;
 
 bool aabb_in_frustum(vec3 minp, vec3 maxp) {
@@ -62,30 +66,65 @@ void main() {
 		return;
 	}
 
-	uint nx = bitCount(chunk_mask.any_x_faces);
-	uint ny = bitCount(chunk_mask.any_y_faces);
-	uint nz = bitCount(chunk_mask.any_z_faces);
+	uint active_slice_count = 0u;
 
-	uint total_meshlets =
-		nx * SUBPARTS_PER_LAYER +
-		ny * SUBPARTS_PER_LAYER +
-		nz * SUBPARTS_PER_LAYER;
+	switch (vdb_geom_renderer_push_constant.axis) {
+		case VDB_AXIS_POS_X:
+		case VDB_AXIS_NEG_X: {
 
-	if (total_meshlets == 0) {
-		return;
+			if (chunk_mask.any_x_faces == 0u) {
+				return;
+			}
+
+			for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
+				if ((chunk_mask.any_x_faces & (1u << slice)) != 0u) {
+					active_slice_count++;
+					// Optional: if active_slice_count > some max, break or handle in multiple dispatches
+				}
+			}
+
+			break;
+		}
+		case VDB_AXIS_POS_Y:
+		case VDB_AXIS_NEG_Y: {
+
+			if (chunk_mask.any_y_faces == 0u) {
+				return;
+			}
+
+			for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
+				if ((chunk_mask.any_y_faces & (1u << slice)) != 0u) {
+					active_slice_count++;
+					// Optional: if active_slice_count > some max, break or handle in multiple dispatches
+				}
+			}
+
+			break;
+		}
+		case VDB_AXIS_POS_Z:
+		case VDB_AXIS_NEG_Z: {
+
+			if (chunk_mask.any_z_faces == 0u) {
+				return;
+			}
+
+			for (int slice = 0; slice < VDB_CHUNK_SIZE; slice++) {
+				if ((chunk_mask.any_z_faces & (1u << slice)) != 0u) {
+					active_slice_count++;
+					// Optional: if active_slice_count > some max, break or handle in multiple dispatches
+				}
+			}
+
+			break;
+		}
 	}
 
 	vdb_payload.chunk_position = chunk_info.chunk_position;
 	vdb_payload.chunk_index    = chunk_index;
-	vdb_payload.count_x        = nx;
-	vdb_payload.count_y        = ny;
-	vdb_payload.count_z        = nz;
-	vdb_payload.offset_x       = 0u;
-	vdb_payload.offset_y       = vdb_payload.offset_x + nx * SUBPARTS_PER_LAYER;
-	vdb_payload.offset_z       = vdb_payload.offset_y + ny * SUBPARTS_PER_LAYER;
 	vdb_payload.any_x_faces    = chunk_mask.any_x_faces;
 	vdb_payload.any_y_faces    = chunk_mask.any_y_faces;
 	vdb_payload.any_z_faces    = chunk_mask.any_z_faces;
+	vdb_payload.axis           = vdb_geom_renderer_push_constant.axis;
 
-	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, total_meshlets, 1u);
+	EmitMeshTasksEXT(SUBPARTS_PER_LAYER, active_slice_count, 1u);
 }

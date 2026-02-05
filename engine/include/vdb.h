@@ -45,6 +45,13 @@
 #define VDB_VOXEL_SET_SOLID(VOXEL) \
   (VOXEL | VDB_VOXEL_IS_SOLID_BIT)
 
+#define VDB_AXIS_POS_X (0x0)
+#define VDB_AXIS_POS_Y (0x1)
+#define VDB_AXIS_POS_Z (0x2)
+#define VDB_AXIS_NEG_X (0x3)
+#define VDB_AXIS_NEG_Y (0x4)
+#define VDB_AXIS_NEG_Z (0x5)
+
 typedef struct cellular_noise_args_t {
   vector4_t offset;
   int32_t type;
@@ -155,7 +162,7 @@ extern "C" {
 extern vdb_t g_vdb;
 
 void vdb_create(void);
-void vdb_rsort(transform_t *transform);
+void vdb_sort(transform_t *transform);
 void vdb_destroy(void);
 
 int32_t vdb_chunk_position_to_index(ivector3_t chunk_position);
