@@ -9,7 +9,7 @@ static void player_handle_angular_velocity(player_t *player);
 player_t player_create(void) {
   return (player_t){
     .transform = transform_create(0),
-    .camera = camera_create(),
+    .camera = camera_create(45.0F, 1.0F, 1000.0F),
     .mouse_begin = vector3_zero(),
     .mouse_end = vector3_zero(),
     .mouse_delta = vector3_zero(),

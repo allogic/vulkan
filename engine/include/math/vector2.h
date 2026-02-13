@@ -1,5 +1,5 @@
-#ifndef VECTOR2_H
-#define VECTOR2_H
+#ifndef MATH_VECTOR2_H
+#define MATH_VECTOR2_H
 
 #include <fwd.h>
 
@@ -38,4 +38,4 @@ __forceinline void vector2_print(vector2_t a);
 
 #include <math/vector2.inl>
 
-#endif // VECTOR2_H
+#endif // MATH_VECTOR2_H

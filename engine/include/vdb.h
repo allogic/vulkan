@@ -126,7 +126,7 @@ typedef struct vdb_chunk_info_t {
   ivector3_t chunk_position;
   int32_t lod;
   vector3_t aabb_min;
-  int32_t reserved0;
+  int32_t visible;
   vector3_t aabb_max;
   int32_t reserved1;
 } vdb_chunk_info_t;
@@ -137,12 +137,12 @@ typedef struct vdb_chunk_mask_t {
   uint32_t any_ny_faces;
   uint32_t any_pz_faces;
   uint32_t any_nz_faces;
-  uint32_t px_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t nx_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t py_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t ny_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t pz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-  uint32_t nz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+  uint32_t px_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+  uint32_t nx_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+  uint32_t py_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+  uint32_t ny_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+  uint32_t pz_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+  uint32_t nz_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
 } vdb_chunk_mask_t;
 
 STATIC_ASSERT(ALIGNOF(vdb_terrain_layer_t) == 4);

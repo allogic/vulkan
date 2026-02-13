@@ -1,4 +1,5 @@
 #version 460 core
+
 #extension GL_ARB_shading_language_include : require
 
 #include "../math/utility.glsl"
@@ -12,7 +13,9 @@
 
 #include "../vdb/common.glsl"
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+layout (local_size_x = 8) in;
+layout (local_size_y = 8) in;
+layout (local_size_z = 8) in;
 
 layout(binding = 2) writeonly buffer vdb_chunk_mask_buffer_t {
     vdb_chunk_mask_t chunk_mask[];

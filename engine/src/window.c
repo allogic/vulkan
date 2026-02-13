@@ -81,10 +81,13 @@ void window_create(int32_t width, int32_t height, char const *title) {
 
   window_update_surface_capabilities();
 
+  renderpass_create_pre_depth();
   renderpass_create_main();
 
-  swapchain_create(3);
   vdb_create();
+  swapchain_create(3);
+  framebuffer_create_pre_depth();
+  framebuffer_create_main();
   renderer_create();
 }
 void window_run(void) {
@@ -133,11 +136,15 @@ void window_run(void) {
       VK_CHECK(vkQueueWaitIdle(g_window.present_queue));
 
       renderer_destroy();
+      framebuffer_destroy_main();
+      framebuffer_destroy_pre_depth();
       swapchain_destroy();
 
       window_update_surface_capabilities();
 
       swapchain_create(3);
+      framebuffer_create_pre_depth();
+      framebuffer_create_main();
       renderer_create();
     }
 
@@ -184,16 +191,20 @@ void window_run(void) {
       (vector3_t){(float)(VDB_CHUNK_SIZE * VDB_CLUSTER_DIM_X), (float)(VDB_CHUNK_SIZE * VDB_CLUSTER_DIM_Y), (float)(VDB_CHUNK_SIZE * VDB_CLUSTER_DIM_Z)},
       (vector4_t){1.0F, 1.0F, 1.0F, 1.0F});
 
-    // TODO
-    // vdb_debug_pos_x();
-    // vdb_debug_pos_y();
-    // vdb_debug_pos_z();
-
-    // vdb_debug_neg_x();
-    // vdb_debug_neg_y();
-    // vdb_debug_neg_z();
-
     player_update(&player);
+
+    transform_compute_world_position(&player.transform);
+    transform_compute_world_rotation(&player.transform);
+    transform_compute_world_scale(&player.transform);
+
+    camera_update(&player.camera, &player.transform);
+    camera_debug(&player.camera);
+
+    // TODO: (only do radix sort when a chunk border has been crossed!)
+    // After world position has been calculated, we are ready to do radix sort on
+    // all chunks based on distance to camera position.
+    // After that the depth pre-pass can begin!
+    vdb_sort(&player.transform);
 
     renderer_draw(&player.transform, &player.camera);
 
@@ -241,8 +252,11 @@ void window_destroy(void) {
 
   renderer_destroy();
   vdb_destroy();
+  framebuffer_destroy_pre_depth();
+  framebuffer_destroy_main();
   swapchain_destroy();
 
+  renderpass_destroy_pre_depth();
   renderpass_destroy_main();
 
   window_destroy_command_pool();

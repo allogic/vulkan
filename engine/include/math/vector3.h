@@ -1,5 +1,5 @@
-#ifndef VECTOR3_H
-#define VECTOR3_H
+#ifndef MATH_VECTOR3_H
+#define MATH_VECTOR3_H
 
 #include <fwd.h>
 
@@ -42,4 +42,4 @@ __forceinline void vector3_print(vector3_t a);
 
 #include <math/vector3.inl>
 
-#endif // VECTOR3_H
+#endif // MATH_VECTOR3_H

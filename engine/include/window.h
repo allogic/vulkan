@@ -7,12 +7,11 @@
 #define WINDOW_MAX_EXTENSION_PROPERTIES_COUNT (0x400)
 
 typedef enum key_state_t {
-  KEY_STATE_UP,
+  KEY_STATE_UP = 0,
   KEY_STATE_PRESSED,
   KEY_STATE_DOWN,
   KEY_STATE_RELEASED,
 } key_state_t;
-
 typedef enum keyboard_key_t {
   KEYBOARD_KEY_BACK = 0x08,
   KEYBOARD_KEY_TAB = 0x09,
@@ -123,9 +122,8 @@ typedef enum keyboard_key_t {
   KEYBOARD_KEY_RIGHT_MENU = 0xA5,
   KEYBOARD_KEY_COUNT,
 } keyboard_key_t;
-
 typedef enum mouse_key_t {
-  MOUSE_KEY_LEFT,
+  MOUSE_KEY_LEFT = 0,
   MOUSE_KEY_MIDDLE,
   MOUSE_KEY_RIGHT,
   MOUSE_KEY_COUNT,

@@ -35,23 +35,6 @@ layout (push_constant) uniform vdb_geom_renderer_push_constant_t {
 
 taskPayloadSharedEXT vdb_payload_t vdb_payload;
 
-bool aabb_in_frustum(vec3 minp, vec3 maxp) {
-	for (int i = 0; i < 6; i++) {
-
-		vec3 position = vec3(
-			camera_info.frustum_plane[i].x > 0.0 ? maxp.x : minp.x,
-			camera_info.frustum_plane[i].y > 0.0 ? maxp.y : minp.y,
-			camera_info.frustum_plane[i].z > 0.0 ? maxp.z : minp.z
-		);
-
-		if (dot(camera_info.frustum_plane[i], vec4(position, 1.0)) < 0.0) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
 void main() {
 	uint chunk_index = gl_GlobalInvocationID.x;
 	
@@ -61,10 +44,6 @@ void main() {
 
 	vdb_chunk_info_t chunk_info = vdb_chunk_info_buffer.chunk_info[chunk_index];
 	vdb_chunk_mask_t chunk_mask = vdb_chunk_mask_buffer.chunk_mask[chunk_index];
-
-	if (!aabb_in_frustum(chunk_info.aabb_min, chunk_info.aabb_max)) {
-		return;
-	}
 
 	uint active_slice_count = 0u;
     uint any_mask = 0u;

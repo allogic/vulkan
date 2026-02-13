@@ -15,8 +15,16 @@ void *heap_alloc(char const *file_name, char const *function_name, uint64_t line
   mem_block->file_name = file_name;
   mem_block->function_name = function_name;
   mem_block->line_number = line_number;
-  mem_block->time_stamp = time(0);
   mem_block->block_size = block_size;
+  mem_block->time_stamp = time(0);
+
+#  ifdef ENABLE_HEAP_TRACE
+  char time_stamp_buffer[64];
+
+  strftime(time_stamp_buffer, sizeof(time_stamp_buffer), "%Y-%m-%d %H:%M:%S", localtime(&mem_block->time_stamp));
+
+  printf("[%s] %s:%zu %zu bytes allocated\n", time_stamp_buffer, mem_block->function_name, mem_block->line_number, mem_block->block_size);
+#  endif // ENABLE_HEAP_TRACE
 
   mem_block += 1;
 

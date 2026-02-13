@@ -115,7 +115,7 @@ struct vdb_chunk_info_t {
 	ivec3 chunk_position;
 	int lod;
 	vec3 aabb_min;
-	int reserved0;
+	int visible;
 	vec3 aabb_max;
 	int reserved1;
 };
@@ -126,12 +126,12 @@ struct vdb_chunk_mask_t {
 	uint any_ny_faces;
 	uint any_pz_faces;
 	uint any_nz_faces;
-	uint px_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint nx_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint py_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint ny_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint pz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
-	uint nz_mask[VDB_CHUNK_SIZE * VDB_CHUNK_SIZE + 2];
+	uint nx_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+	uint px_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+	uint py_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+	uint ny_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+	uint pz_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
+	uint nz_mask[(VDB_CHUNK_SIZE + 2) * (VDB_CHUNK_SIZE + 2)];
 };
 
 struct vdb_payload_t {

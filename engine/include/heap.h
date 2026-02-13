@@ -1,12 +1,14 @@
 #ifndef HEAP_H
 #define HEAP_H
 
+#define ENABLE_HEAP_TRACE
+
 typedef struct mem_block_t {
   char const *file_name;
   char const *function_name;
   uint64_t line_number;
-  uint64_t time_stamp;
   uint64_t block_size;
+  time_t time_stamp;
 } mem_block_t;
 
 #ifdef BUILD_DEBUG

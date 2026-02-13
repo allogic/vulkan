@@ -1,5 +1,5 @@
-#ifndef MATRIX4_H
-#define MATRIX4_H
+#ifndef MATH_MATRIX4_H
+#define MATH_MATRIX4_H
 
 #include <fwd.h>
 
@@ -28,4 +28,4 @@ __forceinline void matrix4_print(matrix4_t a);
 
 #include <math/matrix4.inl>
 
-#endif // MATRIX4_H
+#endif // MATH_MATRIX4_H

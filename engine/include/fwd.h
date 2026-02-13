@@ -44,4 +44,19 @@ typedef struct matrix4_t {
   float m30, m31, m32, m33;
 } matrix4_t;
 
+typedef struct ray_t {
+  vector3_t origin;
+  vector3_t direction;
+} ray_t;
+typedef struct aabb_t {
+  vector3_t min;
+  vector3_t max;
+} aabb_t;
+typedef struct plane_t {
+  float nx;
+  float ny;
+  float nz;
+  float offset;
+} plane_t;
+
 #endif // FWD_H

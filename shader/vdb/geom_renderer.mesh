@@ -6,6 +6,8 @@
 
 #include "../vdb/common.glsl"
 
+const int TILE = 8;
+const int PADDED = VDB_CHUNK_SIZE + 2;
 const int MAX_VERTICES = 256;
 const int MAX_PRIMITIVES = 128;
 const int SUB_DIVISION = 4;
@@ -37,6 +39,10 @@ layout (binding = 2) readonly buffer vdb_chunk_mask_buffer_t {
 
 taskPayloadSharedEXT vdb_payload_t vdb_payload;
 
+uint mask_index(uint u, uint v) {
+    return v * PADDED + u;
+}
+
 void greedy_emit(
     uint slice,
     ivec3 base_axis,
@@ -48,45 +54,52 @@ void greedy_emit(
     int sub_u,
     int sub_v
 ) {
-    const int TILE = 8;
     uint rows[TILE];
 
-    uint slice_offset = slice * VDB_CHUNK_SIZE * VDB_CHUNK_SIZE;
+    uint slice_base_v = slice + 1; // z / y / x slice (with border)
 
+	vdb_chunk_mask_t chunk_mask = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index];
+
+    // ---- build bit rows ----
     for (int v = 0; v < TILE; v++) {
-        uint idx =
-            slice_offset +
-            (sub_v * TILE + v) * VDB_CHUNK_SIZE +
-            (sub_u * TILE);
+        uint row = 0u;
 
-        switch (vdb_payload.axis) {
-            case VDB_AXIS_POS_X: rows[v] = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].px_mask[idx]; break;
-            case VDB_AXIS_NEG_X: rows[v] = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].nx_mask[idx]; break;
-            case VDB_AXIS_POS_Y: rows[v] = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].py_mask[idx]; break;
-            case VDB_AXIS_NEG_Y: rows[v] = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].ny_mask[idx]; break;
-            case VDB_AXIS_POS_Z: rows[v] = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].pz_mask[idx]; break;
-            case VDB_AXIS_NEG_Z: rows[v] = vdb_chunk_mask_buffer.chunk_mask[vdb_payload.chunk_index].nz_mask[idx]; break;
+        uint vv = uint(sub_v * TILE + v) + 1;
+        for (int u = 0; u < TILE; u++) {
+            uint uu = uint(sub_u * TILE + u) + 1;
+
+            uint idx = mask_index(uu, vv);
+
+            uint face = 0u;
+            switch (vdb_payload.axis) {
+                case VDB_AXIS_POS_X: face = chunk_mask.px_mask[idx]; break;
+                case VDB_AXIS_NEG_X: face = chunk_mask.nx_mask[idx]; break;
+                case VDB_AXIS_POS_Y: face = chunk_mask.py_mask[idx]; break;
+                case VDB_AXIS_NEG_Y: face = chunk_mask.ny_mask[idx]; break;
+                case VDB_AXIS_POS_Z: face = chunk_mask.pz_mask[idx]; break;
+                case VDB_AXIS_NEG_Z: face = chunk_mask.nz_mask[idx]; break;
+            }
+
+            if (face != 0u)
+                row |= (1u << u);
         }
+        rows[v] = row;
     }
 
+    // ---- greedy merge ----
     for (int v = 0; v < TILE; v++) {
-        uint row = rows[v];
+        while (rows[v] != 0u) {
+            int u = findLSB(rows[v]);
 
-        while (row != 0u) {
-            int u = findLSB(row);
-
-            uint masked = (row >> u) & ((1u << TILE) - 1u);
-            uint inv    = ~masked & ((1u << TILE) - 1u);
-            int  w      = (inv != 0u) ? findLSB(inv) : (TILE - u);
+            int w = 1;
+            while ((u + w < TILE) && bool(rows[v] & (1u << (u + w))))
+                w++;
 
             uint quad = ((1u << w) - 1u) << u;
 
             int h = 1;
-            while (v + h < TILE && (rows[v+h] & quad) == quad) h++;
-
-            if (vert_count + 4 > MAX_VERTICES ||
-                prim_count + 2 > MAX_PRIMITIVES)
-                return;
+            while (v + h < TILE && (rows[v + h] & quad) == quad)
+                h++;
 
             vec3 base =
                 vec3(vdb_payload.chunk_position * VDB_CHUNK_SIZE) +
@@ -95,9 +108,9 @@ void greedy_emit(
                 vec3(sub_v * TILE + v) * vec3(dv);
 
             vec3 v0 = base;
-            vec3 v1 = base + du * float(w);
-            vec3 v2 = base + du * float(w) + dv * float(h);
-            vec3 v3 = base + dv * float(h);
+            vec3 v1 = base + vec3(du) * float(w);
+            vec3 v2 = v1   + vec3(dv) * float(h);
+            vec3 v3 = base + vec3(dv) * float(h);
 
             int vc = vert_count;
 
@@ -105,6 +118,11 @@ void greedy_emit(
             gl_MeshVerticesEXT[vc+1].gl_Position = camera_info.view_projection * vec4(v1,1);
             gl_MeshVerticesEXT[vc+2].gl_Position = camera_info.view_projection * vec4(v2,1);
             gl_MeshVerticesEXT[vc+3].gl_Position = camera_info.view_projection * vec4(v3,1);
+
+            output_color[vert_count + 0] = vec4(base_axis, 1.0);
+            output_color[vert_count + 1] = vec4(base_axis, 1.0);
+            output_color[vert_count + 2] = vec4(base_axis, 1.0);
+            output_color[vert_count + 3] = vec4(base_axis, 1.0);
 
             if (!flip_winding) {
                 gl_PrimitiveTriangleIndicesEXT[prim_count++] = uvec3(vc,vc+1,vc+2);
@@ -117,9 +135,7 @@ void greedy_emit(
             vert_count += 4;
 
             for (int k = 0; k < h; k++)
-                rows[v+k] &= ~quad;
-
-            row = rows[v];
+                rows[v + k] &= ~quad;
         }
     }
 }

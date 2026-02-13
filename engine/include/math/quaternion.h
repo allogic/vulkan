@@ -1,5 +1,5 @@
-#ifndef QUATERNION_H
-#define QUATERNION_H
+#ifndef MATH_QUATERNION_H
+#define MATH_QUATERNION_H
 
 #include <fwd.h>
 
@@ -38,4 +38,4 @@ __forceinline void quaternion_print(quaternion_t a);
 
 #include <math/quaternion.inl>
 
-#endif // QUATERNION_H
+#endif // MATH_QUATERNION_H

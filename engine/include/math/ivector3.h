@@ -1,5 +1,5 @@
-#ifndef IVECTOR3_H
-#define IVECTOR3_H
+#ifndef MATH_IVECTOR3_H
+#define MATH_IVECTOR3_H
 
 #include <fwd.h>
 
@@ -36,4 +36,4 @@ __forceinline void ivector3_print(ivector3_t a);
 
 #include <math/ivector3.inl>
 
-#endif // IVECTOR3_H
+#endif // MATH_IVECTOR3_H

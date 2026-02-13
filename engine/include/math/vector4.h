@@ -1,5 +1,5 @@
-#ifndef VECTOR4_H
-#define VECTOR4_H
+#ifndef MATH_VECTOR4_H
+#define MATH_VECTOR4_H
 
 #include <fwd.h>
 
@@ -34,4 +34,4 @@ __forceinline void vector4_print(vector4_t a);
 
 #include <math/vector4.inl>
 
-#endif // VECTOR4_H
+#endif // MATH_VECTOR4_H

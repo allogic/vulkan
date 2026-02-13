@@ -1,9 +1,11 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#define ENABLE_VDB_MASK_GENERATOR
+#define ENABLE_VDB_FRUSTUM_CULLING
+// #define ENABLE_VDB_MASK_GENERATOR
 // #define ENABLE_VDB_LOD_GENERATOR
-#define ENABLE_VDB_GEOM_RENDERER
+#define ENABLE_VDB_PRE_DEPTH_RENDERER
+// #define ENABLE_VDB_GEOM_RENDERER
 #define ENABLE_DEBUG_LINE_RENDERER
 
 #define DEBUG_LINE_VERTEX_COUNT (0xFFFFF)
@@ -76,6 +78,13 @@ typedef struct renderer_t {
   VkSemaphore render_finished_semaphore[SWAPCHAIN_MAX_IMAGE_COUNT];
   VkSemaphore image_available_semaphore;
   VkFence frame_fence;
+#ifdef ENABLE_VDB_FRUSTUM_CULLING
+  VkDescriptorPool vdb_frustum_culling_descriptor_pool;
+  VkDescriptorSetLayout vdb_frustum_culling_descriptor_set_layout;
+  VkDescriptorSet vdb_frustum_culling_descriptor_set;
+  VkPipelineLayout vdb_frustum_culling_pipeline_layout;
+  VkPipeline vdb_frustum_culling_pipeline;
+#endif // ENABLE_VDB_FRUSTUM_CULLING
 #ifdef ENABLE_VDB_MASK_GENERATOR
   VkDescriptorPool vdb_mask_generator_descriptor_pool;
   VkDescriptorSetLayout vdb_mask_generator_descriptor_set_layout;
@@ -90,6 +99,13 @@ typedef struct renderer_t {
   VkPipelineLayout vdb_lod_generator_pipeline_layout;
   VkPipeline vdb_lod_generator_pipeline;
 #endif // ENABLE_VDB_LOD_GENERATOR
+#ifdef ENABLE_VDB_PRE_DEPTH_RENDERER
+  VkDescriptorPool vdb_pre_depth_renderer_descriptor_pool;
+  VkDescriptorSetLayout vdb_pre_depth_renderer_descriptor_set_layout;
+  VkDescriptorSet vdb_pre_depth_renderer_descriptor_set;
+  VkPipelineLayout vdb_pre_depth_renderer_pipeline_layout;
+  VkPipeline vdb_pre_depth_renderer_pipeline;
+#endif // ENABLE_VDB_PRE_DEPTH_RENDERER
 #ifdef ENABLE_VDB_GEOM_RENDERER
   VkDescriptorPool vdb_geom_renderer_descriptor_pool;
   VkDescriptorSetLayout vdb_geom_renderer_descriptor_set_layout;

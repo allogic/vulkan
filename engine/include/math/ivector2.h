@@ -1,5 +1,5 @@
-#ifndef IVECTOR2_H
-#define IVECTOR2_H
+#ifndef MATH_IVECTOR2_H
+#define MATH_IVECTOR2_H
 
 #include <fwd.h>
 
@@ -34,4 +34,4 @@ __forceinline void ivector2_print(ivector2_t a);
 
 #include <math/ivector2.inl>
 
-#endif // IVECTOR2_H
+#endif // MATH_IVECTOR2_H
